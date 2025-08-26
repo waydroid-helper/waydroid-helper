@@ -345,9 +345,8 @@ class InstanceDetailPage(NavigationPage):
             self.key_mapping_toggle_button.remove_css_class("destructive-action")
             self.key_mapping_toggle_button.add_css_class("suggested-action")
             self.key_mapping_toggle_button.set_sensitive(True)
-
-    def on_key_mapping_toggle_clicked(self, button: Gtk.Button):
-        """Toggle key mapping window"""
+    
+    async def _on_key_mapping_toggle_clicked(self, button: Gtk.Button):
         try:
             if self._key_mapping_window and self._key_mapping_window.is_visible():
                 # 窗口已打开，关闭它
@@ -357,8 +356,39 @@ class InstanceDetailPage(NavigationPage):
             else:
                 # 窗口未打开，打开它
                 logger.info("Open key mapping window")
+
+                #############################################
+                await self.waydroid.stop_session(True)
+                from gi.repository import Gdk
+                from waydroid_helper.util.subprocess_manager import SubprocessManager
+                from waydroid_helper.util.state_waiter import StateWaiter
+                sm = SubprocessManager()
+                await sm.run("cage -S waydroid-114514 -- waydroid show-full-ui", wait=False)
+                async def wait_for_state(
+                    gobject_instance, target_state, timeout: float = 30.0, state_property: str = "state"
+                ) -> bool:
+                    async with StateWaiter(gobject_instance, target_state, state_property) as waiter:
+                        return await waiter.wait(timeout)
+                await wait_for_state(
+                    self.waydroid._controller.property_model,
+                    target_state=True,
+                    state_property="boot-completed",
+                    timeout=60,
+                )
+                display = Gdk.Display.open("waydroid-114514")
+                #############################################
+
                 if self._app:
                     self._key_mapping_window = TransparentWindow(self._app)
+                    #############################################
+                    if display:
+                        provider = Gtk.CssProvider.new()
+                        provider.load_from_data("#transparent-window { background-color: rgba(0, 0, 0, 0);".encode())
+                        self._key_mapping_window.set_display(display)
+                        Gtk.StyleContext.add_provider_for_display(
+                            display, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+                        )
+                    #############################################
                     self._key_mapping_window.connect("close-request", self._on_key_mapping_window_closed)
                     self._key_mapping_window.present()
                     self._update_key_mapping_buttons()
@@ -376,6 +406,11 @@ class InstanceDetailPage(NavigationPage):
             logger.error(f"Toggle key mapping window failed: {e}")
             self._key_mapping_window = None
             self._update_key_mapping_buttons()
+
+
+    def on_key_mapping_toggle_clicked(self, button: Gtk.Button):
+        """Toggle key mapping window"""
+        asyncio.create_task(self._on_key_mapping_toggle_clicked(button))
 
     def _on_key_mapping_window_closed(self, window):
         """Callback when key mapping window is closed"""

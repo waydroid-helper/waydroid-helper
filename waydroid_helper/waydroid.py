@@ -262,9 +262,9 @@ class WaydroidCompat(GObject.Object):
         """Start Waydroid session"""
         return await self._controller.start_session()
 
-    async def stop_session(self):
+    async def stop_session(self, wait:bool = False):
         """Stop Waydroid session"""
-        return await self._controller.stop_session()
+        return await self._controller.stop_session(wait)
 
     async def restart_session(self):
         """Restart Waydroid session"""

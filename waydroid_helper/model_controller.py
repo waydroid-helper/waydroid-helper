@@ -521,9 +521,9 @@ class ModelController(GObject.Object):
         """Start Waydroid session"""
         return await self.waydroid_sdk.start_session()
 
-    async def stop_session(self) -> bool:
+    async def stop_session(self, wait:bool = False) -> bool:
         """Stop Waydroid session"""
-        return await self.waydroid_sdk.stop_session()
+        return await self.waydroid_sdk.stop_session(wait)
 
     async def restart_session(self) -> bool:
         """Restart Waydroid session"""
