@@ -2,7 +2,6 @@ import os
 import re
 import secrets
 
-from waydroid_helper.controller.core.control_msg import ScreenInfo
 from waydroid_helper.util.log import logger
 from waydroid_helper.util.subprocess_manager import SubprocessManager
 
@@ -55,7 +54,6 @@ class AdbHelper:
             if match:
                 width = int(match.group(1))
                 height = int(match.group(2))
-                ScreenInfo().set_resolution(width, height)
                 logger.info(f"Device resolution set to: {width}x{height}")
                 return width, height
             else:

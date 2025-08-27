@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, cast
 
 from waydroid_helper.controller.widgets.components.cancel_casting import \
     CancelCasting
+from waydroid_helper.util.log import logger
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
@@ -25,8 +26,8 @@ from cairo import FONT_SLANT_NORMAL, FONT_WEIGHT_BOLD
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, pointer_id_manager)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+                                             EventBus, PointerIdManager, KeyRegistry)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.config import (create_dropdown_config,
@@ -123,18 +124,24 @@ class SkillCasting(BaseWidget):
         height: int = 150,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
         # 初始化基类，传入默认按键
         super().__init__(
             x,
             y,
-            width,
-            height,
+            min(width, height),
+            min(width, height),
             pgettext("Controller Widgets", "Skill Casting"),
             text,
             default_keys,
             min_width=25,
             min_height=25,
+            event_bus=event_bus,
+            pointer_id_manager=pointer_id_manager,
+            key_registry=key_registry,
         )
 
         # 异步状态管理
@@ -181,8 +188,8 @@ class SkillCasting(BaseWidget):
         self._start_event_processor()
 
         # 订阅事件总线
-        event_bus.subscribe(EventType.MOUSE_MOTION, self._on_mouse_motion, subscriber=self)
-        event_bus.subscribe(EventType.CANCEL_CASTING, self._on_cancel_casting, subscriber=self)
+        self.event_bus.subscribe(EventType.MOUSE_MOTION, self._on_mouse_motion, subscriber=self)
+        self.event_bus.subscribe(EventType.CANCEL_CASTING, self._on_cancel_casting, subscriber=self)
 
         # # 测试：监听取消按钮销毁事件
         # event_bus.subscribe(
@@ -192,6 +199,7 @@ class SkillCasting(BaseWidget):
         #     and self._cancel_button_widget["widget"] is not None,
         #     subscriber=self,
         # )
+        self.screen_info = ScreenInfo()
 
     def _start_event_processor(self):
         """启动异步事件处理器"""
@@ -350,7 +358,7 @@ class SkillCasting(BaseWidget):
         self._target_locked = True
 
         # 分配指针ID并发送DOWN事件
-        pointer_id = pointer_id_manager.allocate(self)
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return
 
@@ -470,7 +478,7 @@ class SkillCasting(BaseWidget):
             self._current_task = None
 
         # 释放指针ID
-        pointer_id_manager.release(self)
+        self.pointer_id_manager.release(self)
 
     def setup_config(self) -> None:
         """设置配置项"""
@@ -551,8 +559,8 @@ class SkillCasting(BaseWidget):
                 self._enable_cancel_button()
             else:
                 self._disable_cancel_button()
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.error(f"SkillCasting {id(self)} _on_cancel_button_config_changed error: {e}")
 
     # def _on_custom_event(self, event):
     #     """处理自定义事件"""
@@ -571,17 +579,15 @@ class SkillCasting(BaseWidget):
         if self.cancel_button_widget["widget"] is not None:
             return
 
-        root = self.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         # 发送事件通知window创建取消按钮
         create_data = {
-            "widget": CancelCasting(),
+            "widget": CancelCasting(event_bus=self.event_bus, pointer_id_manager=self.pointer_id_manager, key_registry=self.key_registry),
             "x": 0.8 * w,
             "y": h / 2,
         }
 
-        event_bus.emit(Event(EventType.CREATE_WIDGET, self, create_data))
+        self.event_bus.emit(Event(EventType.CREATE_WIDGET, self, create_data))
         self.cancel_button_widget["widget"] = create_data["widget"]
 
     def _disable_cancel_button(self):
@@ -590,7 +596,7 @@ class SkillCasting(BaseWidget):
             return
 
         # 发送事件通知window删除取消按钮
-        event_bus.emit(
+        self.event_bus.emit(
             Event(EventType.DELETE_WIDGET, self, self.cancel_button_widget["widget"])
         )
         self.cancel_button_widget["widget"] = None
@@ -615,7 +621,7 @@ class SkillCasting(BaseWidget):
                 "circle_radius": self.get_config_value("circle_radius"),
                 "action": "show",
             }
-            event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
+            self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
 
     def _on_selection_changed(self, widget, pspec):
         """当选中状态变化时的回调"""
@@ -627,7 +633,7 @@ class SkillCasting(BaseWidget):
                 "circle_radius": self.get_config_value("circle_radius"),
                 "action": "show",
             }
-            event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
+            self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
         else:
             # 发送隐藏圆形的事件
             circle_data = {
@@ -635,7 +641,7 @@ class SkillCasting(BaseWidget):
                 "widget_type": "skill_casting",
                 "action": "hide",
             }
-            event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
+            self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -869,20 +875,13 @@ class SkillCasting(BaseWidget):
 
     def _get_window_center(self) -> tuple[float, float]:
         """获取窗口中心坐标"""
-        root = self.get_root()
-        if not root:
-            return (0, 0)
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         return (w / 2, h / 2)
 
     def _get_window_size(self) -> tuple[int, int]:
         """获取窗口大小"""
-        root = self.get_root()
-        if not root:
-            return (800, 600)
-        root = cast("Gtk.Window", root)
-        return root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
+        return w, h
 
     def _map_circle_to_circle(
         self, mouse_x: float, mouse_y: float
@@ -940,14 +939,10 @@ class SkillCasting(BaseWidget):
     ):
         """发送触摸事件"""
         pos = position if position is not None else self._current_position
-        root = self.get_root()
-        if not root:
-            return
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         pressure = 1.0 if action != AMotionEventAction.UP else 0.0
         buttons = AMotionEventButtons.PRIMARY if action != AMotionEventAction.UP else 0
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return
 
@@ -959,7 +954,7 @@ class SkillCasting(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=buttons,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
 
     def on_key_triggered(
         self,

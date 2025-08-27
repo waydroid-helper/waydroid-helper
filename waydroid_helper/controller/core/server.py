@@ -1,46 +1,28 @@
 import asyncio
-import threading
 
 from waydroid_helper.controller.core.control_msg import ControlMsg
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
-                                                       event_bus)
+                                                       EventBus)
 from waydroid_helper.util.log import logger
 
 
 class Server:
-    """服务器类 - 严格单例模式"""
+    def __init__(self, host: str = "0.0.0.0", port: int = 10721, event_bus: EventBus|None = None):
+        self.host: str = host
+        self.port: int = port
+        self.message_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+        if event_bus:
+            self.event_bus = event_bus
+        else:
+            raise
+        self.event_bus.subscribe(EventType.CONTROL_MSG, self.send_msg, subscriber=self)
+        self.server: asyncio.Server | None = None
+        self.writers: list[asyncio.StreamWriter] = []
+        self.started_event = asyncio.Event()
+        self.server_task: asyncio.Task[None] = asyncio.create_task(self.start_server())
 
-    _instance = None
-    _lock = threading.Lock()
-    _initialized = False
-
-    def __new__(cls, host: str = "0.0.0.0", port: int = 10721):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self, host: str = "0.0.0.0", port: int = 10721):
-        # 防止重复初始化
-        if Server._initialized:
-            return
-
-        with Server._lock:
-            if Server._initialized:
-                return
-
-            self.host: str = host
-            self.port: int = port
-            self.message_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
-            event_bus.subscribe(EventType.CONTROL_MSG, self.send_msg, subscriber=self)
-            self.server: asyncio.Server | None = None
-            self.writers: list[asyncio.StreamWriter] = []
-            self.started_event = asyncio.Event()
-            self.server_task: asyncio.Task[None] = asyncio.create_task(self.start_server())
-
-            Server._initialized = True
-            logger.info(f"Server singleton initialized on {host}:{port}")
+        Server._initialized = True
+        logger.info(f"Server singleton initialized on {host}:{port}")
 
     async def handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         addr = writer.get_extra_info("peername")
@@ -128,22 +110,3 @@ class Server:
         # 优化后的 pack() 方法总是返回 bytes，无需检查 None
         packed_msg: bytes = msg.pack()
         self.send(packed_msg)
-
-    @classmethod
-    def reset_singleton(cls) -> None:
-        """重置单例状态 - 主要用于测试和窗口重新打开"""
-        with cls._lock:
-            if cls._instance is not None:
-                # 先关闭现有的服务器
-                cls._instance.close()
-            cls._instance = None
-            cls._initialized = False
-            logger.info("Server singleton reset")
-
-
-# async def main():
-#     server = Server('127.0.0.1', 10721)
-#     await server.start_server()
-
-# if __name__ == '__main__':
-#     task = asyncio.run(main())

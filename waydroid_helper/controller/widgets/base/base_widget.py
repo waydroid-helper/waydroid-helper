@@ -11,7 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import gi
 
-from waydroid_helper.controller.core.utils import pointer_id_manager
+from waydroid_helper.controller.core.key_system import KeyRegistry
+from waydroid_helper.controller.core.utils import PointerIdManager
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -20,7 +21,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GObject, Gtk
 
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus)
+                                             EventBus)
 from waydroid_helper.controller.widgets.config import ConfigManager
 
 if TYPE_CHECKING:
@@ -76,6 +77,9 @@ class BaseWidget(Gtk.DrawingArea):
         default_keys:set[KeyCombination]|None=None,
         min_width:int=100,
         min_height:int=100,
+        event_bus:EventBus|None=None,
+        pointer_id_manager:PointerIdManager|None=None,
+        key_registry:KeyRegistry|None=None,
     ):
         super().__init__()
 
@@ -118,7 +122,15 @@ class BaseWidget(Gtk.DrawingArea):
         self.setup_event_controllers()
 
         # 配置管理器
-        self.config_manager = ConfigManager()
+        if not event_bus or not pointer_id_manager or not key_registry:
+            raise ValueError("event_bus and pointer_id_manager and key_registry are required")
+        self.config_manager = ConfigManager(event_bus)
+        self.event_bus = event_bus
+        self.pointer_id_manager = pointer_id_manager
+        self.key_registry = key_registry
+
+    def set_default_keys(self, default_keys: set[KeyCombination]):
+        self.final_keys = (set(default_keys))
 
     def add_config_item(self, config_item: "ConfigItem") -> None:
         """添加配置项"""
@@ -171,11 +183,11 @@ class BaseWidget(Gtk.DrawingArea):
             
         # 直接判断点击位置是否在删除按钮区域内
         if self.is_point_in_delete_button(x, y):
-            event_bus.emit(Event(EventType.DELETE_WIDGET, self, self))
+            self.event_bus.emit(Event(EventType.DELETE_WIDGET, self, self))
             return True  # 阻止事件继续传播
         
         if self.is_point_in_settings_button(x, y):
-            event_bus.emit(Event(EventType.SETTINGS_WIDGET, self, self.SETTINGS_PANEL_AUTO_HIDE))
+            self.event_bus.emit(Event(EventType.SETTINGS_WIDGET, self, self.SETTINGS_PANEL_AUTO_HIDE))
             return True
 
         return False
@@ -576,8 +588,7 @@ class BaseWidget(Gtk.DrawingArea):
     def on_delete(self):
         """Widget被删除时的清理方法"""
         self.set_selected(False)
-        pointer_id_manager.release(self)
+        self.pointer_id_manager.release(self)
 
         # 清理事件总线订阅
-        from waydroid_helper.controller.core import event_bus
-        event_bus.unsubscribe_by_subscriber(self)
+        self.event_bus.unsubscribe_by_subscriber(self)

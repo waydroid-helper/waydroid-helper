@@ -6,7 +6,7 @@
 
 from gi.repository import Gdk, GLib
 
-from waydroid_helper.controller.core import (EventType, event_bus,
+from waydroid_helper.controller.core import (EventType, EventBus,
                                              is_point_in_rect)
 from waydroid_helper.util.log import logger
 
@@ -14,9 +14,10 @@ from waydroid_helper.util.log import logger
 class WorkspaceManager:
     """处理编辑模式下的所有UI交互"""
 
-    def __init__(self, window, fixed_container):
+    def __init__(self, window, fixed_container, event_bus: EventBus):
         self.window = window
         self.fixed = fixed_container
+        self.event_bus = event_bus
 
         # 初始化拖拽和调整大小状态
         self.dragging_widget = None
@@ -32,8 +33,8 @@ class WorkspaceManager:
         self.interaction_start_x = 0
         self.interaction_start_y = 0
         self.pending_resize_direction = None
-        event_bus.subscribe(EventType.CREATE_WIDGET, lambda event: self.window.create_widget_at_position(event.data['widget'], event.data['x'], event.data['y']), subscriber=self)
-        event_bus.subscribe(EventType.DELETE_WIDGET, lambda event: self.delete_specific_widget(event.data), subscriber=self)
+        self.event_bus.subscribe(EventType.CREATE_WIDGET, lambda event: self.window.create_widget_at_position(event.data['widget'], event.data['x'], event.data['y']), subscriber=self)
+        self.event_bus.subscribe(EventType.DELETE_WIDGET, lambda event: self.delete_specific_widget(event.data), subscriber=self)
 
     def handle_mouse_press(self, controller, n_press, x, y):
         """处理鼠标按下事件"""
@@ -258,10 +259,7 @@ class WorkspaceManager:
 
     def cleanup(self):
         """清理WorkspaceManager的资源，包括事件订阅"""
-        from waydroid_helper.controller.core import event_bus
-
-        # 清理事件总线订阅
-        event_bus.unsubscribe_by_subscriber(self)
+        self.event_bus.unsubscribe_by_subscriber(self)
 
         # 清理状态
         self.dragging_widget = None

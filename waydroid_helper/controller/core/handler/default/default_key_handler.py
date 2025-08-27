@@ -14,7 +14,7 @@ from waydroid_helper.controller.android import (AKeyCode, AKeyEventAction,
 from waydroid_helper.controller.core.control_msg import (InjectKeycodeMsg,
                                                          InjectTextMsg)
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
-                                                       event_bus)
+                                                       EventBus)
 
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gtk
@@ -148,9 +148,11 @@ class KeyboardDefault(KeyboardBase):
         Gdk.KEY_KP_Right: AKeyCode.AKEYCODE_NUMPAD_RIGHT_PAREN,
     }
 
-    def __init__(self) -> None:
+    def __init__(self, event_bus: EventBus) -> None:
+        self.event_bus = event_bus
         self.last_key: int | None = None
         self.key_repeat: int = 0
+        # TODO 从配置中读取
         self.inject_mode: KeyInjectMode = KeyInjectMode.MIXED
 
     def convert_action(self, event: Gdk.Event) -> AKeyEventAction:
@@ -286,7 +288,7 @@ class KeyboardDefault(KeyboardBase):
             self.get_reapeat(keyval, action),
             metastate,
         )
-        event_bus.emit(Event[InjectKeycodeMsg](EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event[InjectKeycodeMsg](EventType.CONTROL_MSG, self, msg))
         return True
 
     def __text_processor(
@@ -301,6 +303,6 @@ class KeyboardDefault(KeyboardBase):
             if text is None:
                 return False
             msg = InjectTextMsg(text)
-            event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+            self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
             return True
         return False

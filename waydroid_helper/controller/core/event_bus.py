@@ -308,5 +308,5 @@ class EventBus:
             GlobalEventEmitter.reset_singleton()
 
 
-# 全局事件总线实例
-event_bus = EventBus()
+# # 全局事件总线实例
+# event_bus = EventBus()

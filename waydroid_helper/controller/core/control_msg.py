@@ -15,6 +15,8 @@ from waydroid_helper.controller.android import (AKeyCode, AKeyEventAction,
 
 class ScreenInfo:
     _instance = None
+    host_width: int = 0
+    host_height: int = 0
     width: int = 0
     height: int = 0
 
@@ -29,6 +31,13 @@ class ScreenInfo:
 
     def get_resolution(self) -> tuple[int, int]:
         return self.width, self.height
+    
+    def set_host_resolution(self, width: int, height: int):
+        self.host_width = width
+        self.host_height = height
+    
+    def get_host_resolution(self) -> tuple[int, int]:
+        return self.host_width, self.host_height
 
 
 # 全局单例实例，避免重复创建

@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-取消施法按钮组件
-一个用于取消当前技能施法的按钮，不允许通过右键菜单创建
-"""
-
 import math
 from gettext import pgettext
 from typing import TYPE_CHECKING
@@ -15,7 +9,8 @@ if TYPE_CHECKING:
 import cairo
 
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, pointer_id_manager)
+                                             EventBus, PointerIdManager)
+from waydroid_helper.controller.core.key_system import KeyRegistry
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.decorators import Editable
@@ -69,18 +64,24 @@ class CancelCasting(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: "set[KeyCombination] | None" = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
         # 初始化基类
         super().__init__(
             x,
             y,
-            width,
-            height,
+            50,
+            50,
             pgettext("Controller Widgets", "Cancel Casting"),
             text,
             default_keys,
             min_width=25,
             min_height=25,
+            event_bus = event_bus,
+            pointer_id_manager = pointer_id_manager,
+            key_registry = key_registry,
         )
         from waydroid_helper.controller.widgets.components.skill_casting import SkillCasting
         SkillCasting.cancel_button_widget["widget"] = self
@@ -300,7 +301,7 @@ class CancelCasting(BaseWidget):
         """触发取消施法"""
 
         # 分配 pointer_id
-        pointer_id = pointer_id_manager.allocate(self)
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
 
@@ -313,7 +314,7 @@ class CancelCasting(BaseWidget):
             "y": y,
         }
 
-        event_bus.emit(Event(EventType.CANCEL_CASTING, self, cancel_data))
+        self.event_bus.emit(Event(EventType.CANCEL_CASTING, self, cancel_data))
         return True
 
     def on_key_released(self, key_combination=None, event=None):

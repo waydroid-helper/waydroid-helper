@@ -35,7 +35,8 @@ CSS_TRANSPARENT = """
 class StyleManager:
     """样式管理器"""
 
-    def __init__(self):
+    def __init__(self, display: Gdk.Display):
+        self.display = display
         self.provider: Gtk.CssProvider | None = None
         self.setup_styles()
 
@@ -44,11 +45,12 @@ class StyleManager:
         self.provider = Gtk.CssProvider.new()
         self.provider.load_from_data(CSS_TRANSPARENT.encode())
 
-        display = Gdk.Display.get_default()
-        if display:
+        if self.display:
             Gtk.StyleContext.add_provider_for_display(
-                display, self.provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+                self.display, self.provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
             )
+        else:
+            raise ValueError("Failed to get display")
 
     def add_custom_style(self, css_content: str):
         """添加自定义样式"""

@@ -5,7 +5,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Gtk, Adw, GLib, GObject
+from gi.repository import GObject
 from typing import Any
 
 class StateWaiter:
@@ -64,3 +64,9 @@ class StateWaiter:
             return True
         except asyncio.TimeoutError:
             return False
+
+async def wait_for_state(
+    gobject_instance, target_state, timeout: float = 30.0, state_property: str = "state"
+) -> bool:
+    async with StateWaiter(gobject_instance, target_state, state_property) as waiter:
+        return await waiter.wait(timeout)

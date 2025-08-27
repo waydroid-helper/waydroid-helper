@@ -4,16 +4,16 @@
 
 from .constants import *
 from .control_msg import *
-from .event_bus import Event, EventType, event_bus
+from .event_bus import Event, EventType, EventBus
 from .handler.event_handlers import InputEventHandler, InputEventHandlerChain
-from .key_system import Key, KeyCombination, KeyType, key_registry
+from .key_system import Key, KeyCombination, KeyType, KeyRegistry
 from .server import Server
 from .types import *
 from .utils import *
 
 __all__ = [
     # 事件系统
-    "event_bus",
+    "EventBus",
     "Event",
     "EventType",
     # 输入事件处理
@@ -23,8 +23,8 @@ __all__ = [
     "KeyCombination",
     "Key",
     "KeyType",
-    "key_registry",
+    "KeyRegistry",
     # 服务器
     "Server",
-    'pointer_id_manager'
+    'PointerIdManager',
 ]

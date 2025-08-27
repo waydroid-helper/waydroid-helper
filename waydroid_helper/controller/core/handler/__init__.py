@@ -5,7 +5,7 @@
 from .default import DefaultEventHandler
 from .event_handlers import (EventHandlerPriority, InputEvent,
                              InputEventHandler, InputEventHandlerChain)
-from .mapping import KeyMappingEventHandler, key_mapping_manager
+from .mapping import KeyMappingEventHandler, KeyMappingManager
 
 __all__ = [
     "InputEventHandler",
@@ -14,5 +14,5 @@ __all__ = [
     "InputEventHandlerChain",
     "KeyMappingEventHandler",
     "DefaultEventHandler",
-    "key_mapping_manager",
+    "KeyMappingManager",
 ]

@@ -11,7 +11,7 @@ from gettext import pgettext
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 from waydroid_helper.controller.android import AMotionEventAction, AMotionEventButtons
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.util.log import logger
 
 if TYPE_CHECKING:
@@ -20,15 +20,15 @@ if TYPE_CHECKING:
     from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
-from waydroid_helper.controller.core.utils import pointer_id_manager
+from waydroid_helper.controller.core.utils import PointerIdManager
 
 from cairo import FontSlant, FontWeight
 from waydroid_helper.controller.core import (
     Event,
     EventType,
     KeyCombination,
-    event_bus,
-    key_system,
+    EventBus,
+    KeyRegistry,
 )
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.config import create_textarea_config
@@ -65,8 +65,8 @@ class KeyPressCommand(Command):
     async def execute(self, context: "Macro") -> None:
         for key_name in self.key_names:
             try:
-                key = key_system.deserialize_key(key_name)
-                event_bus.emit(
+                key = context.key_registry.deserialize_key(key_name)
+                context.event_bus.emit(
                     Event(
                         type=EventType.MACRO_KEY_PRESSED,
                         source=context,
@@ -81,8 +81,8 @@ class KeyPressCommand(Command):
         for key_name in self.key_names:
             if key_name in self.key_names:
                 try:
-                    key = key_system.deserialize_key(key_name)
-                    event_bus.emit(
+                    key = context.key_registry.deserialize_key(key_name)
+                    context.event_bus.emit(
                         Event(
                             type=EventType.MACRO_KEY_RELEASED,
                             source=context,
@@ -100,17 +100,10 @@ class KeyReleaseCommand(Command):
         self.key_names = key_names
 
     async def execute(self, context: "Macro") -> None:
-        from waydroid_helper.controller.core import (
-            Event,
-            EventType,
-            event_bus,
-            key_system,
-        )
-
         for key_name in self.key_names:
             try:
-                key = key_system.deserialize_key(key_name)
-                event_bus.emit(
+                key = context.key_registry.deserialize_key(key_name)
+                context.event_bus.emit(
                     Event(
                         type=EventType.MACRO_KEY_RELEASED,
                         source=context,
@@ -199,14 +192,12 @@ class PressCommand(Command):
         coordinates = self._parse_coordinates(context)
 
         # Get window dimensions once
-        root = context.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = context.screen_info.get_host_resolution()
 
         # Send DOWN events for all points
         for idx, (x, y) in enumerate(coordinates):
             point_id = self._point_identifiers[idx]
-            pointer_id = pointer_id_manager.allocate(point_id)
+            pointer_id = context.pointer_id_manager.allocate(point_id)
             if pointer_id is None:
                 return  # Exit early if allocation fails
 
@@ -218,14 +209,12 @@ class PressCommand(Command):
                 action_button=AMotionEventButtons.PRIMARY,
                 buttons=AMotionEventButtons.PRIMARY,
             )
-            event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
+            context.event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
 
     async def cancel(self, context: "Macro") -> None:
         """取消按下命令 - 释放所有已分配的触摸指针"""
         # Get window dimensions
-        root = context.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = context.screen_info.get_host_resolution()
 
         # Parse coordinates for UP events
         coordinates = self._parse_coordinates(context)
@@ -233,7 +222,7 @@ class PressCommand(Command):
         # Send UP events for all points that have allocated pointer IDs
         for idx, (x, y) in enumerate(coordinates):
             point_id = self._point_identifiers[idx]
-            pointer_id = pointer_id_manager.get_allocated_id(point_id)
+            pointer_id = context.pointer_id_manager.get_allocated_id(point_id)
             if pointer_id is not None:
                 msg = InjectTouchEventMsg(
                     action=AMotionEventAction.UP,
@@ -243,9 +232,9 @@ class PressCommand(Command):
                     action_button=AMotionEventButtons.PRIMARY,
                     buttons=0,
                 )
-                event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
+                context.event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
                 # Release the pointer ID
-                pointer_id_manager.release(point_id)
+                context.pointer_id_manager.release(point_id)
 
 
 class ReleaseCommand(Command):
@@ -317,15 +306,13 @@ class ReleaseCommand(Command):
         coordinates = self._parse_coordinates(context)
 
         # Get window dimensions once
-        root = context.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = context.screen_info.get_host_resolution()
 
         # Send UP events for all points
         for idx, (x, y) in enumerate(coordinates):
             point_id = self._point_identifiers[idx]
             # 打印一下 id(point_id) 红色
-            pointer_id = pointer_id_manager.get_allocated_id(point_id)
+            pointer_id = context.pointer_id_manager.get_allocated_id(point_id)
             if pointer_id is None:
                 continue  # Continue with other points even if one fails
 
@@ -337,10 +324,10 @@ class ReleaseCommand(Command):
                 action_button=AMotionEventButtons.PRIMARY,
                 buttons=0,
             )
-            event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
+            context.event_bus.emit(Event(EventType.CONTROL_MSG, context, msg))
 
             # Release the pointer ID after sending UP event
-            pointer_id_manager.release(point_id)
+            context.pointer_id_manager.release(point_id)
 
 
 class SwitchCommand(Command):
@@ -406,7 +393,7 @@ class ReleaseAllCommand(Command):
     """释放所有按键命令"""
 
     async def execute(self, context: "Macro") -> None:
-        event_bus.emit(
+        context.event_bus.emit(
             Event(type=EventType.MACRO_RELEASE_ALL, source=context, data=None)
         )
 
@@ -416,7 +403,7 @@ class EnterStaringCommand(Command):
 
     async def execute(self, context: "Macro") -> None:
 
-        event_bus.emit(
+        context.event_bus.emit(
             Event(
                 type=EventType.ENTER_STARING,
                 source=context,
@@ -426,7 +413,7 @@ class EnterStaringCommand(Command):
 
     async def cancel(self, context: "Macro") -> None:
         """取消进入瞄准模式 - 发送退出瞄准模式事件"""
-        event_bus.emit(
+        context.event_bus.emit(
             Event(
                 type=EventType.EXIT_STARING,
                 source=context,
@@ -439,9 +426,8 @@ class ExitStaringCommand(Command):
     """退出瞄准模式命令"""
 
     async def execute(self, context: "Macro") -> None:
-        from waydroid_helper.controller.core import Event, EventType, event_bus
 
-        event_bus.emit(
+        context.event_bus.emit(
             Event(
                 type=EventType.EXIT_STARING,
                 source=context,
@@ -458,7 +444,7 @@ class SwipeholdRadiusCommand(Command):
         self.factor = factor
 
     async def execute(self, context: "Macro") -> None:
-        event_bus.emit(
+        context.event_bus.emit(
             Event(
                 type=EventType.SWIPEHOLD_RADIUS,
                 source=context,
@@ -470,7 +456,7 @@ class SwipeholdRadiusCommand(Command):
         """取消滑动半径切换 - 重置为默认半径并重置状态"""
         if self.is_enabled:
             # 重置为默认半径 (1.0)
-            event_bus.emit(
+            context.event_bus.emit(
                 Event(
                     type=EventType.SWIPEHOLD_RADIUS,
                     source=context,
@@ -490,7 +476,7 @@ class SwipeholdRadiusSwitchCommand(Command):
 
     async def execute(self, context: "Macro") -> None:
         if self.is_enabled:
-            event_bus.emit(
+            context.event_bus.emit(
                 Event(
                     type=EventType.SWIPEHOLD_RADIUS,
                     source=context,
@@ -498,7 +484,7 @@ class SwipeholdRadiusSwitchCommand(Command):
                 )
             )
         else:
-            event_bus.emit(
+            context.event_bus.emit(
                 Event(
                     type=EventType.SWIPEHOLD_RADIUS,
                     source=context,
@@ -511,7 +497,7 @@ class SwipeholdRadiusSwitchCommand(Command):
         """取消滑动半径切换 - 重置为默认半径并重置状态"""
         if self.is_enabled:
             # 重置为默认半径 (1.0)
-            event_bus.emit(
+            context.event_bus.emit(
                 Event(
                     type=EventType.SWIPEHOLD_RADIUS,
                     source=context,
@@ -637,20 +623,25 @@ class Macro(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
         # 初始化基类，传入默认按键
         super().__init__(
             x,
             y,
-            width,
-            height,
+            50,
+            50,
             pgettext("Controller Widgets", "Macro"),
             text,
             default_keys,
             min_width=50,  # 固定大小
             min_height=50,  # 固定大小
+            event_bus=event_bus,
+            pointer_id_manager=pointer_id_manager,
+            key_registry=key_registry,
         )
-
         # 存储预解析的宏命令对象
         self.press_commands: list[Command] = []
         self.release_commands: list[Command] = []
@@ -667,7 +658,8 @@ class Macro(BaseWidget):
         # self.pressed_keys: set[str] = set()
         self._cursor_position: tuple[int, int] = (0, 0)
 
-        event_bus.subscribe(EventType.MACRO_RELEASE_ALL, self.trigger_release_all)
+        self.event_bus.subscribe(EventType.MACRO_RELEASE_ALL, self.trigger_release_all)
+        self.screen_info = ScreenInfo()
 
     def get_cursor_position(self) -> tuple[int, int]:
         return self._cursor_position
@@ -699,11 +691,12 @@ class Macro(BaseWidget):
                 "- Lines starting with # are comments\n"
                 "- Use 'mouse' as coordinate to use current cursor position",
             ),
+            event_bus=self.event_bus
         )
         self.add_config_item(macro_config)
         # self.add_config_change_callback("macro_command", self.on_macro_command_changed)
         self.config_manager.connect("confirmed", self.on_macro_command_changed)
-        event_bus.subscribe(EventType.MOUSE_MOTION, self.on_mouse_motion)
+        self.event_bus.subscribe(EventType.MOUSE_MOTION, self.on_mouse_motion)
 
     def on_mouse_motion(self, event: Event[InputEvent]):
         if event.data.position is None:

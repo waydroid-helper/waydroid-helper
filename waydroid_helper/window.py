@@ -18,10 +18,7 @@ from waydroid_helper.compat_widget import (ADW_VERSION, HeaderBar,
                                            ToolbarView)
 from waydroid_helper.util import template
 
-from .extensions_page import ExtensionsPage
 from .general_page import GeneralPage
-from .props_page import PropsPage
-from .waydroid import Waydroid
 
 
 @template(resource_path="/com/jaoushingan/WaydroidHelper/ui/window.ui")
@@ -136,20 +133,10 @@ class WaydroidHelperWindow(Adw.ApplicationWindow):
         )
         self.navigation_view.push(adw_navigation_page)
 
-        self.waydroid: Waydroid = Waydroid()
+        general_page = GeneralPage()
 
-        # 创建页面实例 - 现在设置和扩展页面将在详情页中使用
-        general_page = GeneralPage(self.waydroid)
-        self.props_page = PropsPage(self.waydroid)
-        self.extensions_page = ExtensionsPage(
-            self.waydroid, navigation_view=self.navigation_view
-        )
-
-        # 设置导航
         general_page.set_navigation_view(self.navigation_view)
-        general_page.set_pages(self.props_page, self.extensions_page)
 
-        # 只添加主页到主stack - 设置和扩展页面现在在详情页中
         self.stack_add_titled_with_icon(
             child=general_page,
             name="page01",

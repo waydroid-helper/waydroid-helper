@@ -15,7 +15,7 @@ from gi.events import GLibEventLoopPolicy
 from gi.repository import Adw, Gio, GLib, GObject, Gtk
 
 from waydroid_helper.compat_widget import GLIB_VERSION, MessageDialog
-from waydroid_helper.util import logger
+from waydroid_helper.util.log import logger
 
 from .window import WaydroidHelperWindow
 
@@ -33,6 +33,9 @@ class WaydroidHelperApplication(Adw.Application):
     def __init__(self, version: str):
         super().__init__(application_id="com.jaoushingan.WaydroidHelper", flags=flags)
         self.version = version
+        
+        # 日志系统已经在 log.py 模块加载时初始化了，直接使用
+        self.logger = logger
 
         self.add_main_option(
             "log-level",
@@ -50,8 +53,7 @@ class WaydroidHelperApplication(Adw.Application):
         )
         self.create_action("about", self.on_about_action)
         self.create_action("preferences", self.on_preferences_action)
-
-    # @override
+        
     def do_activate(self):
         """Called when the application is activated.
 
@@ -99,7 +101,7 @@ class WaydroidHelperApplication(Adw.Application):
 
     def on_preferences_action(self, widget: Gtk.Widget, _: GObject.Object):
         """Callback for the app.preferences action."""
-        logger.info("app.preferences action activated")
+        self.logger.info("app.preferences action activated")
 
     def create_action(
         self,
@@ -121,11 +123,75 @@ class WaydroidHelperApplication(Adw.Application):
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
+    def do_shutdown(self):
+        """应用程序关闭时的清理工作"""
+        sys.stderr.write("Application is shutting down...\n")
+        
+        try:
+            # 清理所有multiprocessing子进程（主要是KeyMapper等）
+            self._cleanup_child_processes()
+            
+            # 清理日志系统
+            self._cleanup_logging_system()
+            
+            sys.stderr.write("Cleanup resources completed\n")
+        except Exception as e:
+            sys.stderr.write(f"Cleanup resources failed: {e}\n")
+        
+        # 调用父类的shutdown方法
+        Adw.Application.do_shutdown(self)
+
+    def _cleanup_logging_system(self):
+        """清理日志系统资源"""
+        try:
+            from waydroid_helper.util import log
+            log.cleanup_logging()
+        except Exception as e:
+            sys.stderr.write(f"Cleanup logging system failed: {e}\n")
+
+    def _cleanup_child_processes(self):
+        """清理所有子进程"""
+        import multiprocessing
+        
+        try:
+            # 获取当前所有活跃的子进程
+            active_children = multiprocessing.active_children()
+            if active_children:
+                sys.stderr.write(f"Found {len(active_children)} active child processes, cleaning up...\n")
+                
+                for child in active_children:
+                    try:
+                        if child.is_alive():
+                            sys.stderr.write(f"Terminate process: {child.name} (PID: {child.pid})\n")
+                            child.terminate()
+                    except Exception as e:
+                        sys.stderr.write(f"Terminate process {child.name} failed: {e}\n")
+                        
+                # 给进程一点时间正常退出
+                import time
+                time.sleep(0.1)
+                
+                # 强制杀死仍然存活的进程
+                for child in active_children:
+                    try:
+                        if child.is_alive():
+                            sys.stderr.write(f"Force kill process: {child.name} (PID: {child.pid})\n")
+                            child.kill()
+                    except Exception:
+                        pass
+                        
+        except Exception as e:
+            sys.stderr.write(f"Cleanup child processes failed: {e}\n")
+
 
 def main(version: str):
     """The application's entry point."""
     asyncio.set_event_loop_policy(
         GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
     )
+    
+    import multiprocessing
+    multiprocessing.set_start_method("spawn", force=True)
+    
     app = WaydroidHelperApplication(version)
     return app.run(sys.argv)

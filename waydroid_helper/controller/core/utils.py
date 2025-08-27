@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import random
-import threading
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
@@ -53,33 +52,11 @@ class PointerIdManagerStatus(TypedDict):
 
 
 class PointerIdManager:
-    """Pointer ID 管理器 - 管理 widget 的 pointer_id 分配和释放（严格单例模式）"""
-
-    _instance: "PointerIdManager | None" = None
-    _lock = threading.Lock()
-    _initialized: bool = False
-
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        # 防止重复初始化
-        if PointerIdManager._initialized:
-            return
+        # pointer_id 范围是 1-10
+        self._available_ids: set[int] = set(range(1, 11))
+        self._allocated_ids: dict[Any, int] = {}  # widget_id -> pointer_id
 
-        with PointerIdManager._lock:
-            if PointerIdManager._initialized:
-                return
-
-            # pointer_id 范围是 1-10
-            self._available_ids: set[int] = set(range(1, 11))
-            self._allocated_ids: dict[Any, int] = {}  # widget_id -> pointer_id
-
-            PointerIdManager._initialized = True
 
     def allocate(self, widget:Any) -> int | None:
         """为 widget 分配一个 pointer_id"""
@@ -126,18 +103,3 @@ class PointerIdManager:
             "allocated_count": len(self._allocated_ids),
             "allocated_ids": dict(self._allocated_ids),
         }
-
-    @classmethod
-    def reset_singleton(cls) -> None:
-        """重置单例状态 - 主要用于测试和窗口重新打开"""
-        with cls._lock:
-            if cls._instance is not None:
-                # 清理所有分配的 pointer_id
-                cls._instance._available_ids = set(range(1, 11))
-                cls._instance._allocated_ids.clear()
-            cls._instance = None
-            cls._initialized = False
-
-
-# 全局 pointer_id 管理器实例
-pointer_id_manager = PointerIdManager()

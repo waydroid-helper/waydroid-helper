@@ -5,6 +5,7 @@
 处理未被其他处理器处理的事件，提供兜底的默认行为
 """
 
+from waydroid_helper.controller.core.event_bus import EventBus
 from waydroid_helper.util.log import logger
 from typing import Callable
 
@@ -19,15 +20,15 @@ from waydroid_helper.controller.core.handler.event_handlers import (
 class DefaultEventHandler(InputEventHandler):
     """默认事件处理器 - 处理未被widget处理的事件"""
 
-    def __init__(self):
+    def __init__(self, event_bus: EventBus):
         super().__init__(EventHandlerPriority.LOWEST)
         self.name = "DefaultEventHandler"
 
         # 可配置的默认行为
         self.key_mappings: dict[str, Callable[[InputEvent], None]] = {}
         self.mouse_mappings: dict[int, Callable[[InputEvent], None]] = {}
-        self.keyboard_handler: KeyboardDefault = KeyboardDefault()
-        self.mouse_handler: MouseDefault = MouseDefault()
+        self.keyboard_handler: KeyboardDefault = KeyboardDefault(event_bus)
+        self.mouse_handler: MouseDefault = MouseDefault(event_bus)
 
     def can_handle(self, event: InputEvent) -> bool:
         """默认处理器可以处理所有事件"""

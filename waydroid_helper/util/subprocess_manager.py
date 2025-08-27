@@ -11,6 +11,7 @@ class SubprocessResult(TypedDict):
     returncode: int
     stdout: str
     stderr: str
+    process: asyncio.subprocess.Process | None
 
 class SubprocessError(Exception):
     def __init__(self, returncode: int, stderr: bytes):
@@ -28,7 +29,7 @@ class SubprocessManager:
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(SubprocessManager, cls).__new__(cls, *args, **kwargs)
-            cls._semaphore = asyncio.Semaphore(4)
+            cls._semaphore = asyncio.Semaphore(10)
         return cls._instance
 
     def is_running_in_flatpak(self):
@@ -92,6 +93,7 @@ class SubprocessManager:
                     "returncode": 0,  # 假设成功启动
                     "stdout": "",
                     "stderr": "",
+                    "process": process,  # 返回进程对象以便跟踪
                 }
 
             result :SubprocessResult= {
@@ -100,6 +102,7 @@ class SubprocessManager:
                 "returncode": process.returncode if process.returncode is not None else 1,
                 "stdout": stdout.decode(),
                 "stderr": stderr.decode(),
+                "process": None,  # 进程已完成，不需要跟踪
             }
             # print(
             #     json.dumps(

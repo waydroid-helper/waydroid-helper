@@ -13,11 +13,19 @@ if TYPE_CHECKING:
     from gi.repository import Gtk
     from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
-from waydroid_helper.controller.android.input import (AMotionEventAction,
-                                                      AMotionEventButtons)
-from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, pointer_id_manager)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+from waydroid_helper.controller.android.input import (
+    AMotionEventAction,
+    AMotionEventButtons,
+)
+from waydroid_helper.controller.core import (
+    Event,
+    EventType,
+    KeyCombination,
+    EventBus,
+    PointerIdManager,
+    KeyRegistry,
+)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.decorators import Editable
@@ -61,21 +69,37 @@ class SingleClick(BaseWidget):
             # 无文字时的默认宽度，与draw_mapping_mode_background的default保持一致
             return 24 + 4  # 24是最小宽度，+4是缓冲
 
-    def __init__(self, x:int=0, y:int=0, width:int=50, height:int=50, text:str="", default_keys:set[KeyCombination]|None=None):
+    def __init__(
+        self,
+        x: int = 0,
+        y: int = 0,
+        width: int = 50,
+        height: int = 50,
+        text: str = "",
+        default_keys: set[KeyCombination] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
+    ):
         # 初始化基类，传入默认按键
         super().__init__(
             x,
             y,
-            width,
-            height,
+            50,
+            50,
             pgettext("Controller Widgets", "Single Click"),
             text,
             default_keys,
             min_width=25,
             min_height=25,
+            event_bus=event_bus,
+            pointer_id_manager=pointer_id_manager,
+            key_registry=key_registry,
         )
 
-    def draw_widget_content(self, cr: 'Context[Surface]', width: int, height: int):
+        self.screen_info = ScreenInfo()
+
+    def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
         # 计算圆心和半径
         center_x = width / 2
@@ -94,7 +118,7 @@ class SingleClick(BaseWidget):
         cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
         cr.stroke()
 
-    def draw_text_content(self, cr: 'Context[Surface]', width: int, height: int):
+    def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
         """重写文本绘制 - 使用白色文字适配圆形按钮"""
         if self.text:
             center_x = width / 2
@@ -112,7 +136,7 @@ class SingleClick(BaseWidget):
             # 清除路径，避免影响后续绘制
             cr.new_path()
 
-    def draw_selection_border(self, cr: 'Context[Surface]', width: int, height: int):
+    def draw_selection_border(self, cr: "Context[Surface]", width: int, height: int):
         """重写选择边框绘制 - 绘制圆形边框适配圆形按钮"""
         center_x = width / 2
         center_y = height / 2
@@ -124,7 +148,9 @@ class SingleClick(BaseWidget):
         cr.arc(center_x, center_y, radius + 3, 0, 2 * math.pi)
         cr.stroke()
 
-    def draw_mapping_mode_background(self, cr: 'Context[Surface]', width: int, height: int):
+    def draw_mapping_mode_background(
+        self, cr: "Context[Surface]", width: int, height: int
+    ):
         """映射模式下的背景绘制 - 根据文字长度的圆角矩形"""
         center_x = width / 2
         center_y = height / 2
@@ -244,7 +270,9 @@ class SingleClick(BaseWidget):
         cr.close_path()
         cr.stroke()
 
-    def draw_mapping_mode_content(self, cr: 'Context[Surface]', width: int, height: int):
+    def draw_mapping_mode_content(
+        self, cr: "Context[Surface]", width: int, height: int
+    ):
         if self.text:
             center_x = width / 2
             center_y = height / 2
@@ -262,7 +290,11 @@ class SingleClick(BaseWidget):
             # 清除路径，避免影响后续绘制
             cr.new_path()
 
-    def on_key_triggered(self, key_combination: KeyCombination | None = None, event: 'InputEvent | None' = None):
+    def on_key_triggered(
+        self,
+        key_combination: KeyCombination | None = None,
+        event: "InputEvent | None" = None,
+    ):
         if key_combination:
             used_key = str(key_combination)
         elif self.final_keys:
@@ -271,14 +303,12 @@ class SingleClick(BaseWidget):
             used_key = "未知按键"
 
         # 分配 pointer_id
-        pointer_id = pointer_id_manager.allocate(self)
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
 
         x, y = self.center_x, self.center_y
-        root = self.get_root()
-        root = cast('Gtk.Window', root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         msg = InjectTouchEventMsg(
             action=AMotionEventAction.DOWN,
             pointer_id=pointer_id,
@@ -287,10 +317,14 @@ class SingleClick(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
-    def on_key_released(self, key_combination: KeyCombination | None = None, event: 'InputEvent | None' = None):
+    def on_key_released(
+        self,
+        key_combination: KeyCombination | None = None,
+        event: "InputEvent | None" = None,
+    ):
         if key_combination:
             used_key = str(key_combination)
         elif self.final_keys:
@@ -298,10 +332,8 @@ class SingleClick(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        root = self.get_root()
-        root = cast('Gtk.Window', root)
-        w, h = root.get_width(), root.get_height()
-        pointer_id = pointer_id_manager.allocate(self)
+        w, h = self.screen_info.get_host_resolution()
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
         msg = InjectTouchEventMsg(
@@ -312,12 +344,12 @@ class SingleClick(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         # 释放 pointer_id
-        pointer_id_manager.release(self)
+        self.pointer_id_manager.release(self)
         return True
 
-    def get_editable_regions(self)->list['EditableRegion']:
+    def get_editable_regions(self) -> list["EditableRegion"]:
         return [
             {
                 "id": "default",

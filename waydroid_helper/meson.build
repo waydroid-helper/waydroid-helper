@@ -59,6 +59,12 @@ waydroid_helper_sources = [
     'models.py',
     'sdk.py',
     'gpu_combo_row.py',
+    'key_mapping_preference_dialog.py',
+]
+config_sources = [
+    'config/__init__.py',
+    'config/file_manager.py',
+    'config/models.py',
 ]
 util_sources = [
     'util/__init__.py',
@@ -192,6 +198,7 @@ controller_widgets_decorators_sources = [
 ]
 
 install_data(waydroid_helper_sources, install_dir: moduledir)
+install_data(config_sources, install_dir: moduledir / 'config')
 install_data(util_sources, install_dir: utildir)
 install_data(compat_widget_sources, install_dir: compatwidgetdir)
 install_data(tools_sources, install_dir: toolsdir)

@@ -19,19 +19,11 @@ from gi.repository import Gtk, Adw, GLib
 from gettext import gettext as _
 from .compat_widget import dialog, MessageDialog, Spinner
 from .models import SessionState
-from .util.state_waiter import StateWaiter
+from .util.state_waiter import wait_for_state
 
 
 if TYPE_CHECKING:
     from waydroid_helper.waydroid import Waydroid
-
-
-async def wait_for_state(
-    gobject_instance, target_state, timeout: float = 30.0, state_property: str = "state"
-) -> bool:
-    async with StateWaiter(gobject_instance, target_state, state_property) as waiter:
-        return await waiter.wait(timeout)
-
 
 class GSFIDRetrieverDialog(dialog.Dialog):
 

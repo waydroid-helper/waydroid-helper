@@ -7,11 +7,11 @@ Widget Configuration System
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 import gi
 
-from waydroid_helper.controller.core import EventType, event_bus
+from waydroid_helper.controller.core import EventType, EventBus
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import GObject, Gtk
@@ -55,7 +55,7 @@ class ConfigItem(ABC):
     def validate(self, value: Any) -> bool:
         """验证值是否合法"""
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化配置项"""
         return {
             "key": self.key,
@@ -67,7 +67,7 @@ class ConfigItem(ABC):
         }
     
     @classmethod
-    def deserialize(cls, data: Dict[str, Any]) -> 'ConfigItem':
+    def deserialize(cls, data: dict[str, Any]) -> 'ConfigItem':
         """反序列化配置项"""
         raise NotImplementedError("Subclasses must implement deserialize")
 
@@ -140,7 +140,7 @@ class SliderConfig(ConfigItem):
         except (ValueError, TypeError):
             return False
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化滑动条配置"""
         data = super().serialize()
         data.update({
@@ -155,8 +155,8 @@ class SliderConfig(ConfigItem):
 @dataclass
 class DropdownConfig(ConfigItem):
     """下拉选择配置项"""
-    options: List[str] = field(default_factory=list)
-    option_labels: Optional[Dict[str, str]] = None
+    options: list[str] = field(default_factory=list)
+    option_labels: dict[str, str]|None = None
 
     def on_dropdown_changed(self, dropdown, pspec, on_change_callback: Callable[[str, Any], None]):
         """下拉框选择改变回调"""
@@ -222,7 +222,7 @@ class DropdownConfig(ConfigItem):
         """验证值是否在选项列表中"""
         return value in self.options
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化下拉选择配置"""
         data = super().serialize()
         data.update({
@@ -293,7 +293,7 @@ class TextConfig(ConfigItem):
         except:
             return False
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化文本配置"""
         data = super().serialize()
         data.update({
@@ -355,7 +355,7 @@ class SwitchConfig(ConfigItem):
         """验证是否为布尔值"""
         return isinstance(value, bool)
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化开关配置"""
         data = super().serialize()
         data.update({
@@ -368,6 +368,7 @@ class SwitchConfig(ConfigItem):
 class TextAreaConfig(ConfigItem):
     """多行文本输入配置项"""
     max_length: int = 0
+    event_bus: EventBus | None = None
     
     def insert_point(self, widget:Gtk.TextView, event):
         buffer = widget.get_buffer()
@@ -412,7 +413,7 @@ class TextAreaConfig(ConfigItem):
         box.append(scrolled)
         box.set_visible(self.visible)
 
-        event_bus.subscribe(event_type=EventType.MASK_CLICKED, handler= lambda event: self.insert_point(text_view, event), subscriber=box)
+        self.event_bus.subscribe(event_type=EventType.MASK_CLICKED, handler= lambda event: self.insert_point(text_view, event), subscriber=box)
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> str:
@@ -451,7 +452,7 @@ class TextAreaConfig(ConfigItem):
         except:
             return False
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化文本配置"""
         data = super().serialize()
         data.update({
@@ -469,18 +470,19 @@ class ConfigManager(GObject.Object):
         'confirmed': (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
     
-    def __init__(self):
+    def __init__(self, event_bus: EventBus):
         super().__init__()
-        self.configs: Dict[str, ConfigItem] = {}
-        self.ui_widgets: Dict[str, Gtk.Widget] = {}
+        self.configs: dict[str, ConfigItem] = {}
+        self.ui_widgets: dict[str, Gtk.Widget] = {}
         self._updating_ui = False  # 标记是否正在更新UI，防止循环
         self.restoring = False
+        self.event_bus = event_bus
     
     def add_config(self, config: ConfigItem) -> None:
         """添加配置项"""
         self.configs[config.key] = config
     
-    def get_config(self, key: str) -> Optional[ConfigItem]:
+    def get_config(self, key: str) -> ConfigItem|None:
         """获取配置项"""
         return self.configs.get(key)
     
@@ -531,7 +533,7 @@ class ConfigManager(GObject.Object):
         if not self._updating_ui:
             self.set_value(key, value, update_ui=False)
     
-    def create_ui_panel(self, parent: Optional[Gtk.Widget] = None) -> Gtk.Widget:
+    def create_ui_panel(self, parent: Gtk.Widget|None = None) -> Gtk.Widget:
         """创建配置面板UI"""
         if not self.configs:
             label = Gtk.Label(label="No configuration available")
@@ -555,7 +557,7 @@ class ConfigManager(GObject.Object):
         
         return main_box
     
-    def collect_values_from_ui(self) -> Dict[str, Any]:
+    def collect_values_from_ui(self) -> dict[str, Any]:
         """从UI收集所有配置值"""
         values = {}
         for key, config in self.configs.items():
@@ -567,13 +569,13 @@ class ConfigManager(GObject.Object):
                     logger.error(f"Failed to get value from UI for config {key}: {e}")
         return values
     
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """序列化所有配置"""
         return {
             key: config.serialize() for key, config in self.configs.items()
         }
     
-    def deserialize(self, data: Dict[str, Any]) -> None:
+    def deserialize(self, data: dict[str, Any]) -> None:
         """反序列化配置"""
         self.restoring = True
         try:
@@ -590,7 +592,7 @@ class ConfigManager(GObject.Object):
     def clear_ui_references(self) -> None:
         """清空UI控件引用，防止内存泄漏"""
         for _, w in self.ui_widgets.items():
-            event_bus.unsubscribe_by_subscriber(w)
+            self.event_bus.unsubscribe_by_subscriber(w)
             w.unparent()
         self.ui_widgets.clear()
 
@@ -621,8 +623,8 @@ def create_slider_config(key: str, label: str, value: float = 0.0,
     )
 
 
-def create_dropdown_config(key: str, label: str, options: List[str], 
-                          value: Optional[str] = None, option_labels: Optional[Dict[str, str]] = None,
+def create_dropdown_config(key: str, label: str, options: list[str], 
+                          value: str|None = None, option_labels: dict[str, str]|None = None,
                           description: str = "", visible: bool = True) -> DropdownConfig:
     """创建下拉选择配置项"""
     return DropdownConfig(
@@ -656,6 +658,7 @@ def create_textarea_config(
     description: str = "",
     max_length: int = 0,
     visible: bool = True,
+    event_bus: EventBus | None = None,
 ) -> TextAreaConfig:
     """创建多行文本输入配置项"""
     return TextAreaConfig(
@@ -664,4 +667,5 @@ def create_textarea_config(
         value=value,
         description=description,
         max_length=max_length,
+        event_bus=event_bus,
     ) 

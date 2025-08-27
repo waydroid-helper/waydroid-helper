@@ -7,7 +7,7 @@ import itertools
 from typing import TYPE_CHECKING, Any, Callable
 
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
-                                                       event_bus)
+                                                       EventBus)
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.core.key_system import Key, KeyCombination
 
@@ -38,28 +38,18 @@ class KeySubscription:
 class KeyMappingManager:
     """按键映射管理器 - 单例"""
 
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(KeyMappingManager, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
-
-    def __init__(self):
+    def __init__(self, event_bus: EventBus):
         # 防止重复初始化
-        if hasattr(self, "_initialized"):
-            return
-        self._initialized: bool = True
-
         self._key_subscriptions: dict[KeyCombination, list[KeySubscription]] = {}
         self._pressed_keys: set[Key] = set()
         self._triggered_mappings: dict[KeyCombination, set[Key]] = {}
 
         # 为了检查依赖状态，需要一个对widget状态的引用，暂时留空
         self._widget_states: dict[int, dict[str, Any]] = {}
+        self.event_bus = event_bus
 
-        event_bus.subscribe(EventType.MACRO_KEY_PRESSED, self._on_macro_key_pressed)
-        event_bus.subscribe(EventType.MACRO_KEY_RELEASED, self._on_macro_key_released)
+        self.event_bus.subscribe(EventType.MACRO_KEY_PRESSED, self._on_macro_key_pressed)
+        self.event_bus.subscribe(EventType.MACRO_KEY_RELEASED, self._on_macro_key_released)
 
     def _on_macro_key_pressed(self, event: Event[Key]):
         self.handle_key_press(InputEvent(event_type="key_press", key=event.data))
@@ -309,5 +299,5 @@ class KeyMappingManager:
         self._triggered_mappings.clear()
 
 
-# 全局实例
-key_mapping_manager = KeyMappingManager()
+# # 全局实例
+# key_mapping_manager = KeyMappingManager()
