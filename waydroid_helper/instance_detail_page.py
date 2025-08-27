@@ -256,14 +256,32 @@ class InstanceDetailPage(NavigationPage):
         key_mapping_row.set_title(_("Key Mapping Window"))
         key_mapping_row.set_subtitle(_("Manage key mapping overlay window for game control"))
 
-        # 切换按钮
+        # 创建按钮容器
+        button_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        
+        # 设置按钮（左边）
+        self.key_mapping_settings_button = Gtk.Button.new()
+        self.key_mapping_settings_button.add_css_class("flat")
+        self.key_mapping_settings_button.set_size_request(40, 40)
+        self.key_mapping_settings_button.connect("clicked", self.on_key_mapping_settings_clicked)
+        
+        # 添加系统设置图标
+        settings_icon = Gtk.Image.new_from_icon_name("applications-system-symbolic")
+        self.key_mapping_settings_button.set_child(settings_icon)
+        self.key_mapping_settings_button.set_tooltip_text(_("Key Mapping Settings"))
+        
+        # 切换按钮（右边）
         self.key_mapping_toggle_button = Gtk.Button.new_with_label(_("Open"))
         self.key_mapping_toggle_button.set_sensitive(False)
         self.key_mapping_toggle_button.add_css_class("suggested-action")
         self.key_mapping_toggle_button.set_size_request(160, 40)  # 统一宽度
         self.key_mapping_toggle_button.connect("clicked", self.on_key_mapping_toggle_clicked)
 
-        key_mapping_row.add_suffix(self.key_mapping_toggle_button)
+        # 将按钮添加到容器中
+        button_box.append(self.key_mapping_settings_button)
+        button_box.append(self.key_mapping_toggle_button)
+        
+        key_mapping_row.add_suffix(button_box)
         group.add(key_mapping_row)
 
         return group
@@ -376,6 +394,39 @@ class InstanceDetailPage(NavigationPage):
             logger.error(f"Toggle key mapping window failed: {e}")
             self._key_mapping_window = None
             self._update_key_mapping_buttons()
+
+    def on_key_mapping_settings_clicked(self, button: Gtk.Button):
+        """Open key mapping preferences dialog"""
+        try:
+            from waydroid_helper.key_mapping_preference_dialog import KeyMappingPreferenceDialog
+            
+            # 获取父窗口
+            parent_window = self.get_root()
+            
+            # 创建设置对话框
+            settings_dialog = KeyMappingPreferenceDialog(
+                title=_("Key Mapping Preferences"),
+                parent=parent_window
+            )
+            
+            # 显示对话框
+            settings_dialog.present()
+            
+            logger.info("Key mapping preferences dialog opened")
+            
+        except Exception as e:
+            logger.error(f"Failed to open key mapping preferences dialog: {e}")
+            # 显示错误消息
+            from waydroid_helper.compat_widget.message_dialog import MessageDialog
+            
+            error_dialog = MessageDialog(
+                heading=_("Error"),
+                body=_("Failed to open key mapping preferences dialog:\n\n{0}").format(str(e)),
+                parent=self.get_root()
+            )
+            error_dialog.add_response(Gtk.ResponseType.OK, _("OK"))
+            error_dialog.set_default_response(Gtk.ResponseType.OK)
+            error_dialog.present()
 
     def _on_key_mapping_window_closed(self, window):
         """Callback when key mapping window is closed"""

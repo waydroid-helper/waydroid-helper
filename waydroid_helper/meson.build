@@ -59,6 +59,7 @@ waydroid_helper_sources = [
     'models.py',
     'sdk.py',
     'gpu_combo_row.py',
+    'key_mapping_preference_dialog.py',
 ]
 util_sources = [
     'util/__init__.py',
