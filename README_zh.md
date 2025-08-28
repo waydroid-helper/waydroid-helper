@@ -171,7 +171,7 @@ sudo apt install waydroid-helper
 
 ## 文档
 
-- **[按键映射指南](KEY_MAPPING_zh.md)**：使用按键映射系统通过键盘和鼠标控制 Android 应用和游戏的综合指南
+- **[按键映射指南](docs/KEY_MAPPING_zh.md)**：使用按键映射系统通过键盘和鼠标控制 Android 应用和游戏的综合指南
 
 ## 故障排除
 

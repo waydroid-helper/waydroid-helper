@@ -172,7 +172,7 @@ For manual installation, you'll need to install the dependencies and build the p
 
 ## Documentation
 
-- **[Key Mapping Guide](KEY_MAPPING.md)**: Comprehensive guide for using the key mapping system to control Android apps and games with keyboard and mouse
+- **[Key Mapping Guide](docs/KEY_MAPPING.md)**: Comprehensive guide for using the key mapping system to control Android apps and games with keyboard and mouse
 
 ## Troubleshooting
 
