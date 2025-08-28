@@ -23,57 +23,127 @@ from waydroid_helper.util.subprocess_manager import SubprocessManager
 from waydroid_helper.waydroid import Waydroid
 from waydroid_helper.compat_widget import NavigationPage, HeaderBar, ToolbarView, ADW_VERSION
 from waydroid_helper.compat_widget.message_dialog import MessageDialog
+from waydroid_helper.props_page import PropsPage
+from waydroid_helper.extensions_page import ExtensionsPage
 import os
 
 
 class InstanceDetailPage(NavigationPage):
     __gtype_name__: str = "InstanceDetailPage"
 
-    def __init__(self, waydroid: Waydroid, navigation_view, props_page, extensions_page, **kwargs):
+    def __init__(self, waydroid: Waydroid, navigation_view, **kwargs):
         super().__init__(title=_("Instance Details"), **kwargs)
 
         self.waydroid = waydroid
         self._navigation_view = navigation_view
-        self._props_page = props_page
-        self._extensions_page = extensions_page
         self._task: Task = Task()
         self._key_mapping_window: TransparentWindow | None = None
         self._app: Gtk.Application | None = None
 
-        # Create main content - 简单的ViewStack，不重复window.py的复杂结构
+        # Use lazy loading for page instances
+        self._props_page = None
+        self._extensions_page = None
+        self._pages_created = False
+
+        # Create main content first - this is lightweight
         self._create_simple_content()
 
         # Connect to waydroid state changes
         self.waydroid.connect("notify::state", self._on_waydroid_state_changed)
         
-    def _create_simple_content(self):
-        """创建正确的内容结构 - 必须有 ToolbarView 和 HeaderBar"""
-        # 创建 ToolbarView - 这是必需的，否则没有窗口装饰
-        toolbar_view = ToolbarView.new()
+        # 页面显示后开始预加载其他页面
+        self.connect("notify::root", self._on_page_added_to_window)
+        
+    def _ensure_pages_created(self):
+        """延迟创建页面实例，只在需要时创建"""
+        if not self._pages_created:
+            # 开始异步创建页面
+            self._create_pages_async()
+    
+    def _create_pages_async(self):
+        from gi.repository import GLib
+        
+        def create_pages():
+            self._props_page = PropsPage(self.waydroid)
+            self._extensions_page = ExtensionsPage(self.waydroid, navigation_view=self._navigation_view)
+            self._pages_created = True
+            
+            self._replace_placeholder_with_real_pages()
+            return False
+        
+        GLib.idle_add(create_pages)
+    
+    def _on_page_added_to_window(self, widget, param):
+        if self.get_root() and not self._pages_created:
+            from gi.repository import GLib
+            GLib.timeout_add(200, self._start_preload)
+    
+    def _start_preload(self):
+        if not self._pages_created:
+            self._ensure_pages_created()
+        return False
+    
+    def _add_placeholder_pages(self):
+        from waydroid_helper.compat_widget import Spinner
+        
+        settings_placeholder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
+                                     valign=Gtk.Align.CENTER, 
+                                     halign=Gtk.Align.CENTER)
+        settings_placeholder.set_spacing(12)
+        settings_spinner = Spinner()
+        settings_label = Gtk.Label(label=_("Loading Settings..."))
+        settings_placeholder.append(settings_spinner)
+        settings_placeholder.append(settings_label)
+        
+        settings_page = self.view_stack.add_titled(settings_placeholder, "settings", _("Settings"))
+        settings_page.set_icon_name("system-symbolic")
+        
+        # 创建扩展页面占位符
+        extensions_placeholder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, 
+                                        valign=Gtk.Align.CENTER, 
+                                        halign=Gtk.Align.CENTER)
+        extensions_placeholder.set_spacing(12)
+        extensions_spinner = Spinner()
+        extensions_label = Gtk.Label(label=_("Loading Extensions..."))
+        extensions_placeholder.append(extensions_spinner)
+        extensions_placeholder.append(extensions_label)
+        
+        extensions_page = self.view_stack.add_titled(extensions_placeholder, "extensions", _("Extensions"))
+        extensions_page.set_icon_name("addon-symbolic")
+    
+    def _replace_placeholder_with_real_pages(self):
+        """将占位符替换为真实页面"""
+        if self._props_page and self._extensions_page:
+            # 移除旧的占位符页面
+            old_settings = self.view_stack.get_child_by_name("settings")
+            old_extensions = self.view_stack.get_child_by_name("extensions")
+            
+            if old_settings:
+                self.view_stack.remove(old_settings)
+            if old_extensions:
+                self.view_stack.remove(old_extensions)
+            
+            # 添加真实页面
+            settings_page = self.view_stack.add_titled(self._props_page, "settings", _("Settings"))
+            settings_page.set_icon_name("system-symbolic")
 
-        # 创建 HeaderBar - 这是必需的，否则没有标题栏
+            extensions_page = self.view_stack.add_titled(self._extensions_page, "extensions", _("Extensions"))
+            extensions_page.set_icon_name("addon-symbolic")
+        
+    def _create_simple_content(self):
+        toolbar_view = ToolbarView.new()
         header_bar = HeaderBar()
 
-        # 创建ViewStack
         self.view_stack = Adw.ViewStack.new()
 
-        # 添加详情标签页
         details_tab = self._create_details_tab()
         details_page = self.view_stack.add_titled(details_tab, "details", _("Details"))
         details_page.set_icon_name("info-symbolic")
 
-        # 添加设置标签页
-        settings_page = self.view_stack.add_titled(self._props_page, "settings", _("Settings"))
-        settings_page.set_icon_name("system-symbolic")
+        self._add_placeholder_pages()
 
-        # 添加扩展标签页
-        extensions_page = self.view_stack.add_titled(self._extensions_page, "extensions", _("Extensions"))
-        extensions_page.set_icon_name("addon-symbolic")
-
-        # 监听页面变化，控制刷新按钮
         self.view_stack.connect("notify::visible-child", self._on_page_changed)
 
-        # 设置ViewSwitcher到HeaderBar
         if ADW_VERSION >= (1, 4, 0):
             view_switcher = Adw.ViewSwitcher.new()
             view_switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
@@ -87,21 +157,16 @@ class InstanceDetailPage(NavigationPage):
             header_bar.set_title_widget(view_switcher_title)
             self._view_switcher_title = view_switcher_title
 
-        # 添加HeaderBar到ToolbarView
         toolbar_view.add_top_bar(header_bar)
 
-        # 创建刷新按钮但先不添加到HeaderBar
         self._create_refresh_button_only()
         self._header_bar = header_bar
 
-        # 连接信号，在页面被推入导航栈后添加刷新按钮
         self.connect("notify::root", self._on_detail_root_changed)
 
-        # 创建ViewSwitcherBar用于窄屏
         view_switcher_bar = Adw.ViewSwitcherBar.new()
         view_switcher_bar.set_stack(self.view_stack)
 
-        # 设置响应式行为
         if ADW_VERSION < (1, 4, 0):
             if hasattr(self, '_view_switcher_title'):
                 self._view_switcher_title.bind_property(
@@ -113,21 +178,17 @@ class InstanceDetailPage(NavigationPage):
 
         toolbar_view.add_bottom_bar(view_switcher_bar)
 
-        # 新版本的断点机制 - 响应式设计
         if ADW_VERSION >= (1, 4, 0):
-            # 需要添加到窗口级别，延迟到页面被添加到窗口后
             self._setup_breakpoint_data = {
                 'view_switcher_bar': view_switcher_bar,
                 'header_bar': header_bar
             }
             self.connect("notify::root", self._on_root_changed)
 
-        # 设置内容
         toolbar_view.set_content(self.view_stack)
         self.set_child(toolbar_view)
 
     def _create_refresh_button(self, header_bar):
-        """创建刷新按钮并添加到HeaderBar"""
         self.refresh_button = Gtk.Button()
         self.refresh_button.set_tooltip_text(_("Click to refresh extension list"))
         self.refresh_button.add_css_class("image-button")
@@ -135,26 +196,21 @@ class InstanceDetailPage(NavigationPage):
         self.refresh_btn_stack = Gtk.Stack.new()
         self.refresh_btn_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
 
-        # 图标状态
         icon_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         icon_box.append(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
         self.refresh_btn_stack.add_named(name="icon", child=icon_box)
 
-        # 加载状态
         from waydroid_helper.compat_widget import Spinner
         self.refresh_btn_stack.add_named(name="spin", child=Spinner())
 
         self.refresh_button.set_child(self.refresh_btn_stack)
         self.refresh_button.connect("clicked", self._on_refresh_button_clicked)
 
-        # 初始状态：隐藏刷新按钮
         self.refresh_button.set_visible(False)
 
-        # 添加到HeaderBar左边，在返回按钮右边
         header_bar.pack_start(self.refresh_button)
 
     def _create_refresh_button_only(self):
-        """只创建刷新按钮，不添加到HeaderBar"""
         self.refresh_button = Gtk.Button()
         self.refresh_button.set_tooltip_text(_("Click to refresh extension list"))
         self.refresh_button.add_css_class("image-button")
@@ -162,33 +218,31 @@ class InstanceDetailPage(NavigationPage):
         self.refresh_btn_stack = Gtk.Stack.new()
         self.refresh_btn_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
 
-        # 图标状态
         icon_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         icon_box.append(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
         self.refresh_btn_stack.add_named(name="icon", child=icon_box)
 
-        # 加载状态
         from waydroid_helper.compat_widget import Spinner
         self.refresh_btn_stack.add_named(name="spin", child=Spinner())
 
         self.refresh_button.set_child(self.refresh_btn_stack)
         self.refresh_button.connect("clicked", self._on_refresh_button_clicked)
 
-        # 初始状态：隐藏刷新按钮
         self.refresh_button.set_visible(False)
 
     def _on_detail_root_changed(self, widget, param):
-        """当页面被推入导航栈时，添加刷新按钮"""
         if self.get_root() and hasattr(self, '_header_bar') and hasattr(self, 'refresh_button'):
             self._header_bar.pack_start(self.refresh_button)
 
 
 
     def _on_page_changed(self, stack, pspec):
-        """处理页面切换，控制刷新按钮显示"""
         current_page = stack.get_visible_child()
+        
+        current_page_name = stack.get_visible_child_name()
+        if current_page_name in ["settings", "extensions"] and not self._pages_created:
+            self._ensure_pages_created()
 
-        # 只在扩展页面显示刷新按钮
         if hasattr(self, 'refresh_button'):
             if current_page == self._extensions_page:
                 self.refresh_button.set_visible(True)
@@ -196,44 +250,40 @@ class InstanceDetailPage(NavigationPage):
                 self.refresh_button.set_visible(False)
 
     def _on_refresh_button_clicked(self, button):
-        """处理刷新按钮点击"""
         asyncio.create_task(self._refresh_extensions_page(button))
         
     async def _refresh_extensions_page(self, button):
-        """刷新扩展页面"""
+        if not self._pages_created:
+            self._ensure_pages_created()
+            
         stack = button.get_child()
         if isinstance(stack, Gtk.Stack):
             stack.set_visible_child_name("spin")
 
-        await self._extensions_page.refresh()
+        if self._extensions_page:
+            await self._extensions_page.refresh()
 
         if isinstance(stack, Gtk.Stack):
             stack.set_visible_child_name("icon")
         
     def _create_details_tab(self):
-        """创建详情标签页，包含共享文件夹、按键映射和缓存管理"""
         box = Gtk.Box.new(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         # Create preferences page
         prefs_page = Adw.PreferencesPage.new()
 
-        # 共享文件夹组
         shared_folders_widget = SharedFoldersWidget()
         prefs_page.add(shared_folders_widget)
 
-        # 按键映射组
         key_mapping_group = self._create_key_mapping_group()
         prefs_page.add(key_mapping_group)
 
-        # 缓存管理组
         cache_management_group = self._create_cache_management_group()
         prefs_page.add(cache_management_group)
 
-        # Google Play 服务组
         google_play_group = self._create_google_play_group()
         prefs_page.add(google_play_group)
 
-        # InfoBar for shared folders
         self.infobar: InfoBar = InfoBar(
             label=_("Restart the systemd user service immediately"),
             ok_callback=lambda *_: shared_folders_widget.restart_service(),
@@ -247,37 +297,30 @@ class InstanceDetailPage(NavigationPage):
         return box
         
     def _create_key_mapping_group(self):
-        """创建按键映射组"""
         group = Adw.PreferencesGroup.new()
         group.set_title(_("Key Mapper"))
 
-        # 按键映射行
         key_mapping_row = Adw.ActionRow.new()
         key_mapping_row.set_title(_("Key Mapping Window"))
         key_mapping_row.set_subtitle(_("Manage key mapping overlay window for game control"))
 
-        # 创建按钮容器
         button_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         
-        # 设置按钮（左边）
         self.key_mapping_settings_button = Gtk.Button.new()
         self.key_mapping_settings_button.add_css_class("flat")
         self.key_mapping_settings_button.set_size_request(40, 40)
         self.key_mapping_settings_button.connect("clicked", self.on_key_mapping_settings_clicked)
         
-        # 添加系统设置图标
         settings_icon = Gtk.Image.new_from_icon_name("applications-system-symbolic")
         self.key_mapping_settings_button.set_child(settings_icon)
         self.key_mapping_settings_button.set_tooltip_text(_("Key Mapping Settings"))
         
-        # 切换按钮（右边）
         self.key_mapping_toggle_button = Gtk.Button.new_with_label(_("Open"))
         self.key_mapping_toggle_button.set_sensitive(False)
         self.key_mapping_toggle_button.add_css_class("suggested-action")
         self.key_mapping_toggle_button.set_size_request(160, 40)  # 统一宽度
         self.key_mapping_toggle_button.connect("clicked", self.on_key_mapping_toggle_clicked)
 
-        # 将按钮添加到容器中
         button_box.append(self.key_mapping_settings_button)
         button_box.append(self.key_mapping_toggle_button)
         
@@ -287,19 +330,16 @@ class InstanceDetailPage(NavigationPage):
         return group
 
     def _create_cache_management_group(self):
-        """创建缓存管理组"""
         group = Adw.PreferencesGroup.new()
         group.set_title(_("Cache Management"))
 
-        # 清除缓存行
         clear_cache_row = Adw.ActionRow.new()
         clear_cache_row.set_title(_("Clear Package Cache"))
         clear_cache_row.set_subtitle(_("Fix startup issues after installing GApps or microG"))
 
-        # 清除缓存按钮
         self.clear_cache_button = Gtk.Button.new_with_label(_("Clear Cache"))
         self.clear_cache_button.add_css_class("destructive-action")
-        self.clear_cache_button.set_size_request(160, 40)  # 统一宽度
+        self.clear_cache_button.set_size_request(160, 40)
         self.clear_cache_button.connect("clicked", self.on_clear_cache_clicked)
 
         clear_cache_row.add_suffix(self.clear_cache_button)
@@ -308,12 +348,10 @@ class InstanceDetailPage(NavigationPage):
         return group
 
     def set_app(self, app: Gtk.Application):
-        """设置应用实例"""
         self._app = app
         self._update_key_mapping_buttons()
 
     def _on_root_changed(self, widget, param):
-        """当页面被添加到窗口时设置断点"""
         root = self.get_root()
         if root and hasattr(self, '_setup_breakpoint_data') and hasattr(root, 'add_breakpoint'):
             data = self._setup_breakpoint_data
@@ -335,24 +373,20 @@ class InstanceDetailPage(NavigationPage):
             )
             root.add_breakpoint(breakpoint=break_point)
 
-            # 清理数据，避免重复添加
             del self._setup_breakpoint_data
 
     def _on_waydroid_state_changed(self, w, param):
-        """Waydroid状态变化时更新按键映射按钮"""
         self._update_key_mapping_buttons()
         
     def _update_key_mapping_buttons(self):
         """Update key mapping button status"""
         try:
             if self._key_mapping_window and self._key_mapping_window.is_visible():
-                # 窗口已打开，显示关闭按钮
                 self.key_mapping_toggle_button.set_label(_("Close"))
                 self.key_mapping_toggle_button.remove_css_class("suggested-action")
                 self.key_mapping_toggle_button.add_css_class("destructive-action")
                 self.key_mapping_toggle_button.set_sensitive(True)
             else:
-                # 窗口未打开，显示打开按钮
                 self.key_mapping_toggle_button.set_label(_("Open"))
                 self.key_mapping_toggle_button.remove_css_class("destructive-action")
                 self.key_mapping_toggle_button.add_css_class("suggested-action")
@@ -368,12 +402,10 @@ class InstanceDetailPage(NavigationPage):
         """Toggle key mapping window"""
         try:
             if self._key_mapping_window and self._key_mapping_window.is_visible():
-                # 窗口已打开，关闭它
                 logger.info("Close key mapping window")
                 self._key_mapping_window.close()
                 logger.info("Key mapping window close request sent")
             else:
-                # 窗口未打开，打开它
                 logger.info("Open key mapping window")
                 if self._app:
                     self._key_mapping_window = TransparentWindow(self._app)
@@ -382,7 +414,6 @@ class InstanceDetailPage(NavigationPage):
                     self._update_key_mapping_buttons()
                     logger.info("Key mapping window opened")
 
-                    # Minimize the main window
                     root = self.get_root()
                     root = cast(Gtk.ApplicationWindow, root)
                     if root and hasattr(root, 'minimize'):
@@ -400,23 +431,19 @@ class InstanceDetailPage(NavigationPage):
         try:
             from waydroid_helper.key_mapping_preference_dialog import KeyMappingPreferenceDialog
             
-            # 获取父窗口
             parent_window = self.get_root()
             
-            # 创建设置对话框
             settings_dialog = KeyMappingPreferenceDialog(
                 title=_("Key Mapping Preferences"),
                 parent=parent_window
             )
             
-            # 显示对话框
             settings_dialog.present()
             
             logger.info("Key mapping preferences dialog opened")
             
         except Exception as e:
             logger.error(f"Failed to open key mapping preferences dialog: {e}")
-            # 显示错误消息
             from waydroid_helper.compat_widget.message_dialog import MessageDialog
             
             error_dialog = MessageDialog(
@@ -458,7 +485,6 @@ class InstanceDetailPage(NavigationPage):
 
     def _on_confirmation_response(self, dialog, response, button: Gtk.Button):
         """Handle confirmation dialog response"""
-        # 处理不同类型的响应，参考 available_version_page.py 的实现
         if (response == Gtk.ResponseType.OK.value_nick or
             response == Gtk.ResponseType.OK):
             logger.info("User confirmed cache clearing")
@@ -469,28 +495,23 @@ class InstanceDetailPage(NavigationPage):
     async def _clear_package_cache(self, button: Gtk.Button):
         """Clear Waydroid package cache"""
         try:
-            # 禁用按钮防止重复点击
             button.set_sensitive(False)
             button.set_label(_("Clearing..."))
 
-            # 获取waydroid-cli路径
             cli_path = os.environ.get('WAYDROID_CLI_PATH')
             if not cli_path:
                 logger.error("WAYDROID_CLI_PATH environment variable not set")
                 self._show_cache_clear_result(False, _("WAYDROID_CLI_PATH not found"))
                 return
 
-            # 构建命令
             command = f"{cli_path} clear_package_cache"
 
-            # 执行命令
             subprocess_manager = SubprocessManager()
             result = await subprocess_manager.run(command, shell=False)
 
             logger.info(f"Clear cache command result: {result}")
 
             if result["returncode"] == 0:
-                # 从输出中提取备份文件路径
                 backup_path = self._extract_backup_path(result["stdout"])
                 self._show_cache_clear_result(True, _("Package cache cleared successfully"), backup_path)
             else:
@@ -500,23 +521,19 @@ class InstanceDetailPage(NavigationPage):
             logger.error(f"Failed to clear package cache: {e}")
             self._show_cache_clear_result(False, str(e))
         finally:
-            # 恢复按钮状态
             button.set_sensitive(True)
             button.set_label(_("Clear Cache"))
 
     def _extract_backup_path(self, stdout: str) -> str:
         """Extract backup file path from command output"""
         try:
-            # 查找 "Creating backup: " 行
             lines = stdout.split('\n')
             for line in lines:
                 if "Creating backup:" in line:
-                    # 提取文件名，例如 "Creating backup: ../package_cache_backup_1755763729.tar.gz"
                     backup_filename = line.split("Creating backup: ")[1].strip()
-                    # 构建完整路径
                     data_dir = os.path.expanduser("~/.local/share/waydroid/data")
                     if backup_filename.startswith("../"):
-                        backup_path = os.path.join(data_dir, backup_filename[3:])  # 去掉 "../"
+                        backup_path = os.path.join(data_dir, backup_filename[3:])
                     else:
                         backup_path = os.path.join(data_dir, "system", backup_filename)
                     return backup_path
@@ -528,7 +545,6 @@ class InstanceDetailPage(NavigationPage):
         """Show cache clear operation result"""
         if success:
             logger.info(f"Cache clear success: {message}")
-            # 显示成功对话框，包含备份位置信息
             heading = _("Cache Cleared Successfully")
             if backup_path:
                 body = _("Package cache has been cleared successfully.\n\nBackup saved to:\n{0}").format(backup_path)
@@ -536,7 +552,6 @@ class InstanceDetailPage(NavigationPage):
                 body = _("Package cache has been cleared successfully.")
         else:
             logger.error(f"Cache clear failed: {message}")
-            # 显示失败对话框
             heading = _("Cache Clear Failed")
             body = _("Failed to clear package cache:\n\n{0}").format(message)
 
@@ -552,16 +567,13 @@ class InstanceDetailPage(NavigationPage):
         dialog.present()
 
     def _create_google_play_group(self):
-        """创建 Google Play 服务组"""
         group = Adw.PreferencesGroup.new()
         group.set_title(_("Google Play Services"))
 
-        # GSF ID Retriever row
         gsf_id_row = Adw.ActionRow.new()
         gsf_id_row.set_title(_("GSF ID Retriever"))
         gsf_id_row.set_subtitle(_("Retrieve Google Services Framework ID for Google Play registration"))
 
-        # GSF ID Retriever button
         self.gsf_id_button = Gtk.Button.new_with_label(_("Retrieve GSF ID"))
         self.gsf_id_button.add_css_class("suggested-action")
         self.gsf_id_button.set_size_request(160, 40)

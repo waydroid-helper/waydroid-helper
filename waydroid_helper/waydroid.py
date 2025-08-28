@@ -122,7 +122,6 @@ class PrivilegedPropsCompat(GObject.Object):
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
         )
 
-
     def _setup_property_bindings(self):
         """Set up property bindings - simplified approach"""
         # Instead of dynamic GObject properties, we'll handle property access
@@ -224,9 +223,15 @@ class WaydroidCompat(GObject.Object):
         # Set up property bindings for compatibility
         self._setup_compatibility_bindings()
 
-        self._persist_props_compat: PersistPropsCompat = PersistPropsCompat(self._controller)
-        self._privileged_props_compat: PrivilegedPropsCompat = PrivilegedPropsCompat(self._controller)
-        self._waydroid_props_compat: WaydroidPropsCompat = WaydroidPropsCompat(self._controller)
+        self._persist_props_compat: PersistPropsCompat = PersistPropsCompat(
+            self._controller
+        )
+        self._privileged_props_compat: PrivilegedPropsCompat = PrivilegedPropsCompat(
+            self._controller
+        )
+        self._waydroid_props_compat: WaydroidPropsCompat = WaydroidPropsCompat(
+            self._controller
+        )
 
         # Initialize state
         self.set_property("state", WaydroidState.LOADING)
@@ -357,6 +362,26 @@ class WaydroidCompat(GObject.Object):
     async def retry_load_waydroid_properties(self):
         """Retry loading waydroid properties (public interface)"""
         return await self._controller._load_waydroid_properties_with_retry()
+
+    def bind(
+        self,
+        source_property: str,
+        target: GObject.Object,
+        target_property: str,
+        flags: GObject.BindingFlags = GObject.BindingFlags.DEFAULT,
+        transform_to=None,
+        transform_from=None,
+        user_data=None,
+    ) -> GObject.Binding:
+        return self._controller.property_model.bind_property(
+            source_property,
+            target,
+            target_property,
+            flags,
+            transform_to,
+            transform_from,
+            user_data,
+        )
 
 
 # Create alias for backward compatibility

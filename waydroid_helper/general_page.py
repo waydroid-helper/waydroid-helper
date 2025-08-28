@@ -34,8 +34,6 @@ class GeneralPage(Gtk.Box):
 
     _task: Task = Task()
     _navigation_view = None  # Will be set by window
-    _props_page = None  # Will be set by window
-    _extensions_page = None  # Will be set by window
 
     def update_menu(self, state: WaydroidState):
         if state == WaydroidState.RUNNING:
@@ -87,15 +85,12 @@ class GeneralPage(Gtk.Box):
         """Set the navigation view for page navigation"""
         self._navigation_view = navigation_view
 
-    def set_pages(self, props_page, extensions_page):
-        """Set the props and extensions page instances"""
-        self._props_page = props_page
-        self._extensions_page = extensions_page
+
 
     @Gtk.Template.Callback()
     def on_status_row_activated(self, row: Adw.ActionRow):
         """Handle status row click to navigate to instance details"""
-        if self._navigation_view and self._props_page and self._extensions_page:
+        if self._navigation_view:
             from waydroid_helper.instance_detail_page import InstanceDetailPage
 
             # Check if detail page already exists
@@ -103,12 +98,10 @@ class GeneralPage(Gtk.Box):
             existing_page = self._navigation_view.find_page(detail_page_tag)
 
             if existing_page is None:
-                # Create new detail page with existing page instances
+                # Create new detail page - page instances will be created internally
                 detail_page = InstanceDetailPage(
                     self.waydroid,
-                    self._navigation_view,
-                    self._props_page,
-                    self._extensions_page
+                    self._navigation_view
                 )
                 detail_page.set_tag(detail_page_tag)
                 self._navigation_view.add(detail_page)

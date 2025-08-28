@@ -345,6 +345,7 @@ class ModelController(GObject.Object):
 
     async def reset_persist_properties(self) -> bool:
         """Reset all persist properties to defaults"""
+        self.property_model.set_property("state", ModelState.LOADING)
         try:
             persist_props = self.property_model.get_persist_properties()
 
@@ -358,6 +359,7 @@ class ModelController(GObject.Object):
                 tasks.append(task)
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
+            self.property_model.set_property("state", ModelState.READY)
 
             # Check if all succeeded
             return all(
@@ -368,10 +370,12 @@ class ModelController(GObject.Object):
 
         except Exception as e:
             logger.error(f"Failed to reset persist properties: {e}")
+            self.property_model.set_property("state", ModelState.ERROR)
             return False
 
     async def reset_privileged_properties(self) -> bool:
         """Reset all privileged properties to defaults"""
+        self.property_model.set_property("privileged-state", ModelState.LOADING)
         try:
             self.property_model.reset_to_defaults(PropertyCategory.PRIVILEGED)
 
@@ -383,10 +387,12 @@ class ModelController(GObject.Object):
             if success:
                 return await self.upgrade(offline=True)
 
+            self.property_model.set_property("privileged-state", ModelState.READY)
             return success
 
         except Exception as e:
             logger.error(f"Failed to reset privileged properties: {e}")
+            self.property_model.set_property("privileged-state", ModelState.ERROR)
             return False
 
     async def save_all_waydroid_properties(self) -> bool:
@@ -420,6 +426,7 @@ class ModelController(GObject.Object):
 
     async def reset_waydroid_properties(self) -> bool:
         """Reset all waydroid config properties to defaults"""
+        self.property_model.set_property("waydroid-state", ModelState.LOADING)
         try:
             self.property_model.reset_to_defaults(PropertyCategory.WAYDROID)
 
@@ -433,14 +440,17 @@ class ModelController(GObject.Object):
             if success:
                 return await self.upgrade(offline=True)
 
+            self.property_model.set_property("waydroid-state", ModelState.READY)
             return success
 
         except Exception as e:
             logger.error(f"Failed to reset waydroid properties: {e}")
+            self.property_model.set_property("waydroid-state", ModelState.ERROR)
             return False
 
     async def restore_privileged_properties(self) -> bool:
         """Restore privileged properties from saved config"""
+        self.property_model.set_property("privileged-state", ModelState.LOADING)
         try:
             # Reload config from file
             if not self.config_manager.load_config():
@@ -449,26 +459,32 @@ class ModelController(GObject.Object):
             # Reload properties into model
             await self._load_privileged_properties()
 
+            self.property_model.set_property("privileged-state", ModelState.READY)
             return True
 
         except Exception as e:
             logger.error(f"Failed to restore privileged properties: {e}")
+            self.property_model.set_property("privileged-state", ModelState.ERROR)
             return False
 
     async def restore_waydroid_properties(self) -> bool:
         """Restore waydroid config properties from saved config"""
+        self.property_model.set_property("waydroid-state", ModelState.LOADING)
         try:
             # Reload config from file
             if not self.config_manager.load_config():
+                self.property_model.set_property("privileged-state", ModelState.ERROR)
                 return False
 
             # Reload properties into model
             await self._load_waydroid_properties()
 
+            self.property_model.set_property("waydroid-state", ModelState.READY)
             return True
 
         except Exception as e:
             logger.error(f"Failed to restore waydroid properties: {e}")
+            self.property_model.set_property("waydroid-state", ModelState.ERROR)
             return False
 
     async def set_device_info(self, device_properties: dict[str, Any]) -> bool:
