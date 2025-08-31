@@ -9,9 +9,8 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gdk, GLib, Gtk
 
-from waydroid_helper.controller.core.handler import key_mapping_manager
-from waydroid_helper.controller.core.key_system import (Key, KeyCombination,
-                                                        key_registry)
+from waydroid_helper.controller.core.handler import KeyMappingManager
+from waydroid_helper.controller.core.key_system import (Key, KeyCombination)
 from waydroid_helper.util.log import logger
 
 from .base_decorator import WidgetDecorator, parameterized_widget_decorator
@@ -188,7 +187,7 @@ class EditableDecorator(WidgetDecorator):
             return False
         
         # 获取鼠标按键的Key对象
-        mouse_key = key_registry.create_mouse_key(button)
+        mouse_key = self._wrapped_widget.key_registry.create_mouse_key(button)
         if mouse_key:
             logger.debug(f"Mouse button pressed: {mouse_key}")
             self._add_key_to_realtime(mouse_key)
@@ -218,7 +217,7 @@ class EditableDecorator(WidgetDecorator):
             return False
         
         # 获取鼠标按键的Key对象
-        mouse_key = key_registry.create_mouse_key(button)
+        mouse_key = self._wrapped_widget.key_registry.create_mouse_key(button)
         if mouse_key:
             logger.debug(f"Mouse button released: {mouse_key}")
             self._remove_key_from_realtime(mouse_key)
@@ -331,7 +330,7 @@ class EditableDecorator(WidgetDecorator):
         """获取按键对象（使用物理按键标准化）"""
         # 如果是修饰键，直接使用原始keyval
         if self._is_modifier_key(keyval):
-            return key_registry.create_from_keyval(keyval, state)
+            return self._wrapped_widget.key_registry.create_from_keyval(keyval, state)
         
         # 非修饰键：获取物理按键的标准keyval
         physical_keyval = self._get_physical_keyval(keycode)
@@ -340,7 +339,7 @@ class EditableDecorator(WidgetDecorator):
             physical_keyval = keyval
             logger.debug(f"Edit mode fallback to original keyval: {Gdk.keyval_name(keyval)}")
         
-        return key_registry.create_from_keyval(physical_keyval, 0)  # 不包含修饰符状态
+        return self._wrapped_widget.key_registry.create_from_keyval(physical_keyval, 0)  # 不包含修饰符状态
     
     def _add_key_to_realtime(self, key: Key):
         """添加按键到实时捕获集合"""
@@ -418,6 +417,7 @@ class EditableDecorator(WidgetDecorator):
         """更新全局的按键映射（删除旧映射，添加新映射）"""
         try:
             # 先取消旧的映射
+            key_mapping_manager = self._get_toplevel_window().key_mapping_manager
             key_mapping_manager.unsubscribe(self._wrapped_widget)
             
             # 如果还有按键，重新注册新的映射
@@ -586,6 +586,7 @@ class EditableDecorator(WidgetDecorator):
         """注册按键映射到全局管理器"""
         try:
             # 先清除旧的映射（如果有的话）
+            key_mapping_manager = self._get_toplevel_window().key_mapping_manager
             key_mapping_manager.unsubscribe(self._wrapped_widget)
             
             # 自动读取widget的可重入属性
@@ -593,6 +594,7 @@ class EditableDecorator(WidgetDecorator):
             
             # 注册新的映射
             for key_combination in self._wrapped_widget.final_keys:
+                key_mapping_manager = self._get_toplevel_window().key_mapping_manager
                 success = key_mapping_manager.subscribe(
                     self._wrapped_widget, 
                     key_combination, 
@@ -616,6 +618,7 @@ class EditableDecorator(WidgetDecorator):
             # 先取消当前区域的旧映射
             original_keys = self.original_keys
             for old_key_combination in original_keys:
+                key_mapping_manager = self._get_toplevel_window().key_mapping_manager
                 key_mapping_manager.unsubscribe_key(self._wrapped_widget, old_key_combination)
                 logger.debug(f"Cancel region {region['id']} old key mapping: {old_key_combination}")
             
@@ -629,6 +632,7 @@ class EditableDecorator(WidgetDecorator):
             
             # 注册当前区域的新按键映射
             for key_combination in current_keys:
+                key_mapping_manager = self._get_toplevel_window().key_mapping_manager
                 success = key_mapping_manager.subscribe(
                     self._wrapped_widget, 
                     key_combination, 

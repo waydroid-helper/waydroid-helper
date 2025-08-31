@@ -4,15 +4,13 @@ from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
-    from gi.repository import Gtk
     from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, key_registry,
-                                             pointer_id_manager)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+                                             EventBus, PointerIdManager, KeyRegistry)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 
@@ -34,25 +32,32 @@ class Fire(BaseWidget):
         width: int = 50,
         height: int = 50,
         text: str = "",
-        default_keys: set[KeyCombination] = set(
-            [KeyCombination([key_registry.get_by_name("Mouse_Left")])]
-        ),
+        default_keys: set[KeyCombination]|None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
         # 初始化基类，传入默认按键
         super().__init__(
             x,
             y,
-            width,
-            height,
+            50,
+            50,
             pgettext("Controller Widgets", "Fire"),
             text,
-            default_keys,
+            set(
+                [KeyCombination([key_registry.get_by_name("Mouse_Left")])]
+            ),
             min_width=25,
             min_height=25,
+            event_bus = event_bus,
+            pointer_id_manager = pointer_id_manager,
+            key_registry = key_registry,
         )
         self.aim_triggered: bool = False
-        event_bus.subscribe(EventType.AIM_TRIGGERED, self._on_aim_triggered, subscriber=self)
-        event_bus.subscribe(EventType.AIM_RELEASED, self._on_aim_released, subscriber=self)
+        self.event_bus.subscribe(EventType.AIM_TRIGGERED, self._on_aim_triggered, subscriber=self)
+        self.event_bus.subscribe(EventType.AIM_RELEASED, self._on_aim_released, subscriber=self)
+        self.screen_info = ScreenInfo()
 
     def _on_aim_triggered(self, event: Event[None]):
         """处理瞄准触发事件"""
@@ -190,10 +195,8 @@ class Fire(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        root = self.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
-        pointer_id = pointer_id_manager.allocate(self)
+        w, h = self.screen_info.get_host_resolution()
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
         msg = InjectTouchEventMsg(
@@ -204,7 +207,7 @@ class Fire(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
     def on_key_released(
@@ -222,10 +225,8 @@ class Fire(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        root = self.get_root()
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        w, h = self.screen_info.get_host_resolution()
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return False
         msg = InjectTouchEventMsg(
@@ -236,8 +237,8 @@ class Fire(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
-        pointer_id_manager.release(self)
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.pointer_id_manager.release(self)
         return True
 
     def get_editable_regions(self) -> list["EditableRegion"]:

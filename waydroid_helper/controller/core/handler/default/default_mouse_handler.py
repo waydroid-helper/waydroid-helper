@@ -16,8 +16,9 @@ from waydroid_helper.controller.android.input import (
 from waydroid_helper.controller.core.control_msg import (
     InjectScrollEventMsg,
     InjectTouchEventMsg,
+    ScreenInfo,
 )
-from waydroid_helper.controller.core.event_bus import Event, EventType, event_bus
+from waydroid_helper.controller.core.event_bus import Event, EventType, EventBus
 
 if TYPE_CHECKING:
     from gi.repository import Gtk
@@ -63,11 +64,13 @@ class MouseBase(ABC):
 
 
 class MouseDefault(MouseBase):
-    def __init__(self) -> None:
+    def __init__(self, event_bus: EventBus) -> None:
+        self.event_bus = event_bus
         self.natural_scroll: bool = True
         self.mouse_hover: bool = False
         self._current_x: float = 0
         self._current_y: float = 0
+        self.screen_info = ScreenInfo()
 
     def convert_click_action(self, event: Gdk.Event) -> AMotionEventAction:
         if event.get_event_type() == Gdk.EventType.BUTTON_PRESS:
@@ -109,10 +112,7 @@ class MouseDefault(MouseBase):
         widget = controller.get_widget()
         if widget is None:
             return False
-        root = widget.get_root()
-        root = cast("Gtk.Window", root)
-        w = root.get_width()
-        h = root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         event = controller.get_current_event()
         if event is None:
             return False
@@ -140,7 +140,7 @@ class MouseDefault(MouseBase):
             action_button=0,
             buttons=buttons_state,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
     def click_processor(
@@ -149,11 +149,8 @@ class MouseDefault(MouseBase):
         widget = controller.get_widget()
         if widget is None:
             return False
-        root = widget.get_root()
-        root = cast("Gtk.Window", root)
-
-        w = root.get_width()
-        h = root.get_height()
+        
+        w, h = self.screen_info.get_host_resolution()
 
         event = controller.get_current_event()
         event = cast(Gdk.ButtonEvent, event)
@@ -170,7 +167,7 @@ class MouseDefault(MouseBase):
             action_button=action_button,
             buttons=buttons,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
     def scroll_processor(
@@ -182,10 +179,8 @@ class MouseDefault(MouseBase):
         widget = controller.get_widget()
         if widget is None:
             return False
-        root = widget.get_root()
-        root = cast("Gtk.Window", root)
-        w = root.get_width()
-        h = root.get_height()
+
+        w, h = self.screen_info.get_host_resolution()
 
         event = controller.get_current_event()
         if event is None:
@@ -227,7 +222,7 @@ class MouseDefault(MouseBase):
             vscroll_clamped = max(-1.0, min(1.0, vscroll * factor))
 
             msg = InjectScrollEventMsg(position, hscroll_clamped, vscroll_clamped, buttons)
-            event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+            self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
             return True
 
     def touch_processor(self):

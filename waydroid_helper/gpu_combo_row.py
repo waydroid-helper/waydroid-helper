@@ -37,7 +37,7 @@ class GpuComboRow(Adw.ComboRow):
         self.set_model(self.store)
         self.set_factory(factory)
         
-        _ = asyncio.create_task(self.load_gpu_info())
+        # _ = asyncio.create_task(self.load_gpu_info())
 
     def _on_factory_setup(self, factory, list_item):
         """设置每个列表项的UI"""

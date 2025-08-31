@@ -8,6 +8,8 @@ from gettext import gettext as _
 
 import gi
 
+from waydroid_helper.config.models import RootConfig
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
@@ -34,8 +36,6 @@ class GeneralPage(Gtk.Box):
 
     _task: Task = Task()
     _navigation_view = None  # Will be set by window
-    _props_page = None  # Will be set by window
-    _extensions_page = None  # Will be set by window
 
     def update_menu(self, state: WaydroidState):
         if state == WaydroidState.RUNNING:
@@ -76,26 +76,23 @@ class GeneralPage(Gtk.Box):
 
     def __init__(
         self,
-        waydroid: Waydroid,
         **kargs  # pyright: ignore[reportMissingParameterType,reportUnknownParameterType]
     ):
         super().__init__(**kargs)
-        self.set_property("waydroid", waydroid)
+        self.config: RootConfig = RootConfig()
+        self.set_property("waydroid", Waydroid())
         self.waydroid.connect("notify::state", self.on_waydroid_state_changed)
 
     def set_navigation_view(self, navigation_view):
         """Set the navigation view for page navigation"""
         self._navigation_view = navigation_view
 
-    def set_pages(self, props_page, extensions_page):
-        """Set the props and extensions page instances"""
-        self._props_page = props_page
-        self._extensions_page = extensions_page
+
 
     @Gtk.Template.Callback()
     def on_status_row_activated(self, row: Adw.ActionRow):
         """Handle status row click to navigate to instance details"""
-        if self._navigation_view and self._props_page and self._extensions_page:
+        if self._navigation_view:
             from waydroid_helper.instance_detail_page import InstanceDetailPage
 
             # Check if detail page already exists
@@ -103,12 +100,11 @@ class GeneralPage(Gtk.Box):
             existing_page = self._navigation_view.find_page(detail_page_tag)
 
             if existing_page is None:
-                # Create new detail page with existing page instances
+                # Create new detail page - page instances will be created internally
                 detail_page = InstanceDetailPage(
                     self.waydroid,
                     self._navigation_view,
-                    self._props_page,
-                    self._extensions_page
+                    self.config
                 )
                 detail_page.set_tag(detail_page_tag)
                 self._navigation_view.add(detail_page)

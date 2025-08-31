@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Any
 import gi
 from gi.repository import Gdk, Gtk, GLib
 
-from waydroid_helper.controller.core import key_system
-from waydroid_helper.controller.core.key_system import Key, KeyCombination
+from waydroid_helper.controller.core.control_msg import ScreenInfo
+from waydroid_helper.controller.core.key_system import Key, KeyCombination, KeyRegistry
 from waydroid_helper.util.log import logger
 from waydroid_helper.compat_widget.file_dialog import FileDialog
 
@@ -38,6 +38,7 @@ class ContextMenuManager:
         self._main_box: "Gtk.Box | None" = None
         self._flow_box: "Gtk.FlowBox | None" = None
         self._tool_flow: "Gtk.FlowBox | None" = None
+        self.screen_info = ScreenInfo()
 
     def show_widget_creation_menu(
         self, x: int, y: int, widget_factory: "WidgetFactory"
@@ -75,7 +76,7 @@ class ContextMenuManager:
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_max_content_height(300)  # 限制最大高度
-        scrolled.set_max_content_width(400)   # 限制最大宽度
+        scrolled.set_max_content_width(400)  # 限制最大宽度
         scrolled.set_propagate_natural_height(True)
         scrolled.set_propagate_natural_width(True)
         self._main_box.append(scrolled)
@@ -145,7 +146,9 @@ class ContextMenuManager:
         filtered_types = []
         for widget_type in available_types:
             widget_class = widget_factory.widget_classes.get(widget_type)
-            if widget_class and getattr(widget_class, 'ALLOW_CONTEXT_MENU_CREATION', True):
+            if widget_class and getattr(
+                widget_class, "ALLOW_CONTEXT_MENU_CREATION", True
+            ):
                 filtered_types.append(widget_type)
 
         if not filtered_types:
@@ -198,7 +201,14 @@ class ContextMenuManager:
     ):
         """创建组件的回调函数"""
         try:
-            widget = widget_factory.create_widget(widget_type, x=x, y=y)
+            widget = widget_factory.create_widget(
+                widget_type,
+                x=x,
+                y=y,
+                event_bus=self.parent_window.event_bus,
+                pointer_id_manager=self.parent_window.pointer_id_manager,
+                key_registry=self.parent_window.key_registry,
+            )
             if widget:
                 self.parent_window.create_widget_at_position(widget, x, y)
         except Exception as e:
@@ -217,36 +227,8 @@ class ContextMenuManager:
         """清空所有组件"""
         self.parent_window.on_clear_widgets(None)
 
-    def _get_screen_size(self):
-        """获取当前屏幕尺寸"""
-        try:
-            # 尝试从显示获取屏幕尺寸
-            display = Gdk.Display.get_default()
-            if display:
-                monitors = display.get_monitors()
-                if monitors and monitors.get_n_items() > 0:
-                    monitor = monitors.get_item(0)
-                    if monitor and isinstance(monitor, Gdk.Monitor):
-                        geometry = monitor.get_geometry()
-                        return geometry.width, geometry.height
-                    else:
-                        raise Exception("Failed to get monitor geometry")
-                else:
-                    raise Exception("No monitors found")
-            else:
-                raise Exception("Failed to get display information")
-        except Exception as e:
-            # 备用方案：使用窗口大小或默认值
-            if hasattr(self.parent_window, "get_width") and hasattr(
-                self.parent_window, "get_height"
-            ):
-                screen_width = self.parent_window.get_width() or 1920
-                screen_height = self.parent_window.get_height() or 1080
-                return screen_width, screen_height
-            else:
-                screen_width = 1920
-                screen_height = 1080
-                return screen_width, screen_height
+    def _get_available_screen_size(self):
+        return self.screen_info.get_host_resolution()
 
     def _serialize_key_combination(self, key_combination: KeyCombination) -> list[str]:
         """序列化按键组合为字符串列表"""
@@ -260,12 +242,12 @@ class ContextMenuManager:
         """从字符串列表反序列化按键组合"""
         keys: list[Key] = []
         for key_name in key_names:
-            key =  key_system.deserialize_key(key_name)
+            key = self.parent_window.key_registry.deserialize_key(key_name)
             if key:
                 keys.append(key)
         return KeyCombination(keys) if keys else None
 
-    # TODO 在每个 widget 内部单独实现
+    # TODO 在每个 widget 内部单独实现序列化/反序列化
     def _get_default_layouts_dir(self) -> str:
         """获取默认的布局文件目录"""
         # 使用 XDG 配置目录标准：~/.config/waydroid-helper/layouts/
@@ -286,9 +268,7 @@ class ContextMenuManager:
 
         # 创建文件对话框
         dialog = FileDialog(
-            parent=self.parent_window,
-            title=_("Save Layout"),
-            modal=True
+            parent=self.parent_window, title=_("Save Layout"), modal=True
         )
 
         # 设置默认目录
@@ -299,7 +279,7 @@ class ContextMenuManager:
             callback=self._on_save_layout_file_selected,
             suggested_name="layout.json",
             file_filter=json_filter,
-            initial_folder=default_dir
+            initial_folder=default_dir,
         )
 
     def _on_save_layout_file_selected(self, success: bool, file_path: str | None):
@@ -309,7 +289,7 @@ class ContextMenuManager:
 
         try:
             # 获取当前屏幕尺寸
-            screen_width, screen_height = self._get_screen_size()
+            screen_width, screen_height = self._get_available_screen_size()
 
             # 收集所有widget的信息
             widgets_data = []
@@ -364,7 +344,7 @@ class ContextMenuManager:
                                 self._serialize_key_combination(kc)
                                 for kc in child.final_keys
                             ]
-                    
+
                     # 保存组件配置
                     if hasattr(child, "get_config_manager"):
                         config_manager = child.get_config_manager()
@@ -398,9 +378,7 @@ class ContextMenuManager:
 
         # 创建文件对话框
         dialog = FileDialog(
-            parent=self.parent_window,
-            title=_("Load Layout"),
-            modal=True
+            parent=self.parent_window, title=_("Load Layout"), modal=True
         )
 
         # 设置默认目录
@@ -408,12 +386,16 @@ class ContextMenuManager:
 
         # 显示打开对话框
         dialog.open_file(
-            callback=lambda success, path: self._on_load_layout_file_selected(success, path, widget_factory),
+            callback=lambda success, path: self._on_load_layout_file_selected(
+                success, path, widget_factory
+            ),
             file_filter=json_filter,
-            initial_folder=default_dir
+            initial_folder=default_dir,
         )
 
-    def _on_load_layout_file_selected(self, success: bool, file_path: str | None, widget_factory: "WidgetFactory"):
+    def _on_load_layout_file_selected(
+        self, success: bool, file_path: str | None, widget_factory: "WidgetFactory"
+    ):
         """处理加载文件选择的回调"""
         if not success or not file_path:
             return
@@ -433,7 +415,9 @@ class ContextMenuManager:
                 return
 
             # 获取当前屏幕尺寸
-            current_screen_width, current_screen_height = self._get_screen_size()
+            current_screen_width, current_screen_height = (
+                self._get_available_screen_size()
+            )
 
             # 计算缩放比例
             scale_x = 1.0
@@ -469,7 +453,14 @@ class ContextMenuManager:
                     height = int(original_height * scale_y)
 
                     # 根据组件类型准备参数
-                    create_kwargs = {"width": width, "height": height, "text": text}
+                    create_kwargs = {
+                        "width": width,
+                        "height": height,
+                        "text": text,
+                        "event_bus": self.parent_window.event_bus,
+                        "pointer_id_manager": self.parent_window.pointer_id_manager,
+                        "key_registry": self.parent_window.key_registry,
+                    }
 
                     # 添加按键映射参数
                     if widget_type == "directionalpad":
@@ -505,12 +496,14 @@ class ContextMenuManager:
                         # 在缩放后的位置创建widget
                         if hasattr(self.parent_window, "create_widget_at_position"):
                             self.parent_window.create_widget_at_position(widget, x, y)
-                            
+
                             # 恢复配置
-                            if "config" in widget_data and hasattr(widget, "get_config_manager"):
+                            if "config" in widget_data and hasattr(
+                                widget, "get_config_manager"
+                            ):
                                 config_manager = widget.get_config_manager()
                                 config_manager.deserialize(widget_data["config"])
-                            
+
                             widgets_created += 1
 
                 except Exception as e:

@@ -12,6 +12,11 @@ waydroid_helper/shared_folder.py
 waydroid_helper/available_version_page.py
 waydroid_helper/waydroid.py
 waydroid_helper/gsf_retriever.py
+waydroid_helper/model_controller.py
+waydroid_helper/key_mapping_preference_dialog.py
+waydroid_helper/gpu_combo_row.py
+waydroid_helper/models.py
+waydroid_helper/sdk.py
 waydroid_helper/util/subprocess_manager.py
 waydroid_helper/util/log.py
 waydroid_helper/util/adb_helper.py
@@ -22,6 +27,9 @@ waydroid_helper/util/task.py
 waydroid_helper/util/arch.py
 waydroid_helper/util/state_waiter.py
 waydroid_helper/util/__init__.py
+waydroid_helper/config/file_manager.py
+waydroid_helper/config/models.py
+waydroid_helper/config/__init__.py
 waydroid_helper/tools/extensions_manager.py
 waydroid_helper/tools/monitor_service.py
 waydroid_helper/tools/mount_service.py
@@ -35,6 +43,8 @@ waydroid_helper/compat_widget/navigation_view.py
 waydroid_helper/compat_widget/shared_folder_dialog.py
 waydroid_helper/compat_widget/spinner.py
 waydroid_helper/compat_widget/toolbar_view.py
+waydroid_helper/compat_widget/dialog.py
+waydroid_helper/compat_widget/animation_target.py
 
 # Controller files
 waydroid_helper/controller/__init__.py

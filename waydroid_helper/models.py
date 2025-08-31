@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 
 import asyncio
 import enum
-from typing import Any
+from typing import Any, override
 from functools import partial
 from gettext import gettext as _
 

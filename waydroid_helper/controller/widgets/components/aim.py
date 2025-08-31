@@ -6,17 +6,28 @@ from enum import Enum
 from gettext import pgettext
 from typing import TYPE_CHECKING, Any, cast
 
-from waydroid_helper.controller.android.input import (AMotionEventAction,
-                                                      AMotionEventButtons)
-from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, is_point_in_rect,
-                                             pointer_id_manager)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+from waydroid_helper.controller.android.input import (
+    AMotionEventAction,
+    AMotionEventButtons,
+)
+from waydroid_helper.controller.core import (
+    Event,
+    EventType,
+    KeyCombination,
+    is_point_in_rect,
+    PointerIdManager,
+)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core.event_bus import EventBus
+from waydroid_helper.controller.core.key_system import KeyRegistry
 from waydroid_helper.controller.platform import get_platform
 from waydroid_helper.controller.widgets import BaseWidget
 from waydroid_helper.controller.widgets.config import create_slider_config
-from waydroid_helper.controller.widgets.decorators import (Editable, Resizable,
-                                                           ResizableDecorator)
+from waydroid_helper.controller.widgets.decorators import (
+    Editable,
+    Resizable,
+    ResizableDecorator,
+)
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
@@ -24,15 +35,15 @@ if TYPE_CHECKING:
 
     from waydroid_helper.controller.core.handler import InputEvent
     from waydroid_helper.controller.platform import PlatformBase
-    from waydroid_helper.controller.widgets.base.base_widget import \
-        EditableRegion
+    from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
 
 class AimState(Enum):
     """瞄准状态枚举"""
-    IDLE = "idle"           # 空闲状态
-    AIMING = "aiming"       # 瞄准状态
-    MOVING = "moving"       # 移动状态
+
+    IDLE = "idle"  # 空闲状态
+    AIMING = "aiming"  # 瞄准状态
+    MOVING = "moving"  # 移动状态
 
 
 @Editable
@@ -60,6 +71,9 @@ class Aim(BaseWidget):
         height: int = 150,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
         super().__init__(
             x,
@@ -71,6 +85,9 @@ class Aim(BaseWidget):
             default_keys,
             min_width=200,
             min_height=150,
+            event_bus=event_bus,
+            pointer_id_manager=pointer_id_manager,
+            key_registry=key_registry,
         )
 
         # 状态管理
@@ -86,15 +103,22 @@ class Aim(BaseWidget):
         # 异步任务管理
         self._aim_task: asyncio.Task[None] | None = None
         self._motion_task: asyncio.Task[None] | None = None
-        self._motion_queue: asyncio.Queue[tuple[float, float, float, float]] = asyncio.Queue()
+        self._motion_queue: asyncio.Queue[tuple[float, float, float, float]] = (
+            asyncio.Queue()
+        )
         self._motion_processor_running = False
+        self.screen_info = ScreenInfo()
 
         # 配置
         self.setup_config()
 
         # 事件订阅
-        event_bus.subscribe(EventType.ENTER_STARING, self._handle_enter_staring, subscriber=self)
-        event_bus.subscribe(EventType.EXIT_STARING, self._handle_exit_staring, subscriber=self)
+        self.event_bus.subscribe(
+            EventType.ENTER_STARING, self._handle_enter_staring, subscriber=self
+        )
+        self.event_bus.subscribe(
+            EventType.EXIT_STARING, self._handle_exit_staring, subscriber=self
+        )
 
     def setup_config(self) -> None:
         """设置配置项"""
@@ -117,7 +141,7 @@ class Aim(BaseWidget):
         # 添加配置变更回调
         self.add_config_change_callback("sensitivity", self._on_sensitivity_changed)
 
-    def _on_sensitivity_changed(self, key: str, value: int, restoring:bool) -> None:
+    def _on_sensitivity_changed(self, key: str, value: int, restoring: bool) -> None:
         """处理灵敏度配置变更"""
         pass
 
@@ -213,11 +237,7 @@ class Aim(BaseWidget):
             _dy = dy_unaccel * sensitivity / 50
 
             # 获取根窗口尺寸
-            root = self.get_root()
-            if not root:
-                return
-            root = cast("Gtk.Window", root)
-            w, h = root.get_width(), root.get_height()
+            w, h = self.screen_info.get_host_resolution()
 
             # 处理位置更新
             await self._update_aim_position(_dx, _dy, w, h)
@@ -243,7 +263,7 @@ class Aim(BaseWidget):
             self._current_pos = (float(self.center_x), float(self.center_y))
             await asyncio.sleep(0.05)
             await self._send_touch_down(w, h)
-            self._current_pos = (float(self.center_x)+dx, float(self.center_y)+dy)
+            self._current_pos = (float(self.center_x) + dx, float(self.center_y) + dy)
             await self._send_touch_move(w, h)
             return
 
@@ -256,7 +276,7 @@ class Aim(BaseWidget):
         if self._current_pos is None:
             return
 
-        pointer_id = pointer_id_manager.allocate(self)
+        pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return
 
@@ -268,14 +288,14 @@ class Aim(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
 
     async def _send_touch_move(self, w: int, h: int) -> None:
         """发送触摸移动事件"""
         if self._current_pos is None:
             return
 
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return
 
@@ -287,15 +307,25 @@ class Aim(BaseWidget):
             action_button=0,
             buttons=AMotionEventButtons.PRIMARY,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
 
-    async def _send_touch_up(self, w: int, h: int, x: float | None = None, y: float | None = None) -> None:
+    async def _send_touch_up(
+        self, w: int, h: int, x: float | None = None, y: float | None = None
+    ) -> None:
         """发送触摸抬起事件"""
         # 使用提供的坐标或当前位置
-        pos_x = x if x is not None else (self._current_pos[0] if self._current_pos else self.center_x)
-        pos_y = y if y is not None else (self._current_pos[1] if self._current_pos else self.center_y)
+        pos_x = (
+            x
+            if x is not None
+            else (self._current_pos[0] if self._current_pos else self.center_x)
+        )
+        pos_y = (
+            y
+            if y is not None
+            else (self._current_pos[1] if self._current_pos else self.center_y)
+        )
 
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return
 
@@ -307,8 +337,8 @@ class Aim(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
-        pointer_id_manager.release(self)
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.pointer_id_manager.release(self)
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制瞄准按钮的具体内容 - 中心50*50圆形区域"""
@@ -441,7 +471,7 @@ class Aim(BaseWidget):
                 root.set_cursor_from_name("none")
 
             # 发送瞄准触发事件
-            event_bus.emit(Event(type=EventType.AIM_TRIGGERED, source=self, data=None))
+            self.event_bus.emit(Event(type=EventType.AIM_TRIGGERED, source=self, data=None))
 
         except Exception as e:
             await self._set_state(AimState.IDLE)
@@ -487,13 +517,12 @@ class Aim(BaseWidget):
             # 如果有当前位置，发送UP事件
             if self._current_pos is not None:
                 if root:
-                    w, h = root.get_width(), root.get_height()
+                    w, h = self.screen_info.get_host_resolution()
                     await self._send_touch_up(w, h)
                 self._current_pos = None
 
             # 发送瞄准释放事件
-            event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
-
+            self.event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
 
         except Exception:
             pass

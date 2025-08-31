@@ -14,9 +14,9 @@ from gi.repository import GLib
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             event_bus, key_registry,
-                                             pointer_id_manager)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+                                             EventBus, KeyRegistry,
+                                             PointerIdManager)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.decorators import (Resizable,
@@ -50,28 +50,34 @@ class RightClickToWalk(BaseWidget):
         height: int = 150,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
+        super().__init__(
+            x,
+            y,
+            min(width, height),
+            min(width, height),
+            pgettext("Controller Widgets", "Right Click to Walk"),
+            text,
+            min_width=25,
+            min_height=25,
+            event_bus=event_bus,
+            pointer_id_manager=pointer_id_manager,
+            key_registry=key_registry,
+        )
         # Fix the default keys issue
         if default_keys is None:
-            mouse_right_key = key_registry.get_by_name("Mouse_Right")
+            mouse_right_key = self.key_registry.get_by_name("Mouse_Right")
             if mouse_right_key is not None:
                 default_keys = set([KeyCombination([mouse_right_key])])
             else:
                 default_keys = set()
         
-        # Initialize base class with default right-click key
-        super().__init__(
-            x,
-            y,
-            width,
-            height,
-            pgettext("Controller Widgets", "Right Click to Walk"),
-            text,
-            default_keys or set(),
-            min_width=25,
-            min_height=25,
-        )
-        event_bus.subscribe(EventType.MOUSE_MOTION, lambda event: (self.on_key_triggered(None, event.data), None)[1])
+        self.set_default_keys(default_keys)
+ 
+        self.event_bus.subscribe(EventType.MOUSE_MOTION, lambda event: (self.on_key_triggered(None, event.data), None)[1])
 
         # 摇杆状态管理
         self._joystick_state: JoystickState = JoystickState.INACTIVE
@@ -98,6 +104,8 @@ class RightClickToWalk(BaseWidget):
 
         # 距离检测
         self._mouse_distance_from_center: float = 0.0
+
+        self.screen_info = ScreenInfo()
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制组件的具体内容 - 圆形背景，上下左右箭头，中心鼠标图标"""
@@ -494,38 +502,26 @@ class RightClickToWalk(BaseWidget):
             self._hold_timer = None
         
         # 释放指针ID
-        pointer_id_manager.release(self)
+        self.pointer_id_manager.release(self)
         
 
     def _get_window_center(self) -> tuple[float, float]:
         """获取窗口中心坐标"""
-        root = self.get_root()
-        if not root:
-            return (0, 0)
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         return (w / 2, h / 2)
 
     def _get_window_size(self) -> tuple[int, int]:
         """获取窗口大小"""
-        root = self.get_root()
-        if not root:
-            return (800, 600)
-        root = cast("Gtk.Window", root)
-        return root.get_width(), root.get_height()
+        return self.screen_info.get_host_resolution()
 
     def _emit_touch_event(
         self, action: AMotionEventAction, position: tuple[float, float] | None = None
     ):
         pos = position if position is not None else self._current_position
-        root = self.get_root()
-        if not root:
-            return
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         pressure = 1.0 if action != AMotionEventAction.UP else 0.0
         buttons = AMotionEventButtons.PRIMARY if action != AMotionEventAction.UP else 0
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return
 
@@ -537,7 +533,7 @@ class RightClickToWalk(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=buttons,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
 
     def _get_target_position(
         self,
@@ -611,7 +607,7 @@ class RightClickToWalk(BaseWidget):
                 self._joystick_state = JoystickState.MOVING
                 
                 # 分配指针ID并发送DOWN事件
-                pointer_id = pointer_id_manager.allocate(self)
+                pointer_id = self.pointer_id_manager.allocate(self)
                 if pointer_id is None:
                     return False
                 

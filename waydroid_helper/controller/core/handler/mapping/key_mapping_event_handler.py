@@ -6,7 +6,7 @@
 from waydroid_helper.controller.core.handler.event_handlers import (
     EventHandlerPriority, InputEvent, InputEventHandler)
 
-from .key_mapping_manager import key_mapping_manager
+from .key_mapping_manager import KeyMappingManager
 
 
 class KeyMappingEventHandler(InputEventHandler):
@@ -15,10 +15,11 @@ class KeyMappingEventHandler(InputEventHandler):
     它使用全局的 key_mapping_manager 来触发已注册的映射。
     """
 
-    def __init__(self):
+    def __init__(self, key_mapping_manager: KeyMappingManager):
         # 这个处理器的优先级应该比较高，确保它在默认处理器之前执行
         super().__init__(EventHandlerPriority.NORMAL)
         self.name = "KeyMappingEventHandler"
+        self.key_mapping_manager = key_mapping_manager
 
     def can_handle(self, event: InputEvent) -> bool:
         """此处理器只处理按键和鼠标事件"""
@@ -38,8 +39,8 @@ class KeyMappingEventHandler(InputEventHandler):
 
         # 对于按键事件，我们只关心主键（Key对象），组合逻辑由manager处理
         if event.event_type in ["key_press", "mouse_press"]:
-            return key_mapping_manager.handle_key_press(event)
+            return self.key_mapping_manager.handle_key_press(event)
         elif event.event_type in ["key_release", "mouse_release"]:
-            return key_mapping_manager.handle_key_release(event)
+            return self.key_mapping_manager.handle_key_release(event)
         # 如果事件没有被按键处理器消费，则返回False
         return False

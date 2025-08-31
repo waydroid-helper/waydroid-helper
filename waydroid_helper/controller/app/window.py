@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Transparent window module
 Provides implementation and window management for transparent windows
@@ -10,6 +11,9 @@ from typing import TYPE_CHECKING
 
 import gi
 
+from waydroid_helper.controller.core.control_msg import ScreenInfo
+from waydroid_helper.controller.core.utils import PointerIdManager
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
@@ -17,23 +21,23 @@ gi.require_version("Gdk", "4.0")
 import asyncio
 
 from gi.repository import Adw, Gdk, GLib, GObject, Gtk
+from gi.events import GLibEventLoopPolicy
 
 from waydroid_helper.compat_widget import PropertyAnimationTarget
 from waydroid_helper.controller.app.workspace_manager import WorkspaceManager
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             Server, event_bus,
-                                             is_point_in_rect, key_registry)
+                                             Server, EventBus,
+                                             is_point_in_rect, KeyRegistry)
 from waydroid_helper.controller.core.constants import APP_TITLE
 from waydroid_helper.controller.core.handler import (DefaultEventHandler,
                                                      InputEvent,
                                                      InputEventHandlerChain,
                                                      KeyMappingEventHandler,
-                                                     key_mapping_manager)
+                                                     KeyMappingManager)
 from waydroid_helper.controller.ui.menus import ContextMenuManager
 from waydroid_helper.controller.ui.styles import StyleManager
 from waydroid_helper.controller.widgets.factory import WidgetFactory
-from waydroid_helper.util.adb_helper import AdbHelper
-from waydroid_helper.util.log import logger
+from waydroid_helper.util import AdbHelper, logger
 
 if TYPE_CHECKING:
     from waydroid_helper.controller.widgets.base import BaseWidget
@@ -99,11 +103,18 @@ class TransparentWindow(Adw.Window):
         blurb="The current operating mode (edit or mapping)",
     )
 
-    def __init__(self, app):
+    def __init__(self, app, display_name: str):
         super().__init__(application=app)
 
         # 添加关闭状态标志，避免重复关闭
         self._is_closing = False
+
+        if self.get_display().get_name() != display_name:
+            display = Gdk.Display.open(display_name)
+            if display:
+                self.set_display(display)
+            else:
+                raise ValueError("Failed to open display")
 
         self.connect("close-request", self._on_close_request)
 
@@ -116,6 +127,8 @@ class TransparentWindow(Adw.Window):
         self.fixed = Gtk.Fixed.new()
         self.fixed.set_name("mapping-widget")
         overlay.set_child(self.fixed)
+
+        self.event_bus = EventBus()
 
         # Create mode switching hint
         self.notification_label = Gtk.Label.new("")
@@ -134,17 +147,17 @@ class TransparentWindow(Adw.Window):
 
         # Initialize components
         self.widget_factory = WidgetFactory()
-        self.style_manager = StyleManager()
+        self.style_manager = StyleManager(self.get_display())
         self.menu_manager = ContextMenuManager(self)
-        self.workspace_manager = WorkspaceManager(self, self.fixed)
+        self.workspace_manager = WorkspaceManager(self, self.fixed, self.event_bus)
 
         # Subscribe to events
-        event_bus.subscribe(
+        self.event_bus.subscribe(
             EventType.SETTINGS_WIDGET,
             self._on_widget_settings_requested,
             subscriber=self,
         )
-        event_bus.subscribe(
+        self.event_bus.subscribe(
             EventType.WIDGET_SELECTION_OVERLAY,
             self._on_widget_selection_overlay,
             subscriber=self,
@@ -155,14 +168,17 @@ class TransparentWindow(Adw.Window):
         self.circle_overlay.set_can_target(False)  # Ignore mouse events
         overlay.add_overlay(self.circle_overlay)
 
+        self.pointer_id_manager = PointerIdManager()
+        self.key_registry = KeyRegistry()
+        self.key_mapping_manager = KeyMappingManager(self.event_bus)
         # Create global event handler chain
         self.event_handler_chain = InputEventHandlerChain()
         # Import and add default handler
-        self.server = Server("0.0.0.0", 10721)  # 使用单例模式
+        self.server = Server("0.0.0.0", 10721, self.event_bus)  # 使用单例模式
         self.adb_helper = AdbHelper()
         self.scrcpy_setup_task = asyncio.create_task(self.setup_scrcpy())
-        self.key_mapping_handler = KeyMappingEventHandler()
-        self.default_handler = DefaultEventHandler()
+        self.key_mapping_handler = KeyMappingEventHandler(self.key_mapping_manager)
+        self.default_handler = DefaultEventHandler(self.event_bus)
 
         self.event_handler_chain.add_handler(self.key_mapping_handler)
         self.event_handler_chain.add_handler(self.default_handler)
@@ -226,7 +242,7 @@ class TransparentWindow(Adw.Window):
 
                 def on_mask_clicked(controller, n_press, x, y):
                     """遮罩层点击事件处理"""
-                    event_bus.emit(
+                    self.event_bus.emit(
                         Event(EventType.MASK_CLICKED, self, {"x": int(x), "y": int(y)})
                     )
 
@@ -370,9 +386,7 @@ class TransparentWindow(Adw.Window):
             self.workspace_manager.cleanup()
 
         # Clean up window's own event subscriptions
-        from waydroid_helper.controller.core import event_bus
-
-        event_bus.unsubscribe_by_subscriber(self)
+        self.event_bus.unsubscribe_by_subscriber(self)
 
         # 关闭服务器
         self.server.close()
@@ -381,14 +395,6 @@ class TransparentWindow(Adw.Window):
 
         asyncio.create_task(self.cleanup_scrcpy())
 
-        # 重置单例状态，确保下次打开窗口时是全新的状态
-        from waydroid_helper.controller.core.event_bus import EventBus
-        from waydroid_helper.controller.core.server import Server
-
-        EventBus.reset_singleton()
-        Server.reset_singleton()
-        # KeyRegistry 通常不需要重置，因为按键映射是静态的
-        # KeyRegistry.reset_singleton()
 
         super().close()
 
@@ -411,7 +417,9 @@ class TransparentWindow(Adw.Window):
                     continue
 
                 # 2. Get screen resolution. Not critical, so no retry on failure.
-                await self.adb_helper.get_screen_resolution()
+                screen_resolution = await self.adb_helper.get_screen_resolution()
+                if screen_resolution:
+                    ScreenInfo().set_resolution(screen_resolution[0], screen_resolution[1])
 
                 # 3. Push server to device
                 if not await self.adb_helper.push_scrcpy_server():
@@ -462,6 +470,17 @@ class TransparentWindow(Adw.Window):
         self.maximize()
 
         self.set_name("transparent-window")
+        self.get_surface().connect("notify::state", self.on_maximized_changed)
+
+
+    def on_maximized_changed(self, w, pspec):
+        from gi.repository import Gdk
+        from waydroid_helper.controller.core.control_msg import ScreenInfo
+        if w.get_property("state") & Gdk.ToplevelState.FOCUSED:
+            self.set_default_size(self.get_width(), self.get_height())
+            self.set_size_request(self.get_width(), self.get_height())
+            ScreenInfo().set_host_resolution(self.get_width(), self.get_height())
+            self.set_resizable(False)
 
     def setup_ui(self):
         """Sets up the user interface"""
@@ -519,7 +538,7 @@ class TransparentWindow(Adw.Window):
         if self.current_mode == self.MAPPING_MODE:
 
             # Create Key object for mouse button
-            mouse_key = key_registry.create_mouse_key(button)
+            mouse_key = self.key_registry.create_mouse_key(button)
 
             # Create input event
             event = InputEvent(
@@ -563,13 +582,13 @@ class TransparentWindow(Adw.Window):
             mouse_key = None
             button = None
             if state & Gdk.ModifierType.BUTTON1_MASK:
-                mouse_key = key_registry.create_mouse_key(Gdk.BUTTON_PRIMARY)
+                mouse_key = self.key_registry.create_mouse_key(Gdk.BUTTON_PRIMARY)
                 button = Gdk.BUTTON_PRIMARY
             elif state & Gdk.ModifierType.BUTTON2_MASK:
-                mouse_key = key_registry.create_mouse_key(Gdk.BUTTON_MIDDLE)
+                mouse_key = self.key_registry.create_mouse_key(Gdk.BUTTON_MIDDLE)
                 button = Gdk.BUTTON_MIDDLE
             elif state & Gdk.ModifierType.BUTTON3_MASK:
-                mouse_key = key_registry.create_mouse_key(Gdk.BUTTON_SECONDARY)
+                mouse_key = self.key_registry.create_mouse_key(Gdk.BUTTON_SECONDARY)
                 button = Gdk.BUTTON_SECONDARY
 
             event = InputEvent(
@@ -580,7 +599,7 @@ class TransparentWindow(Adw.Window):
                 raw_data={"controller": controller, "x": x, "y": y},
             )
             # Skill casting and right-click walking
-            event_bus.emit(Event(EventType.MOUSE_MOTION, self, event))
+            self.event_bus.emit(Event(EventType.MOUSE_MOTION, self, event))
             self.event_handler_chain.process_event(event)
             return
 
@@ -710,7 +729,7 @@ class TransparentWindow(Adw.Window):
         if self.current_mode == self.MAPPING_MODE:
 
             # Create Key object for mouse button
-            mouse_key = key_registry.create_mouse_key(button)
+            mouse_key = self.key_registry.create_mouse_key(button)
 
             # Create input event
             event = InputEvent(
@@ -977,27 +996,27 @@ class TransparentWindow(Adw.Window):
 
             # Process modifier keys themselves
             if self._is_modifier_key(keyval):
-                main_key = key_registry.create_from_keyval(keyval)
+                main_key = self.key_registry.create_from_keyval(keyval)
             else:
-                main_key = key_registry.create_from_keyval(physical_keyval)
+                main_key = self.key_registry.create_from_keyval(physical_keyval)
 
             if main_key:
                 # Collect modifier keys
                 modifiers = []
                 if state & Gdk.ModifierType.CONTROL_MASK:
-                    ctrl_key = key_registry.get_by_name("Ctrl_L")
+                    ctrl_key = self.key_registry.get_by_name("Ctrl_L")
                     if ctrl_key:
                         modifiers.append(ctrl_key)
                 if state & Gdk.ModifierType.ALT_MASK:
-                    alt_key = key_registry.get_by_name("Alt_L")
+                    alt_key = self.key_registry.get_by_name("Alt_L")
                     if alt_key:
                         modifiers.append(alt_key)
                 if state & Gdk.ModifierType.SHIFT_MASK:
-                    shift_key = key_registry.get_by_name("Shift_L")
+                    shift_key = self.key_registry.get_by_name("Shift_L")
                     if shift_key:
                         modifiers.append(shift_key)
                 if state & Gdk.ModifierType.SUPER_MASK:
-                    super_key = key_registry.get_by_name("Super_L")
+                    super_key = self.key_registry.get_by_name("Super_L")
                     if super_key:
                         modifiers.append(super_key)
 
@@ -1112,7 +1131,7 @@ class TransparentWindow(Adw.Window):
             self.set_title(f"{APP_TITLE} - Edit Mode (F1: Switch Mode)")
 
             # Display edit mode help information
-            event_bus.emit(Event(EventType.EXIT_STARING, self, None))
+            self.event_bus.emit(Event(EventType.EXIT_STARING, self, None))
 
     def switch_mode(self, new_mode):
         """Switches mode"""
@@ -1134,24 +1153,24 @@ class TransparentWindow(Adw.Window):
 
         # Add modifier keys
         if state & Gdk.ModifierType.CONTROL_MASK:
-            ctrl_key = key_registry.get_by_name("Ctrl")
+            ctrl_key = self.key_registry.get_by_name("Ctrl")
             if ctrl_key:
                 keys.append(ctrl_key)
         if state & Gdk.ModifierType.ALT_MASK:
-            alt_key = key_registry.get_by_name("Alt")
+            alt_key = self.key_registry.get_by_name("Alt")
             if alt_key:
                 keys.append(alt_key)
         if state & Gdk.ModifierType.SHIFT_MASK:
-            shift_key = key_registry.get_by_name("Shift")
+            shift_key = self.key_registry.get_by_name("Shift")
             if shift_key:
                 keys.append(shift_key)
         if state & Gdk.ModifierType.SUPER_MASK:
-            super_key = key_registry.get_by_name("Super")
+            super_key = self.key_registry.get_by_name("Super")
             if super_key:
                 keys.append(super_key)
 
         # Get main key
-        main_key = key_registry.create_from_keyval(keyval, state)
+        main_key = self.key_registry.create_from_keyval(keyval, state)
         if main_key:
             keys.append(main_key)
 
@@ -1163,31 +1182,31 @@ class TransparentWindow(Adw.Window):
         """Registers widget's key mapping"""
         # Automatically read widget's reentrant attribute
         reentrant = getattr(widget, "IS_REENTRANT", False)
-        return key_mapping_manager.subscribe(
+        return self.key_mapping_manager.subscribe(
             widget, key_combination, reentrant=reentrant
         )
 
     def unregister_widget_key_mapping(self, widget) -> bool:
         """Unsubscribes all key mappings for a widget"""
-        return key_mapping_manager.unsubscribe(widget)
+        return self.key_mapping_manager.unsubscribe(widget)
 
     def unregister_single_widget_key_mapping(
         self, widget, key_combination: KeyCombination
     ) -> bool:
         """Unsubscribes a single key mapping for a widget"""
-        return key_mapping_manager.unsubscribe_key(widget, key_combination)
+        return self.key_mapping_manager.unsubscribe_key(widget, key_combination)
 
     def get_widget_key_mapping(self, widget) -> list[KeyCombination]:
         """Gets the list of key mappings for a specified widget"""
-        return key_mapping_manager.get_subscriptions(widget)
+        return self.key_mapping_manager.get_subscriptions(widget)
 
     def print_key_mappings(self):
         """Prints all current key mappings (for debugging)"""
-        key_mapping_manager.print_mappings()
+        self.key_mapping_manager.print_mappings()
 
     def clear_all_key_mappings(self):
         """Clears all key mappings"""
-        return key_mapping_manager.clear()
+        return self.key_mapping_manager.clear()
 
     def on_global_key_release(self, controller, keyval, keycode, state):
         """Global key release event - uses event handler chain"""
@@ -1200,27 +1219,27 @@ class TransparentWindow(Adw.Window):
 
             # Process modifier keys themselves
             if self._is_modifier_key(keyval):
-                main_key = key_registry.create_from_keyval(keyval)
+                main_key = self.key_registry.create_from_keyval(keyval)
             else:
-                main_key = key_registry.create_from_keyval(physical_keyval)
+                main_key = self.key_registry.create_from_keyval(physical_keyval)
 
             if main_key:
                 # Collect modifier keys
                 modifiers = []
                 if state & Gdk.ModifierType.CONTROL_MASK:
-                    ctrl_key = key_registry.get_by_name("Ctrl_L")
+                    ctrl_key = self.key_registry.get_by_name("Ctrl_L")
                     if ctrl_key:
                         modifiers.append(ctrl_key)
                 if state & Gdk.ModifierType.ALT_MASK:
-                    alt_key = key_registry.get_by_name("Alt_L")
+                    alt_key = self.key_registry.get_by_name("Alt_L")
                     if alt_key:
                         modifiers.append(alt_key)
                 if state & Gdk.ModifierType.SHIFT_MASK:
-                    shift_key = key_registry.get_by_name("Shift_L")
+                    shift_key = self.key_registry.get_by_name("Shift_L")
                     if shift_key:
                         modifiers.append(shift_key)
                 if state & Gdk.ModifierType.SUPER_MASK:
-                    super_key = key_registry.get_by_name("Super_L")
+                    super_key = self.key_registry.get_by_name("Super_L")
                     if super_key:
                         modifiers.append(super_key)
 
@@ -1262,6 +1281,8 @@ class TransparentWindow(Adw.Window):
         }
         return keyval in modifier_keys
 
+    def get_key_mapping_size(self):
+        return self._key_mapping_width, self._key_mapping_height
     # def print_event_handlers_status(self):
     #     """Prints event handler status (for debugging)"""
     #     print(f"\n[DEBUG] ==================Event handler status==================")
@@ -1282,3 +1303,20 @@ class TransparentWindow(Adw.Window):
     #         f"[DEBUG] Default handler mouse mappings: {list(self.default_handler.mouse_mappings.keys())}"
     #     )
     #     print(f"[DEBUG] ================================================\n")
+
+
+class KeyMapper(Adw.Application):
+    def __init__(self, display_name: str):
+        super().__init__(application_id=f"com.jaoushingan.WaydroidHelper.KeyMapper.{display_name}")
+        self.display_name = display_name
+
+    def do_activate(self):
+        self.window = TransparentWindow(self, self.display_name)
+        self.window.present()
+
+def create_keymapper(display_name: str):
+    asyncio.set_event_loop_policy(
+        GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
+    )
+    app = KeyMapper(display_name)
+    app.run()

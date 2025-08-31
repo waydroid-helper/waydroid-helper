@@ -5,14 +5,18 @@
 """
 
 from functools import wraps
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 
 
-class WidgetDecorator:
+class WidgetDecorator: 
     """组件装饰器基类"""
 
-    def __init__(self, widget, **kwargs):
+    def __init__(self, widget: "BaseWidget", **kwargs):
         """初始化装饰器，包装原始组件"""
-        self._wrapped_widget = widget
+        self._wrapped_widget: "BaseWidget" = widget
         self._decorator_kwargs = kwargs
         self._setup_decorator()
 

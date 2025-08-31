@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-方向盘组件
-一个圆形的方向盘，支持上下左右四个方向的按键操作
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -21,17 +15,15 @@ if TYPE_CHECKING:
 
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
-from waydroid_helper.controller.core import KeyCombination, key_registry
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+from waydroid_helper.controller.core import KeyCombination, KeyRegistry
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
-                                                       event_bus)
-from waydroid_helper.controller.core.utils import pointer_id_manager
+                                                       EventBus)
+from waydroid_helper.controller.core.utils import PointerIdManager
 from waydroid_helper.controller.widgets import BaseWidget
 from waydroid_helper.controller.widgets.config import create_dropdown_config
 from waydroid_helper.controller.widgets.decorators import (Editable, Resizable,
                                                            ResizableDecorator)
-from waydroid_helper.util.task import Task
-
 
 class MovementMode(Enum):
     SMOOTH = "smooth"
@@ -79,8 +71,23 @@ class DirectionalPad(BaseWidget):
         height: int = 150,
         text: str = "",
         direction_keys: dict[str, KeyCombination | None] | None = None,
+        event_bus: EventBus | None = None,
+        pointer_id_manager: PointerIdManager | None = None,
+        key_registry: KeyRegistry | None = None,
     ):
-
+        super().__init__(
+            x,
+            y,
+            min(width, height),
+            min(width, height),
+            pgettext("Controller Widgets", "Directional Pad"),
+            text,
+            min_width=60,
+            min_height=60,
+            event_bus = event_bus,
+            pointer_id_manager = pointer_id_manager,
+            key_registry = key_registry,
+        )
         self.direction_keys: dict[str, KeyCombination | None] = {
             "up": None,
             "down": None,
@@ -101,20 +108,9 @@ class DirectionalPad(BaseWidget):
         for key_combo in self.direction_keys.values():
             if key_combo:
                 all_keys.add(key_combo)
+        
+        self.set_default_keys(all_keys)
 
-        # 调用基类的初始化
-        super().__init__(
-            x,
-            y,
-            width,
-            height,
-            pgettext("Controller Widgets", "Directional Pad"),
-            text,
-            set(all_keys),
-            min_width=60,
-            min_height=60,
-        )
-        # 当前按下的方向状态
         self.pressed_directions: dict[str, bool] = {
             direction: False for direction in self.DIRECTIONS
         }
@@ -127,7 +123,6 @@ class DirectionalPad(BaseWidget):
         self._movement_state: MovementState = MovementState.IDLE
         self._state_lock = asyncio.Lock()
         self._movement_task: asyncio.Task[None] | None = None
-        self._task_manager = Task()
 
         # 移动参数
         self._move_interval: float = 0.02  # 20ms in seconds
@@ -176,7 +171,8 @@ class DirectionalPad(BaseWidget):
         self.add_config_change_callback("movement_mode", lambda key, value, restoring: self.set_movement_mode(value))
         self.swipehold_radius_factor = 1
 
-        event_bus.subscribe(EventType.SWIPEHOLD_RADIUS, self.on_swipehold_radius_changed, subscriber=self)
+        self.event_bus.subscribe(EventType.SWIPEHOLD_RADIUS, self.on_swipehold_radius_changed, subscriber=self)
+        self.screen_info = ScreenInfo()
     
     def on_swipehold_radius_changed(self, event: Event[float]):
         """滑动半径系数设置"""
@@ -238,12 +234,12 @@ class DirectionalPad(BaseWidget):
 
         if use_smooth:
             # 创建平滑移动任务
-            self._movement_task = self._task_manager.create_task(
+            self._movement_task = asyncio.create_task(
                 self._smooth_move_to(target)
             )
         else:
             # 创建瞬间移动任务
-            self._movement_task = self._task_manager.create_task(
+            self._movement_task = asyncio.create_task(
                 self._instant_move_to(target)
             )
 
@@ -308,7 +304,7 @@ class DirectionalPad(BaseWidget):
         for direction in self.DIRECTIONS:
             if not self.direction_keys[direction]:
                 key_name = self.DEFAULT_KEYS[direction]
-                key = key_registry.get_by_name(key_name)
+                key = self.key_registry.get_by_name(key_name)
                 if key:
                     self.direction_keys[direction] = KeyCombination([key])
 
@@ -566,14 +562,10 @@ class DirectionalPad(BaseWidget):
         self, action: AMotionEventAction, position: tuple[float, float] | None = None
     ):
         pos = position if position is not None else self._current_position
-        root = self.get_root()
-        if not root:
-            return
-        root = cast("Gtk.Window", root)
-        w, h = root.get_width(), root.get_height()
+        w, h = self.screen_info.get_host_resolution()
         pressure = 1.0 if action != AMotionEventAction.UP else 0.0
         buttons = AMotionEventButtons.PRIMARY if action != AMotionEventAction.UP else 0
-        pointer_id = pointer_id_manager.get_allocated_id(self)
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return
 
@@ -585,7 +577,7 @@ class DirectionalPad(BaseWidget):
             action_button=AMotionEventButtons.PRIMARY,
             buttons=buttons,
         )
-        event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
 
     def on_key_triggered(self, key_combination: KeyCombination | None = None, event: "InputEvent | None" = None) -> bool:
         """当映射的按键被触发时的行为 - 根据按键确定方向"""
@@ -597,7 +589,7 @@ class DirectionalPad(BaseWidget):
             self.pressed_directions[direction] = True
             target = self._get_target_position()
             if not self._joystick_active:
-                pointer_id = pointer_id_manager.allocate(self)
+                pointer_id = self.pointer_id_manager.allocate(self)
                 if pointer_id is None:
                     return False
                 self._joystick_active = True
@@ -628,7 +620,7 @@ class DirectionalPad(BaseWidget):
                 self._joystick_active = False
                 self._cancel_movement_task()
                 self._emit_touch_event(AMotionEventAction.UP)
-                pointer_id_manager.release(self)
+                self.pointer_id_manager.release(self)
                 self._move_to(self.center, smooth=False)
             else:
                 # 还有其他键按下: 更新目标位置并瞬移
@@ -789,5 +781,5 @@ class DirectionalPad(BaseWidget):
         # 取消异步任务
         self._cancel_movement_task()
         # 取消事件订阅
-        event_bus.unsubscribe_by_subscriber(self)
+        self.event_bus.unsubscribe_by_subscriber(self)
         return super().on_delete()
