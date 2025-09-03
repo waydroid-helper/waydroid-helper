@@ -29,6 +29,15 @@ class DefaultEventHandler(InputEventHandler):
         self.mouse_mappings: dict[int, Callable[[InputEvent], None]] = {}
         self.keyboard_handler: KeyboardDefault = KeyboardDefault(event_bus)
         self.mouse_handler: MouseDefault = MouseDefault(event_bus)
+        self.handler_map:dict[str,Callable[[InputEvent], bool]] = {
+            "key_press": self._handle_default_key_press,
+            "key_release": self._handle_default_key_release,
+            "mouse_press": self._handle_default_mouse_press,
+            "mouse_release": self._handle_default_mouse_release,
+            "mouse_motion": self._handle_default_mouse_motion,
+            "mouse_scroll": self._handle_default_mouse_scroll,
+            "mouse_zoom": self._handle_default_mouse_zoom,
+        }
 
     def can_handle(self, event: InputEvent) -> bool:
         """默认处理器可以处理所有事件"""
@@ -37,20 +46,8 @@ class DefaultEventHandler(InputEventHandler):
     def handle_event(self, event: InputEvent) -> bool:
         """处理默认事件"""
         try:
-            if event.event_type == "key_press":
-                return self._handle_default_key_press(event)
-            elif event.event_type == "key_release":
-                return self._handle_default_key_release(event)
-            elif event.event_type == "mouse_press":
-                return self._handle_default_mouse_press(event)
-            elif event.event_type == "mouse_release":
-                return self._handle_default_mouse_release(event)
-            elif event.event_type == "mouse_motion":
-                return self._handle_default_mouse_motion(event)
-            elif event.event_type == "mouse_scroll":
-                return self._handle_default_mouse_scroll(event)
-            elif event.event_type == "mouse_zoom":
-                return self._handle_default_mouse_zoom(event)
+            handler = self.handler_map.get(event.event_type, lambda x: False)
+            return handler(event)
 
         except Exception as e:
             logger.error(f"Default event handler failed to process event: {e}")
