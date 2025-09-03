@@ -70,6 +70,29 @@
             }
         },
         {
+            "name": "google Pixel 7",
+            "properties": {
+                "ro.product.brand": "google",
+                "ro.product.manufacturer": "Google",
+                "ro.system.build.product": "",
+                "ro.product.name": "cheetah",
+                "ro.product.device": "cheetah",
+                "ro.product.model": "Pixel 7",
+                "ro.system.build.flavor": "",
+                "ro.build.fingerprint": "google/cheetah/cheetah:13/TQ2A.230305.008.C1/9619669:user/release-keys",
+                "ro.system.build.description": "",
+                "ro.bootimage.build.fingerprint": "google/cheetah/cheetah:13/TQ2A.230305.008.C1/9619669:user/release-keys",
+                "ro.build.display.id": "TQ2A.230305.008.C1",
+                "ro.build.tags": "release-keys",
+                "ro.build.description": "cheetah-user 13 TQ2A.230305.008.C1 9619669 release-keys",
+                "ro.vendor.build.fingerprint": "google/cheetah/cheetah:13/TQ2A.230305.008.C1/9619669:user/release-keys",
+                "ro.vendor.build.id": "TQ2A.230305.008.C1",
+                "ro.vendor.build.tags": "release-keys",
+                "ro.vendor.build.type": "user",
+                "ro.odm.build.tags": "release-keys"
+            }
+        },
+        {
             "name": "vivo V2196A",
             "properties": {
                 "ro.product.brand": "vivo",
@@ -120,7 +143,8 @@
         "Waydroid": 0,
         "HUAWEI VOG-AL10": 1,
         "google Pixel 5": 2,
-        "vivo V2196A": 3,
-        "samsung SM-G9860": 4
+        "google Pixel 7": 3,
+        "vivo V2196A": 4,
+        "samsung SM-G9860": 5
     }
 }
