@@ -9,7 +9,7 @@ import math
 from gettext import gettext as _
 from typing import TYPE_CHECKING
 
-import gi
+import gi, signal
 
 from waydroid_helper.controller.core.control_msg import ScreenInfo
 from waydroid_helper.controller.core.utils import PointerIdManager
@@ -371,34 +371,40 @@ class TransparentWindow(Adw.Window):
         popover.popup()
 
     def _on_close_request(self, window):
-        self.on_clear_widgets(None)
-        self.close()
+        async def close():
+            await self.close_server()
+            await self.cleanup_scrcpy()
+        asyncio.create_task(close())
         return False
 
-    def close(self):
-        # 避免重复关闭
-        if self._is_closing:
-            return
-        self._is_closing = True
+    # def close(self):
+    #     # 避免重复关闭
+    #     if self._is_closing:
+    #         return
+    #     self._is_closing = True
 
-        # Clean up workspace manager first
-        if hasattr(self, "workspace_manager"):
-            self.workspace_manager.cleanup()
+    #     # Clean up workspace manager first
+    #     if hasattr(self, "workspace_manager"):
+    #         self.workspace_manager.cleanup()
 
-        # Clean up window's own event subscriptions
-        self.event_bus.unsubscribe_by_subscriber(self)
+    #     # Clean up window's own event subscriptions
+    #     self.event_bus.unsubscribe_by_subscriber(self)
 
-        # 关闭服务器
-        self.server.close()
-        if not self.scrcpy_setup_task.done():
-            self.scrcpy_setup_task.cancel()
+    #     # 关闭服务器
+    #     self.server.close()
+    #     if not self.scrcpy_setup_task.done():
+    #         self.scrcpy_setup_task.cancel()
 
-        asyncio.create_task(self.cleanup_scrcpy())
+    #     asyncio.create_task(self.cleanup_scrcpy())
 
+    #     super().close()
 
-        super().close()
+    async def close_server(self):
+        await self.server.close()
 
     async def cleanup_scrcpy(self):
+        if not self.scrcpy_setup_task.done():
+            self.scrcpy_setup_task.cancel()
         await self.adb_helper.remove_reverse_tunnel()
 
     async def setup_scrcpy(self):
@@ -1309,10 +1315,26 @@ class KeyMapper(Adw.Application):
     def __init__(self, display_name: str):
         super().__init__(application_id=f"com.jaoushingan.WaydroidHelper.KeyMapper.{display_name}")
         self.display_name = display_name
+        self.window = None
 
     def do_activate(self):
         self.window = TransparentWindow(self, self.display_name)
         self.window.present()
+    
+        # 捕获 SIGTERM
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, self.on_sigterm)
+
+    async def _do_shutdown(self) -> None:
+        if self.window:
+            self.window.on_clear_widgets(None)
+            await self.window.close_server()
+            await self.window.cleanup_scrcpy()
+        self.quit()   # 在清理结束后再退出
+
+    def on_sigterm(self):
+        # 只调度异步任务，不要直接退出
+        asyncio.create_task(self._do_shutdown())
+        return True
 
 def create_keymapper(display_name: str):
     asyncio.set_event_loop_policy(
