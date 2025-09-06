@@ -1313,7 +1313,10 @@ class TransparentWindow(Adw.Window):
 
 class KeyMapper(Adw.Application):
     def __init__(self, display_name: str):
-        super().__init__(application_id=f"com.jaoushingan.WaydroidHelper.KeyMapper.{display_name}")
+        # 将 display_name 转换为有效的 application ID 格式
+        # 替换无效字符并确保符合 D-Bus 规范
+        sanitized_display = display_name.replace(":", "_").replace("/", "_").replace("-", "_")
+        super().__init__(application_id=f"com.jaoushingan.WaydroidHelper.KeyMapper.{sanitized_display}")
         self.display_name = display_name
         self.window = None
 
