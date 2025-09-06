@@ -20,10 +20,13 @@ def get_platform(widget):
         except ImportError as e:
             logger.error(f"Failed to load Wayland platform support: {e}")
 
-    # 可以在这里添加其他平台支持
-    # elif os.environ.get('DISPLAY'):
-    #     from .x11 import X11Platform
-    #     return X11Platform(widget)
+    # X11平台支持
+    elif os.environ.get('DISPLAY'):
+        try:
+            from .x11 import X11Platform
+            return X11Platform(widget)
+        except ImportError as e:
+            logger.error(f"Failed to load X11 platform support: {e}")
 
     logger.warning("No suitable platform implementation found")
     return None
