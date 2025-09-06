@@ -36,6 +36,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.logical_height_spin: Gtk.SpinButton
         self.scale_spin: Gtk.SpinButton
         self.socket_name_entry: Gtk.Entry
+        self.hide_titlebar_switch: Gtk.Switch
 
         self._setup_ui()
         self._setup_signals()
@@ -235,6 +236,18 @@ class KeyMappingPreferenceDialog(Dialog):
 
         group.add(socket_name_row)
 
+        # Hide Title Bar
+        hide_titlebar_row = Adw.ActionRow.new()
+        hide_titlebar_row.set_title(_("Hide Title Bar"))
+        hide_titlebar_row.set_subtitle(_("Hide cage window title bar (X11 backend only)"))
+
+        self.hide_titlebar_switch = Gtk.Switch.new()
+        self.hide_titlebar_switch.set_valign(Gtk.Align.CENTER)
+        hide_titlebar_row.add_suffix(self.hide_titlebar_switch)
+        hide_titlebar_row.set_activatable_widget(self.hide_titlebar_switch)
+
+        group.add(hide_titlebar_row)
+
         return group
 
     def _update_controls_sensitivity(self):
@@ -250,6 +263,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.logical_height_spin.set_sensitive(enabled)
         self.scale_spin.set_sensitive(enabled)
         self.socket_name_entry.set_sensitive(enabled)
+        self.hide_titlebar_switch.set_sensitive(enabled)
 
     def _setup_signals(self):
         """设置信号连接"""
@@ -368,6 +382,20 @@ class KeyMappingPreferenceDialog(Dialog):
             "socket_name",
             self.socket_name_entry,
             "text",
+            GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+        )
+
+        self.config.cage.bind_property(
+            "enabled",
+            self.hide_titlebar_switch,
+            "sensitive",
+            GObject.BindingFlags.SYNC_CREATE,
+        )
+
+        self.config.cage.bind_property(
+            "hide_titlebar",
+            self.hide_titlebar_switch,
+            "active",
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
         )
 

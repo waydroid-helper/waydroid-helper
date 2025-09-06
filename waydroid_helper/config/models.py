@@ -17,6 +17,7 @@ class CageConfig(GObject.Object):
     logical_height = GObject.Property(type=int, default=1080)
     scale = GObject.Property(type=int, default=100)
     socket_name = GObject.Property(type=str, default="waydroid-0")
+    hide_titlebar = GObject.Property(type=bool, default=False)
 
 
 class RootConfig(GObject.Object):
