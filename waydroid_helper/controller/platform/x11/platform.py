@@ -110,6 +110,19 @@ libx11.XFlush.argtypes = [ctypes.c_void_p]
 libx11.XSync.restype = ctypes.c_int
 libx11.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
 
+libx11.XQueryPointer.restype = ctypes.c_int
+libx11.XQueryPointer.argtypes = [
+    ctypes.c_void_p,  # display
+    ctypes.c_ulong,   # window
+    ctypes.POINTER(ctypes.c_ulong),  # root_return
+    ctypes.POINTER(ctypes.c_ulong),  # child_return
+    ctypes.POINTER(ctypes.c_int),    # root_x_return
+    ctypes.POINTER(ctypes.c_int),    # root_y_return
+    ctypes.POINTER(ctypes.c_int),    # win_x_return
+    ctypes.POINTER(ctypes.c_int),    # win_y_return
+    ctypes.POINTER(ctypes.c_uint),   # mask_return
+]
+
 # GTK4 X11 后端函数
 try:
     # 尝试加载GTK4的X11后端库
@@ -176,6 +189,42 @@ class X11PointerLock(GObject.Object):
         self.event_thread = None
         self.should_stop = False
 
+    def get_current_cursor_position(self):
+        """获取当前鼠标在窗口内的位置"""
+        if not self.display or not self.window_id:
+            return None, None
+        
+        try:
+            root_return = ctypes.c_ulong()
+            child_return = ctypes.c_ulong()
+            root_x = ctypes.c_int()
+            root_y = ctypes.c_int()
+            win_x = ctypes.c_int()
+            win_y = ctypes.c_int()
+            mask = ctypes.c_uint()
+            
+            result = libx11.XQueryPointer(
+                self.display,
+                self.window_id,
+                ctypes.byref(root_return),
+                ctypes.byref(child_return),
+                ctypes.byref(root_x),
+                ctypes.byref(root_y),
+                ctypes.byref(win_x),
+                ctypes.byref(win_y),
+                ctypes.byref(mask)
+            )
+            
+            if result:
+                return win_x.value, win_y.value
+            else:
+                logger.warning("XQueryPointer failed")
+                return None, None
+                
+        except Exception as e:
+            logger.error(f"Failed to get cursor position: {e}")
+            return None, None
+
     def setup(self):
         """初始化X11显示和窗口"""
         try:
@@ -201,23 +250,29 @@ class X11PointerLock(GObject.Object):
             # 获取缩放因子来处理高DPI
             gdk_display = self.widget.get_display()
             scale_factor = gdk_display.get_monitors().get_item(0).get_scale_factor()
+            self.scale_factor = scale_factor
             
-            # 获取窗口中心点（逻辑像素）
-            allocation = self.widget.get_allocation()
-            logical_center_x = allocation.width // 2
-            logical_center_y = allocation.height // 2
+            # 获取当前鼠标位置作为锁定位置
+            cursor_x, cursor_y = self.get_current_cursor_position()
             
-            # 转换为物理像素
-            self.center_x = int(logical_center_x * scale_factor)
-            self.center_y = int(logical_center_y * scale_factor)
+            if cursor_x is not None and cursor_y is not None:
+                # XQueryPointer返回的已经是物理像素坐标，无需再乘以缩放因子
+                self.center_x = cursor_x
+                self.center_y = cursor_y
+                logger.debug(f"Using current cursor position: physical({cursor_x}x{cursor_y})")
+            else:
+                # 如果无法获取当前位置，回退到窗口中心
+                allocation = self.widget.get_allocation()
+                logical_center_x = allocation.width // 2
+                logical_center_y = allocation.height // 2
+                self.center_x = int(logical_center_x * scale_factor)
+                self.center_y = int(logical_center_y * scale_factor)
+                logger.warning(f"Failed to get cursor position, using window center: {self.center_x}x{self.center_y}")
             
             logger.debug(f"Scale factor: {scale_factor}")
-            logger.debug(f"Logical size: {allocation.width}x{allocation.height}")
-            logger.debug(f"Physical center: {self.center_x}x{self.center_y}")
             
             self.last_x = self.center_x
             self.last_y = self.center_y
-            self.scale_factor = scale_factor
             
             return True
         except Exception as e:
@@ -251,14 +306,7 @@ class X11PointerLock(GObject.Object):
                 logger.error(f"XGrabPointer failed with result: {result}")
                 return False
 
-            # 将鼠标移动到窗口中心
-            libx11.XWarpPointer(
-                self.display,
-                0,  # src_w
-                self.window_id,  # dest_w
-                0, 0, 0, 0,  # src coordinates and size
-                self.center_x, self.center_y  # dest coordinates
-            )
+            # 不再移动鼠标到中心，保持当前位置
             libx11.XFlush(self.display)
 
             self.is_locked = True
@@ -336,7 +384,7 @@ class X11PointerLock(GObject.Object):
                         # 转换为motion event
                         motion = ctypes.cast(ctypes.byref(event), ctypes.POINTER(XMotionEvent)).contents
                         
-                        # 如果鼠标离中心太远，先重新定位到中心，然后忽略这个事件
+                        # 如果鼠标离锁定位置太远，先重新定位到锁定位置，然后忽略这个事件
                         if hasattr(self, 'scale_factor') and self.display:
                             threshold = int(50 * self.scale_factor)
                             if abs(motion.x - self.center_x) > threshold or abs(motion.y - self.center_y) > threshold:

@@ -7,6 +7,7 @@ Provides implementation and window management for transparent windows
 
 import math
 from gettext import gettext as _
+from turtle import width
 from typing import TYPE_CHECKING
 
 import gi, signal
@@ -472,21 +473,25 @@ class TransparentWindow(Adw.Window):
         """Sets window properties"""
         self.realize()
         self.set_decorated(False)
-
         self.maximize()
 
         self.set_name("transparent-window")
-        self.get_surface().connect("notify::state", self.on_maximized_changed)
 
-
-    def on_maximized_changed(self, w, pspec):
-        from gi.repository import Gdk
-        from waydroid_helper.controller.core.control_msg import ScreenInfo
-        if w.get_property("state") & Gdk.ToplevelState.FOCUSED:
-            self.set_default_size(self.get_width(), self.get_height())
-            self.set_size_request(self.get_width(), self.get_height())
-            ScreenInfo().set_host_resolution(self.get_width(), self.get_height())
+    def do_size_allocate(self, width:int, height:int, baseline:int):
+        # Call parent's size_allocate first
+        Adw.Window().do_size_allocate(self, width, height, baseline)
+        sc = ScreenInfo()
+        print(f"do_size_allocate: {width} x {height}")
+        if self.is_maximized() and sc.host_width == 0 and sc.host_height == 0:
+            width = self.get_allocated_width()
+            height = self.get_allocated_height()
+            
+            self.set_default_size(width, height)
+            self.set_size_request(width, height)
+            sc.set_host_resolution(width, height)
+            self.fixed.set_size_request(width, height)
             self.set_resizable(False)
+            logger.info(f"Window maximized: {width} x {height}")
 
     def setup_ui(self):
         """Sets up the user interface"""
