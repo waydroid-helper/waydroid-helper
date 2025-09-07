@@ -34,6 +34,7 @@ from waydroid_helper.compat_widget import (
 from waydroid_helper.compat_widget.message_dialog import MessageDialog
 from waydroid_helper.props_page import PropsPage
 from waydroid_helper.extensions_page import ExtensionsPage
+from waydroid_helper.scripts_page import ScriptsPage
 import os
 from waydroid_helper.config.models import RootConfig
 
@@ -55,6 +56,7 @@ class InstanceDetailPage(NavigationPage):
         # Use lazy loading for page instances
         self._props_page = None
         self._extensions_page = None
+        self._scripts_page = None
         self._pages_created = False
 
         # Create main content first - this is lightweight
@@ -79,6 +81,7 @@ class InstanceDetailPage(NavigationPage):
             self._extensions_page = ExtensionsPage(
                 self.waydroid, navigation_view=self._navigation_view
             )
+            self._scripts_page = ScriptsPage()
             self._pages_created = True
 
             self._replace_placeholder_with_real_pages()
@@ -133,17 +136,37 @@ class InstanceDetailPage(NavigationPage):
         )
         extensions_page.set_icon_name("addon-symbolic")
 
+        # 创建脚本页面占位符
+        scripts_placeholder = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            valign=Gtk.Align.CENTER,
+            halign=Gtk.Align.CENTER,
+        )
+        scripts_placeholder.set_spacing(12)
+        scripts_spinner = Spinner()
+        scripts_label = Gtk.Label(label=_("Loading Scripts..."))
+        scripts_placeholder.append(scripts_spinner)
+        scripts_placeholder.append(scripts_label)
+
+        scripts_page = self.view_stack.add_titled(
+            scripts_placeholder, "scripts", _("Scripts")
+        )
+        scripts_page.set_icon_name("utilities-terminal-symbolic")
+
     def _replace_placeholder_with_real_pages(self):
         """将占位符替换为真实页面"""
-        if self._props_page and self._extensions_page:
+        if self._props_page and self._extensions_page and self._scripts_page:
             # 移除旧的占位符页面
             old_settings = self.view_stack.get_child_by_name("settings")
             old_extensions = self.view_stack.get_child_by_name("extensions")
+            old_scripts = self.view_stack.get_child_by_name("scripts")
 
             if old_settings:
                 self.view_stack.remove(old_settings)
             if old_extensions:
                 self.view_stack.remove(old_extensions)
+            if old_scripts:
+                self.view_stack.remove(old_scripts)
 
             # 添加真实页面
             settings_page = self.view_stack.add_titled(
@@ -155,6 +178,11 @@ class InstanceDetailPage(NavigationPage):
                 self._extensions_page, "extensions", _("Extensions")
             )
             extensions_page.set_icon_name("addon-symbolic")
+
+            scripts_page = self.view_stack.add_titled(
+                self._scripts_page, "scripts", _("Scripts")
+            )
+            scripts_page.set_icon_name("utilities-terminal-symbolic")
 
     def _create_simple_content(self):
         toolbar_view = ToolbarView.new()
@@ -270,7 +298,7 @@ class InstanceDetailPage(NavigationPage):
         current_page = stack.get_visible_child()
 
         current_page_name = stack.get_visible_child_name()
-        if current_page_name in ["settings", "extensions"] and not self._pages_created:
+        if current_page_name in ["settings", "extensions", "scripts"] and not self._pages_created:
             self._ensure_pages_created()
 
         if hasattr(self, "refresh_button"):

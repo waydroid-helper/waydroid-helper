@@ -60,6 +60,7 @@ waydroid_helper_sources = [
     'sdk.py',
     'gpu_combo_row.py',
     'key_mapping_preference_dialog.py',
+    'scripts_page.py',
 ]
 config_sources = [
     'config/__init__.py',
