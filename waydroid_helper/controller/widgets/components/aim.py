@@ -28,6 +28,7 @@ from waydroid_helper.controller.widgets.decorators import (
     Resizable,
     ResizableDecorator,
 )
+from waydroid_helper.util.log import logger
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
@@ -261,10 +262,10 @@ class Aim(BaseWidget):
             # 超出边界，发送UP事件并重置位置
             await self._send_touch_up(w, h)
             self._current_pos = (float(self.center_x), float(self.center_y))
-            await asyncio.sleep(0.05)
+            # await asyncio.sleep(0.05)
             await self._send_touch_down(w, h)
-            self._current_pos = (float(self.center_x) + dx, float(self.center_y) + dy)
-            await self._send_touch_move(w, h)
+            # self._current_pos = (float(self.center_x) + dx, float(self.center_y) + dy)
+            # await self._send_touch_move(w, h)
             return
 
         # 更新位置并发送MOVE事件
@@ -474,6 +475,7 @@ class Aim(BaseWidget):
             self.event_bus.emit(Event(type=EventType.AIM_TRIGGERED, source=self, data=None))
 
         except Exception as e:
+            logger.error(f"Failed to enter aiming state: {e}")
             await self._set_state(AimState.IDLE)
 
     async def _exit_aiming_state(self) -> None:
