@@ -481,7 +481,6 @@ class TransparentWindow(Adw.Window):
         # Call parent's size_allocate first
         Adw.Window().do_size_allocate(self, width, height, baseline)
         sc = ScreenInfo()
-        print(f"do_size_allocate: {width} x {height}")
         if self.is_maximized() and sc.host_width == 0 and sc.host_height == 0:
             width = self.get_allocated_width()
             height = self.get_allocated_height()
