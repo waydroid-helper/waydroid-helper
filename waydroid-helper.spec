@@ -34,6 +34,7 @@ Requires:       python3-pywayland
 Requires:       python3-yaml
 Requires:       python3-dbus
 Requires:       android-tools
+Requires:       vte291-gtk4
 
 Recommends:     bindfs
 

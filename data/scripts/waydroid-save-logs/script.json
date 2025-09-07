@@ -1,0 +1,6 @@
+{
+    "name": "Save Waydroid Logs",
+    "description": "Capture and save Waydroid system logs to a file for debugging and troubleshooting",
+    "author": "Waydroid Helper",
+    "entry_file": "run.sh"
+}

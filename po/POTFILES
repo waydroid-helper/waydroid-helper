@@ -17,6 +17,7 @@ waydroid_helper/key_mapping_preference_dialog.py
 waydroid_helper/gpu_combo_row.py
 waydroid_helper/models.py
 waydroid_helper/sdk.py
+waydroid_helper/scripts_page.py
 waydroid_helper/util/subprocess_manager.py
 waydroid_helper/util/log.py
 waydroid_helper/util/adb_helper.py

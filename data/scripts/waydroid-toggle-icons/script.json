@@ -1,0 +1,6 @@
+{
+    "name": "Toggle Waydroid App Icons",
+    "description": "Show or hide Waydroid application icons from the desktop launcher and application menu",
+    "author": "Waydroid Helper",
+    "entry_file": "run.sh"
+}

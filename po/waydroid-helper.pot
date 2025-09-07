@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-09 00:51+0800\n"
+"POT-Creation-Date: 2025-10-29 09:35+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -57,123 +57,112 @@ msgstr ""
 msgid "Loading"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:47
-#: waydroid_helper/instance_detail_page.py:182
+#: waydroid_helper/instance_detail_page.py:48
+#: waydroid_helper/instance_detail_page.py:210
 msgid "Instance Details"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:110
+#: waydroid_helper/instance_detail_page.py:113
 msgid "Loading Settings..."
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:115
-#: waydroid_helper/instance_detail_page.py:150
-#: waydroid_helper/controller/app/window.py:338
+#: waydroid_helper/instance_detail_page.py:118
+#: waydroid_helper/instance_detail_page.py:173
+#: waydroid_helper/controller/app/window.py:339
 msgid "Settings"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:127
+#: waydroid_helper/instance_detail_page.py:130
 msgid "Loading Extensions..."
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:132
-#: waydroid_helper/instance_detail_page.py:155
+#: waydroid_helper/instance_detail_page.py:135
+#: waydroid_helper/instance_detail_page.py:178
 msgid "Extensions"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:166
+#: waydroid_helper/instance_detail_page.py:147
+msgid "Loading Scripts..."
+msgstr ""
+
+#: waydroid_helper/instance_detail_page.py:152
+#: waydroid_helper/instance_detail_page.py:183
+msgid "Scripts"
+msgstr ""
+
+#: waydroid_helper/instance_detail_page.py:194
 msgid "Details"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:219
-#: waydroid_helper/instance_detail_page.py:242
+#: waydroid_helper/instance_detail_page.py:247
+#: waydroid_helper/instance_detail_page.py:270
 msgid "Click to refresh extension list"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:318
+#: waydroid_helper/instance_detail_page.py:343
 msgid "Restart the systemd user service immediately"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:331
+#: waydroid_helper/instance_detail_page.py:356
 msgid "Key Mapper"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:334
+#: waydroid_helper/instance_detail_page.py:359
 msgid "Key Mapping Window"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:336
+#: waydroid_helper/instance_detail_page.py:361
 msgid "Manage key mapping overlay window for game control"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:350
+#: waydroid_helper/instance_detail_page.py:375
 msgid "Key Mapping Settings"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:352
-#: waydroid_helper/instance_detail_page.py:429
-#: waydroid_helper/instance_detail_page.py:435
+#: waydroid_helper/instance_detail_page.py:377
+#: waydroid_helper/instance_detail_page.py:434
+#: waydroid_helper/instance_detail_page.py:440
 msgid "Open"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:370
-msgid "Cache Management"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:373
-#: waydroid_helper/instance_detail_page.py:663
-msgid "Clear Package Cache"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:375
-msgid "Fix startup issues after installing GApps or microG"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:378
-#: waydroid_helper/instance_detail_page.py:671
-#: waydroid_helper/instance_detail_page.py:721
-msgid "Clear Cache"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:424
+#: waydroid_helper/instance_detail_page.py:429
 #: waydroid_helper/gsf_retriever.py:237
 msgid "Close"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:470
+#: waydroid_helper/instance_detail_page.py:475
 msgid "Close Key Mapping Window"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:471
+#: waydroid_helper/instance_detail_page.py:476
 msgid "Choose how to close the key mapping window"
 msgstr ""
 
 #. 左侧取消按钮
-#: waydroid_helper/instance_detail_page.py:475
-#: waydroid_helper/instance_detail_page.py:525
-#: waydroid_helper/instance_detail_page.py:670
-#: waydroid_helper/available_version_page.py:245
+#: waydroid_helper/instance_detail_page.py:480
+#: waydroid_helper/instance_detail_page.py:530
+#: waydroid_helper/available_version_page.py:285
 #: waydroid_helper/gsf_retriever.py:97 waydroid_helper/gsf_retriever.py:127
-#: waydroid_helper/key_mapping_preference_dialog.py:70
+#: waydroid_helper/key_mapping_preference_dialog.py:71
 #: waydroid_helper/compat_widget/file_dialog.py:118
 #: waydroid_helper/compat_widget/shared_folder_dialog.py:231
 #: data/ui/InfoBar.ui:39
 msgid "Cancel"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:476
+#: waydroid_helper/instance_detail_page.py:481
 msgid "Close Key Mapping Only"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:477
+#: waydroid_helper/instance_detail_page.py:482
 msgid "Close and Stop Session"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:518
+#: waydroid_helper/instance_detail_page.py:523
 msgid "Session Will Be Stopped"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:520
+#: waydroid_helper/instance_detail_page.py:525
 msgid ""
 "Cage is enabled and Waydroid session is running. Opening the key mapping "
 "window will stop the current session.\n"
@@ -181,17 +170,18 @@ msgid ""
 "Do you want to continue?"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:526
+#: waydroid_helper/instance_detail_page.py:531
 msgid "Continue"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:607
-#: waydroid_helper/instance_detail_page.py:639
-#: waydroid_helper/gsf_retriever.py:215 waydroid_helper/gsf_retriever.py:417
+#: waydroid_helper/instance_detail_page.py:613
+#: waydroid_helper/instance_detail_page.py:645
+#: waydroid_helper/shared_folder.py:204 waydroid_helper/gsf_retriever.py:215
+#: waydroid_helper/gsf_retriever.py:417 waydroid_helper/scripts_page.py:416
 msgid "Error"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:608
+#: waydroid_helper/instance_detail_page.py:614
 #, python-brace-format
 msgid ""
 "Failed to open key mapping window:\n"
@@ -199,24 +189,26 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:611
-#: waydroid_helper/instance_detail_page.py:645
-#: waydroid_helper/instance_detail_page.py:760
-#: waydroid_helper/available_version_page.py:216
-#: waydroid_helper/available_version_page.py:236
-#: waydroid_helper/available_version_page.py:246
-#: waydroid_helper/available_version_page.py:301
-#: waydroid_helper/available_version_page.py:329
-#: waydroid_helper/controller/app/window.py:351 data/ui/InfoBar.ui:46
+#: waydroid_helper/instance_detail_page.py:617
+#: waydroid_helper/instance_detail_page.py:651
+#: waydroid_helper/shared_folder.py:210
+#: waydroid_helper/available_version_page.py:256
+#: waydroid_helper/available_version_page.py:276
+#: waydroid_helper/available_version_page.py:286
+#: waydroid_helper/available_version_page.py:316
+#: waydroid_helper/available_version_page.py:363
+#: waydroid_helper/available_version_page.py:391
+#: waydroid_helper/scripts_page.py:410 waydroid_helper/scripts_page.py:425
+#: waydroid_helper/controller/app/window.py:352 data/ui/InfoBar.ui:46
 msgid "OK"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:627
+#: waydroid_helper/instance_detail_page.py:633
 #: waydroid_helper/key_mapping_preference_dialog.py:22
 msgid "Key Mapping Preferences"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:640
+#: waydroid_helper/instance_detail_page.py:646
 #, python-brace-format
 msgid ""
 "Failed to open key mapping preferences dialog:\n"
@@ -224,69 +216,19 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:665
-msgid ""
-"This will clear Waydroid package cache files to fix startup issues after "
-"installing GApps or microG.\n"
-"\n"
-"A backup will be created before clearing. Do you want to continue?"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:693
-#: waydroid_helper/gsf_retriever.py:367
-msgid "Clearing..."
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:698
-msgid "WAYDROID_CLI_PATH not found"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:711
-msgid "Package cache cleared successfully"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:746
-msgid "Cache Cleared Successfully"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:749
-#, python-brace-format
-msgid ""
-"Package cache has been cleared successfully.\n"
-"\n"
-"Backup saved to:\n"
-"{0}"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:752
-msgid "Package cache has been cleared successfully."
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:755
-msgid "Cache Clear Failed"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:756
-#, python-brace-format
-msgid ""
-"Failed to clear package cache:\n"
-"\n"
-"{0}"
-msgstr ""
-
-#: waydroid_helper/instance_detail_page.py:767
+#: waydroid_helper/instance_detail_page.py:663
 msgid "Google Play Services"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:770
+#: waydroid_helper/instance_detail_page.py:666
 msgid "GSF ID Retriever"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:772
+#: waydroid_helper/instance_detail_page.py:668
 msgid "Retrieve Google Services Framework ID for Google Play registration"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:775
+#: waydroid_helper/instance_detail_page.py:671
 msgid "Retrieve GSF ID"
 msgstr ""
 
@@ -307,67 +249,89 @@ msgstr ""
 msgid "Waydroid properties in ERROR state, attempting recovery..."
 msgstr ""
 
-#: waydroid_helper/shared_folder.py:61
+#: waydroid_helper/shared_folder.py:62
 msgid "Shared Folders"
 msgstr ""
 
-#: waydroid_helper/shared_folder.py:199
+#: waydroid_helper/shared_folder.py:205
+#, python-brace-format
+msgid ""
+"Failed to unmount {target}:\n"
+"\n"
+"{error}"
+msgstr ""
+
+#: waydroid_helper/shared_folder.py:221
 msgid ""
 "Use the button below to add your first shared folder. For file sharing to "
 "work, you need to have <a href='https://bindfs.org/'>bindfs</a> installed."
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:148
+#. Red colored text for architecture error
+#: waydroid_helper/available_version_page.py:84
+msgid "Incompatible Arch"
+msgstr ""
+
+#. Orange colored text for android version error
+#: waydroid_helper/available_version_page.py:87
+msgid "Incompatible Android"
+msgstr ""
+
+#: waydroid_helper/available_version_page.py:177
 msgid "Available Versions"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:211
+#: waydroid_helper/available_version_page.py:251
 msgid "Installation Complete"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:212
+#: waydroid_helper/available_version_page.py:252
 #, python-brace-format
 msgid "{0} has been successfully installed."
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:231
+#: waydroid_helper/available_version_page.py:271
 msgid "Uninstallation Complete"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:232
+#: waydroid_helper/available_version_page.py:272
 #, python-brace-format
 msgid "{0} has been successfully uninstalled."
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:279
+#: waydroid_helper/available_version_page.py:312
+msgid "Installation Validation Failed"
+msgstr ""
+
+#: waydroid_helper/available_version_page.py:341
 msgid "Extension Installation"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:280
+#: waydroid_helper/available_version_page.py:342
 msgid "Do you want to install"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:284
+#: waydroid_helper/available_version_page.py:346
 msgid "Extension Conflict"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:285
+#: waydroid_helper/available_version_page.py:347
 msgid "Do you want to uninstall the conflicting extensions"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:299
+#: waydroid_helper/available_version_page.py:361
 msgid "Installation Failed"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:316
+#: waydroid_helper/available_version_page.py:378
 msgid "Uninstall Confirmation"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:317
+#: waydroid_helper/available_version_page.py:379
 msgid "Do you want to uninstall"
 msgstr ""
 
-#: waydroid_helper/available_version_page.py:327
+#: waydroid_helper/available_version_page.py:389
 msgid "Uninstallation Failed"
 msgstr ""
 
@@ -433,6 +397,10 @@ msgstr ""
 msgid "GSF ID copied to clipboard!"
 msgstr ""
 
+#: waydroid_helper/gsf_retriever.py:367
+msgid "Clearing..."
+msgstr ""
+
 #: waydroid_helper/gsf_retriever.py:400
 msgid "Success"
 msgstr ""
@@ -449,82 +417,90 @@ msgid "Failed to clear package data: {error}"
 msgstr ""
 
 #. 右侧确认按钮
-#: waydroid_helper/key_mapping_preference_dialog.py:76
+#: waydroid_helper/key_mapping_preference_dialog.py:77
 msgid "Confirm"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:96
+#: waydroid_helper/key_mapping_preference_dialog.py:97
 msgid "Cage Settings"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:99
+#: waydroid_helper/key_mapping_preference_dialog.py:100
 msgid ""
 "Configure cage functionality. You can download prebuilt cage from: <a "
 "href='https://github.com/waydroid-helper/cage/releases'>https://github.com/"
 "waydroid-helper/cage/releases</a>"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:105
+#: waydroid_helper/key_mapping_preference_dialog.py:106
 msgid "Enable Cage"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:106
+#: waydroid_helper/key_mapping_preference_dialog.py:107
 msgid "Enable cage for key mapping"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:117
+#: waydroid_helper/key_mapping_preference_dialog.py:118
 msgid "Cage Executable"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:118
+#: waydroid_helper/key_mapping_preference_dialog.py:119
 msgid "Path to cage executable"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:132
+#: waydroid_helper/key_mapping_preference_dialog.py:133
 msgid "Choose executable file"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:145
+#: waydroid_helper/key_mapping_preference_dialog.py:146
 msgid "Window Size"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:146
+#: waydroid_helper/key_mapping_preference_dialog.py:147
 msgid "Cage window size"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:174
+#: waydroid_helper/key_mapping_preference_dialog.py:175
 msgid "Logical Resolution"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:175
+#: waydroid_helper/key_mapping_preference_dialog.py:176
 msgid "Cage logical resolution"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:205
+#: waydroid_helper/key_mapping_preference_dialog.py:206
 msgid "Scale"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:206
+#: waydroid_helper/key_mapping_preference_dialog.py:207
 msgid "Cage display scale percentage"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:228
+#: waydroid_helper/key_mapping_preference_dialog.py:229
+msgid "Refresh Rate"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:230
+msgid "Cage display refresh rate (Hz)"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:249
 msgid "Socket Name"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:229
+#: waydroid_helper/key_mapping_preference_dialog.py:250
 msgid "Custom socket name (default: waydroid-0)"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:241
+#: waydroid_helper/key_mapping_preference_dialog.py:262
 msgid "Hide Title Bar"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:242
+#: waydroid_helper/key_mapping_preference_dialog.py:263
 msgid "Hide cage window title bar (X11 backend only)"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:414
+#: waydroid_helper/key_mapping_preference_dialog.py:450
 msgid "Choose Cage Executable"
 msgstr ""
 
@@ -532,7 +508,68 @@ msgstr ""
 msgid "Default"
 msgstr ""
 
-#: waydroid_helper/tools/extensions_manager.py:486
+#: waydroid_helper/scripts_page.py:126
+msgid "View Script Info"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:133
+msgid "Run Script"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:169
+msgid "Available Scripts"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:181
+msgid "No Scripts Found"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:184
+msgid "No scripts found in the scripts directory"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:185
+#, python-brace-format
+msgid "Create script folders in: {script_dir}"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:194
+msgid "Refresh Scripts"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:301
+msgid "Script execution completed. You can close this window."
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:373 waydroid_helper/scripts_page.py:389
+msgid "Script Error"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:374
+#, python-brace-format
+msgid "Script executable not found: {}"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:390
+#, python-brace-format
+msgid "Failed to run script: {}"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:406
+msgid "Script Information"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:417
+#, python-brace-format
+msgid "Failed to show script info: {}"
+msgstr ""
+
+#: waydroid_helper/tools/extensions_manager.py:320
+#, python-brace-format
+msgid "Hardware architecture mismatch. Supported: {0}, Current: {1}"
+msgstr ""
+
+#: waydroid_helper/tools/extensions_manager.py:344
 #, python-brace-format
 msgid ""
 "Your Android version is not supported. Required version: {0}. Current "
@@ -566,16 +603,16 @@ msgstr ""
 
 #. Initial hint
 #. Enter edit mode: restore edit functions
-#: waydroid_helper/controller/app/window.py:199
-#: waydroid_helper/controller/app/window.py:1139
+#: waydroid_helper/controller/app/window.py:200
+#: waydroid_helper/controller/app/window.py:1153
 msgid "Edit Mode (F1: Switch Mode)"
 msgstr ""
 
-#: waydroid_helper/controller/app/window.py:345
+#: waydroid_helper/controller/app/window.py:346
 msgid "This widget has no settings."
 msgstr ""
 
-#: waydroid_helper/controller/app/window.py:1129
+#: waydroid_helper/controller/app/window.py:1143
 msgid "Mapping Mode (F1: Switch Mode)"
 msgstr ""
 
@@ -615,7 +652,7 @@ msgid "Load Layout"
 msgstr ""
 
 #: waydroid_helper/controller/widgets/components/aim.py:55
-#: waydroid_helper/controller/widgets/components/aim.py:84
+#: waydroid_helper/controller/widgets/components/aim.py:83
 msgctxt "Controller Widgets"
 msgid "Aim"
 msgstr ""
@@ -627,19 +664,19 @@ msgid ""
 "Resize box to match in-game rotation zone."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:130
+#: waydroid_helper/controller/widgets/components/aim.py:129
 msgctxt "Controller Widgets"
 msgid "Sensitivity"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:137
+#: waydroid_helper/controller/widgets/components/aim.py:136
 msgctxt "Controller Widgets"
 msgid "Adjusts the sensitivity of aim movement"
 msgstr ""
 
 #. 组件元数据
 #: waydroid_helper/controller/widgets/components/cancel_casting.py:24
-#: waydroid_helper/controller/widgets/components/cancel_casting.py:77
+#: waydroid_helper/controller/widgets/components/cancel_casting.py:76
 msgctxt "Controller Widgets"
 msgid "Cancel Casting"
 msgstr ""
@@ -652,7 +689,7 @@ msgid ""
 msgstr ""
 
 #: waydroid_helper/controller/widgets/components/directional_pad.py:55
-#: waydroid_helper/controller/widgets/components/directional_pad.py:83
+#: waydroid_helper/controller/widgets/components/directional_pad.py:82
 msgctxt "Controller Widgets"
 msgid "Directional Pad"
 msgstr ""
@@ -666,34 +703,34 @@ msgid ""
 "wheel."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/directional_pad.py:161
-#: waydroid_helper/controller/widgets/components/repeated_click.py:525
+#: waydroid_helper/controller/widgets/components/directional_pad.py:160
+#: waydroid_helper/controller/widgets/components/repeated_click.py:524
 msgctxt "Controller Widgets"
 msgid "Operating Method"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/directional_pad.py:164
+#: waydroid_helper/controller/widgets/components/directional_pad.py:163
 msgctxt "Controller Widgets"
 msgid "Slide control"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/directional_pad.py:165
+#: waydroid_helper/controller/widgets/components/directional_pad.py:164
 msgctxt "Controller Widgets"
 msgid "Click control"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/directional_pad.py:168
+#: waydroid_helper/controller/widgets/components/directional_pad.py:167
 msgctxt "Controller Widgets"
 msgid "Adjusts the operating method of the directional pad"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/fire.py:21
+#: waydroid_helper/controller/widgets/components/fire.py:22
 #: waydroid_helper/controller/widgets/components/fire.py:46
 msgctxt "Controller Widgets"
 msgid "Fire"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/fire.py:24
+#: waydroid_helper/controller/widgets/components/fire.py:25
 msgctxt "Controller Widgets"
 msgid ""
 "Commonly used in FPS games, add a button to the attack/fire button position, "
@@ -702,24 +739,44 @@ msgid ""
 "alone."
 msgstr ""
 
+#: waydroid_helper/controller/widgets/components/fire.py:77
+msgctxt "Controller Widgets"
+msgid "Mouse Button"
+msgstr ""
+
+#: waydroid_helper/controller/widgets/components/fire.py:80
+msgctxt "Controller Widgets"
+msgid "Left Button"
+msgstr ""
+
+#: waydroid_helper/controller/widgets/components/fire.py:81
+msgctxt "Controller Widgets"
+msgid "Right Button"
+msgstr ""
+
+#: waydroid_helper/controller/widgets/components/fire.py:85
+msgctxt "Controller Widgets"
+msgid "Choose which mouse button to simulate for firing"
+msgstr ""
+
 #. 组件元数据
-#: waydroid_helper/controller/widgets/components/macro.py:606
-#: waydroid_helper/controller/widgets/components/macro.py:636
+#: waydroid_helper/controller/widgets/components/macro.py:681
+#: waydroid_helper/controller/widgets/components/macro.py:710
 msgctxt "Controller Widgets"
 msgid "Macro"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/macro.py:609
+#: waydroid_helper/controller/widgets/components/macro.py:684
 msgctxt "Controller Widgets"
 msgid "Execute macro commands when triggered."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/macro.py:672
+#: waydroid_helper/controller/widgets/components/macro.py:746
 msgctxt "Controller Widgets"
 msgid "Macro Command"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/macro.py:676
+#: waydroid_helper/controller/widgets/components/macro.py:750
 msgctxt "Controller Widgets"
 msgid ""
 "The macro commands to execute when triggered. Supported commands:\n"
@@ -732,6 +789,8 @@ msgid ""
 "- release <x,y> [x1,y1] ...: Release at coordinates (UP events only)\n"
 "- switch <x,y> [x1,y1] ...: Switch at coordinates (toggle between press/"
 "release)\n"
+"- toggle_group <command_group_1> | <command_group_2>: Toggle between two "
+"command groups (use ';' to separate commands within a group)\n"
 "- sleep <milliseconds>: Delay execution\n"
 "- release_all: Release all currently pressed keys\n"
 "- enter_staring: Enter staring/aiming mode\n"
@@ -745,7 +804,7 @@ msgstr ""
 
 #. 组件元数据
 #: waydroid_helper/controller/widgets/components/repeated_click.py:58
-#: waydroid_helper/controller/widgets/components/repeated_click.py:108
+#: waydroid_helper/controller/widgets/components/repeated_click.py:107
 msgctxt "Controller Widgets"
 msgid "Repeated Click"
 msgstr ""
@@ -755,43 +814,43 @@ msgctxt "Controller Widgets"
 msgid "Simulate repeated click operations at a specific position."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:532
+#: waydroid_helper/controller/widgets/components/repeated_click.py:531
 msgctxt "Controller Widgets"
 msgid "Long-press combo"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:535
+#: waydroid_helper/controller/widgets/components/repeated_click.py:534
 msgctxt "Controller Widgets"
 msgid "Click after button"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:541
+#: waydroid_helper/controller/widgets/components/repeated_click.py:540
 msgctxt "Controller Widgets"
 msgid "Choose the operating method for repeated clicking"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:548
+#: waydroid_helper/controller/widgets/components/repeated_click.py:547
 msgctxt "Controller Widgets"
 msgid "Number of clicks per second"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:552
+#: waydroid_helper/controller/widgets/components/repeated_click.py:551
 msgctxt "Controller Widgets"
 msgid "Number of clicks to perform per second in long-press combo mode"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:559
+#: waydroid_helper/controller/widgets/components/repeated_click.py:558
 msgctxt "Controller Widgets"
 msgid "Number of clicks"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/repeated_click.py:563
+#: waydroid_helper/controller/widgets/components/repeated_click.py:562
 msgctxt "Controller Widgets"
 msgid "Number of repeated clicks to perform in click after button mode"
 msgstr ""
 
 #: waydroid_helper/controller/widgets/components/right_click_to_walk.py:38
-#: waydroid_helper/controller/widgets/components/right_click_to_walk.py:62
+#: waydroid_helper/controller/widgets/components/right_click_to_walk.py:61
 msgctxt "Controller Widgets"
 msgid "Right Click to Walk"
 msgstr ""
@@ -805,7 +864,7 @@ msgstr ""
 
 #. 组件元数据
 #: waydroid_helper/controller/widgets/components/single_click.py:39
-#: waydroid_helper/controller/widgets/components/single_click.py:90
+#: waydroid_helper/controller/widgets/components/single_click.py:89
 msgctxt "Controller Widgets"
 msgid "Single Click"
 msgstr ""
@@ -817,7 +876,7 @@ msgstr ""
 
 #. 组件元数据
 #: waydroid_helper/controller/widgets/components/skill_casting.py:76
-#: waydroid_helper/controller/widgets/components/skill_casting.py:137
+#: waydroid_helper/controller/widgets/components/skill_casting.py:136
 msgctxt "Controller Widgets"
 msgid "Skill Casting"
 msgstr ""
@@ -829,47 +888,47 @@ msgid ""
 "the mouse to release skills."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:89
+#: waydroid_helper/controller/widgets/components/skill_casting.py:88
 msgctxt "Controller Widgets"
 msgid "Enable Cancel Button"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:93
+#: waydroid_helper/controller/widgets/components/skill_casting.py:92
 msgctxt "Controller Widgets"
 msgid "Enable a cancel casting button that can interrupt ongoing skill casting"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:489
+#: waydroid_helper/controller/widgets/components/skill_casting.py:488
 msgctxt "Controller Widgets"
 msgid "Casting Radius"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:496
+#: waydroid_helper/controller/widgets/components/skill_casting.py:495
 msgctxt "Controller Widgets"
 msgid "Fine-tune according to the casting range of different skills"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:503
+#: waydroid_helper/controller/widgets/components/skill_casting.py:502
 msgctxt "Controller Widgets"
 msgid "Cast Timing"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:511
+#: waydroid_helper/controller/widgets/components/skill_casting.py:510
 msgctxt "Controller Widgets"
 msgid "On Release"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:513
+#: waydroid_helper/controller/widgets/components/skill_casting.py:512
 msgctxt "Controller Widgets"
 msgid "Immediate"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:514
+#: waydroid_helper/controller/widgets/components/skill_casting.py:513
 msgctxt "Controller Widgets"
 msgid "Manual"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/skill_casting.py:519
+#: waydroid_helper/controller/widgets/components/skill_casting.py:518
 msgctxt "Controller Widgets"
 msgid ""
 "Determines when the skill casting ends: On Release (default), Immediate "

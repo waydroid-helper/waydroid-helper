@@ -25,6 +25,7 @@ Depends: ${misc:Depends},
          libadwaita-1-0,
          gir1.2-gtk-4.0,
          gir1.2-adw-1,
+         gir1.2-vte-3.91
          waydroid,
          fakeroot,
          python3-aiofiles,
