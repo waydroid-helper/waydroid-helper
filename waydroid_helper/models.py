@@ -91,7 +91,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="persist.waydroid.multi_windows",
-        blurb=_("Enable window integration with the desktop"),
+        # blurb=_("Enable window integration with the desktop"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=1),
@@ -100,7 +100,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="persist.waydroid.cursor_on_subsurface",
-        blurb=_("Workaround for showing the cursor in multi_windows mode on some compositors"),
+        # blurb=_("Workaround for showing the cursor in multi_windows mode on some compositors"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=1),
@@ -109,7 +109,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="persist.waydroid.invert_colors",
-        blurb=_("Swaps the color space from RGBA to BGRA"),
+        # blurb=_("Swaps the color space from RGBA to BGRA"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=1),
@@ -118,7 +118,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="persist.waydroid.suspend",
-        blurb=_("Let the Waydroid container sleep when no apps are active"),
+        # blurb=_("Let the Waydroid container sleep when no apps are active"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=1),
@@ -127,7 +127,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="persist.waydroid.uevent",
-        blurb=_("Allow android direct access to hotplugged devices"),
+        # blurb=_("Allow android direct access to hotplugged devices"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=1),
@@ -136,7 +136,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.fake_touch",
-        blurb=_("Interpret mouse inputs as touch inputs"),
+        # blurb=_("Interpret mouse inputs as touch inputs"),
         category=PropertyCategory.PERSIST,
     )
     
@@ -144,7 +144,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.fake_wifi",
-        blurb=_("Make the Apps appear as if connected to WiFi"),
+        # blurb=_("Make the Apps appear as if connected to WiFi"),
         category=PropertyCategory.PERSIST,
     )
 
@@ -152,7 +152,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.height_padding",
-        blurb=_("Adjust height padding"),
+        # blurb=_("Adjust height padding"),
         category=PropertyCategory.PERSIST,
     )
     
@@ -160,7 +160,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.width_padding",
-        blurb=_("Adjust width padding"),
+        # blurb=_("Adjust width padding"),
         category=PropertyCategory.PERSIST,
     )
     
@@ -168,7 +168,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.height",
-        blurb=_("Used for user to override desired resolution"),
+        # blurb=_("Used for user to override desired resolution"),
         category=PropertyCategory.PERSIST,
     )
     
@@ -176,7 +176,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="persist.waydroid.width",
-        blurb=_("Used for user to override desired resolution"),
+        # blurb=_("Used for user to override desired resolution"),
         category=PropertyCategory.PERSIST,
     )
     
@@ -185,7 +185,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="sys.boot_completed",
-        blurb=_("Enable window integration with the desktop"),
+        # blurb=_("Enable window integration with the desktop"),
         category=PropertyCategory.PERSIST,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=2),
@@ -195,7 +195,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="qemu.hw.mainkeys",
-        blurb=_("Hide navbar"),
+        # blurb=_("Hide navbar"),
         category=PropertyCategory.PRIVILEGED,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=2),
@@ -205,7 +205,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="ro.product.brand",
-        blurb=_("Brand of the product"),
+        # blurb=_("Brand of the product"),
         category=PropertyCategory.PRIVILEGED,
     )
 
@@ -213,7 +213,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="ro.product.manufacturer",
-        blurb=_("Manufacturer of the product"),
+        # blurb=_("Manufacturer of the product"),
         category=PropertyCategory.PRIVILEGED,
     )
     
@@ -221,7 +221,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="ro.product.model",
-        blurb=_("Model of the product"),
+        # blurb=_("Model of the product"),
         category=PropertyCategory.PRIVILEGED,
     )
     
@@ -229,7 +229,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="ro.product.device",
-        blurb=_("Device of the product"),
+        # blurb=_("Device of the product"),
         category=PropertyCategory.PRIVILEGED,
     )
 
@@ -237,7 +237,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=True,
         nick="mount_overlays",
-        blurb=_("Enable overlay mounting"),
+        # blurb=_("Enable overlay mounting"),
         category=PropertyCategory.WAYDROID,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=0),
@@ -247,7 +247,7 @@ class PropertyModel(GObject.Object):
         type=bool,
         default=False,
         nick="auto_adb",
-        blurb=_("Enable automatic ADB connection"),
+        # blurb=_("Enable automatic ADB connection"),
         category=PropertyCategory.WAYDROID,
         transform_in=_str_to_bool,
         transform_out=partial(_bool_to_str, flag=0),
@@ -257,7 +257,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="/etc/waydroid-extra/images",
         nick="images_path",
-        blurb=_("Path to Waydroid images"),
+        # blurb=_("Path to Waydroid images"),
         category=PropertyCategory.WAYDROID,
     )
 
@@ -265,7 +265,7 @@ class PropertyModel(GObject.Object):
         type=str,
         default="",
         nick="drm_device",
-        blurb=_("Choose which GPU should be used by Waydroid"),
+        # blurb=_("Choose which GPU should be used by Waydroid"),
         category=PropertyCategory.WAYDROID,
     )
 
