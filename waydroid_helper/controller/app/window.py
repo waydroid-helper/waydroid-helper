@@ -7,7 +7,6 @@ Provides implementation and window management for transparent windows
 
 import math
 from gettext import gettext as _
-from turtle import width
 from typing import TYPE_CHECKING
 
 import gi, signal
