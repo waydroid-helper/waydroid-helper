@@ -160,6 +160,11 @@ controller_platform_wayland_sources = [
     'controller/platform/wayland/platform.py',
 ]
 
+controller_platform_x11_sources = [
+    'controller/platform/x11/__init__.py',
+    'controller/platform/x11/platform.py',
+]
+
 controller_ui_sources = [
     'controller/ui/__init__.py',
     'controller/ui/menus.py',
@@ -213,6 +218,7 @@ install_data(controller_core_handler_sources, install_dir: controllerdir / 'core
 install_data(controller_core_handler_default_sources, install_dir: controllerdir / 'core' / 'handler' / 'default')
 install_data(controller_platform_sources, install_dir: controllerdir / 'platform')
 install_data(controller_platform_wayland_sources, install_dir: controllerdir / 'platform' / 'wayland')
+install_data(controller_platform_x11_sources, install_dir: controllerdir / 'platform' / 'x11')
 install_data(controller_ui_sources, install_dir: controllerdir / 'ui')
 install_data(controller_widgets_sources, install_dir: controllerdir / 'widgets')
 install_data(controller_widgets_base_sources, install_dir: controllerdir / 'widgets' / 'base')

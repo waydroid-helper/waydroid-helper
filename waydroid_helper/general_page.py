@@ -17,7 +17,7 @@ from gi.repository import Adw, GObject, Gtk
 
 from waydroid_helper.util import Task, logger, template
 from waydroid_helper.waydroid import Waydroid, WaydroidState
-
+from waydroid_helper.instance_detail_page import InstanceDetailPage
 
 @template(resource_path="/com/jaoushingan/WaydroidHelper/ui/GeneralPage.ui")
 class GeneralPage(Gtk.Box):
@@ -93,7 +93,6 @@ class GeneralPage(Gtk.Box):
     def on_status_row_activated(self, row: Adw.ActionRow):
         """Handle status row click to navigate to instance details"""
         if self._navigation_view:
-            from waydroid_helper.instance_detail_page import InstanceDetailPage
 
             # Check if detail page already exists
             detail_page_tag = "instance_detail"

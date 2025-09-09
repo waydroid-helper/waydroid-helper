@@ -9,21 +9,21 @@ from waydroid_helper.util.log import logger
 
 from .base import PlatformBase
 
-
 def get_platform(widget):
     """获取当前平台的实现"""
-    if os.environ.get("WAYLAND_DISPLAY"):
+    display = widget.get_display()
+    if display.__class__.__name__ == "GdkWaylandDisplay":
         try:
             from .wayland import WaylandPlatform
-
             return WaylandPlatform(widget)
         except ImportError as e:
             logger.error(f"Failed to load Wayland platform support: {e}")
-
-    # 可以在这里添加其他平台支持
-    # elif os.environ.get('DISPLAY'):
-    #     from .x11 import X11Platform
-    #     return X11Platform(widget)
+    else:
+        try:
+            from .x11 import X11Platform
+            return X11Platform(widget)
+        except ImportError as e:
+            logger.error(f"Failed to load X11 platform support: {e}")
 
     logger.warning("No suitable platform implementation found")
     return None

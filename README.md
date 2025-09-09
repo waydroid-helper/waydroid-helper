@@ -183,15 +183,6 @@ systemctl --user enable waydroid-monitor.service --now
 sudo systemctl enable waydroid-mount.service --now
 ```
 
-### Waydroid won't start after installing microg or gapps
-If you encounter issues with waydroid not starting after installing microg or gapps, try the following solutions:
-
-1. **Ensure vanilla image usage**: Confirm that you are using a vanilla image instead of a gapps version
-2. **Clear package cache**: Try using the Clear Package Cache functionality
-3. **Complete data reset**: If the above methods still don't resolve the issue, completely remove the `~/.local/share/waydroid/data` directory and re-run `sudo waydroid init -f`
-
-**Note**: This operation will delete all waydroid data, so please ensure you have backed up any important information.
-
 For AppImage users, you need to manually copy the D-Bus configuration files and systemd unit files to their respective system locations to enable proper functionality. Here's the suggested file structure:
 
 ```
@@ -210,6 +201,12 @@ usr
     │       └── id.waydro.Mount.service
 
 ```
+### Waydroid won't start after installing microg or gapps
+If you encounter issues with waydroid not starting after installing microg or gapps, try the following solutions:
+
+1. **Ensure vanilla image usage**: Confirm that you are using a vanilla image instead of a gapps version
+2. **Clear package cache**: Try using the Clear Package Cache functionality
+3. **Complete data reset**: If the above methods still don't resolve the issue, completely remove the `~/.local/share/waydroid/data` directory and re-run `sudo waydroid init -f`. **Note**: This operation will delete all waydroid data, so please ensure you have backed up any important information.
 
 ## Credits
 

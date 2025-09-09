@@ -67,7 +67,7 @@ class MultiprocessingQueueHandler(logging.Handler):
 
 
 class MultiprocessingFileHandler(logging.Handler):
-    def __init__(self, filename, mode='w', encoding='utf-8'):
+    def __init__(self, filename, mode='a', encoding='utf-8'):
         super().__init__()
         self.filename = filename
         self.mode = mode
@@ -259,6 +259,23 @@ def _log_listener_process(log_queue, log_level: str|None = None):
     try:
         # 设置进程名称
         multiprocessing.current_process().name = "LogListener"
+        
+        # 清空日志文件（应用启动时）
+        try:
+            log_file = os.path.join(
+                os.getenv("XDG_CACHE_HOME", GLib.get_user_cache_dir()),
+                "waydroid-helper",
+                "waydroid-helper.log",
+            )
+            # 确保日志目录存在
+            log_dir = os.path.dirname(log_file)
+            if log_dir and not os.path.exists(log_dir):
+                os.makedirs(log_dir, mode=0o755, exist_ok=True)
+            # 清空日志文件
+            with open(log_file, 'w', encoding='utf-8') as f:
+                pass
+        except Exception as e:
+            sys.stderr.write(f"Failed to clear log file: {e}\n")
         
         # 获取日志器 - 监听器进程使用文件处理器和控制台处理器，不使用队列
         logger = _get_logger(log_level, log_queue=None)

@@ -269,7 +269,7 @@
                 <child>
                   <object class="GtkEntry" id="waydroid_entry_1">
                     <property name="name">images-path</property>
-                    <property name="placeholder-text" translatable="true">/etc/waydroid-extra/images</property>
+                    <property name="placeholder-text">/etc/waydroid-extra/images</property>
                     <property name="width-chars">20</property>
                     <property name="valign">3</property>
                     <property name="sensitive">False</property>

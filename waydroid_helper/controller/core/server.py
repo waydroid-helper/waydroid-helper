@@ -60,14 +60,11 @@ class Server:
     async def wait_started(self):
         await self.started_event.wait()
 
-    def close(self):
-        if self.server:
-            asyncio.create_task(self._close())
-
-    async def _close(self):
+    async def close(self):
         if not self.server:
             return
 
+        self.server.close_clients()
         self.server.close()
         await self.server.wait_closed()
 

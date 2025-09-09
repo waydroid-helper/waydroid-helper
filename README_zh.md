@@ -182,15 +182,6 @@ systemctl --user enable waydroid-monitor.service --now
 sudo systemctl enable waydroid-mount.service --now
 ```
 
-### 安装 microg 或 gapps 后 waydroid 无法启动
-如果在安装 microg 或 gapps 后遇到 waydroid 无法启动的问题，请尝试以下解决方案：
-
-1. **确保使用 vanilla 镜像**：确认您正在使用 vanilla 的 image 而不是 gapps 版本
-2. **清除包缓存**：尝试使用 Clear Package Cache 功能
-3. **完全重置数据**：如果上述方法仍然无法解决问题，请完全清除 `~/.local/share/waydroid/data` 目录，然后重新执行 `sudo waydroid init -f`
-
-**注意**：此操作将删除所有 waydroid 数据，请确保已备份重要信息。
-
 对于 AppImage 用户，您需要手动将 D-Bus 配置文件和 systemd 单元文件复制到各自的系统位置以启用正确的功能。建议的文件结构如下：
 
 ```
@@ -209,6 +200,13 @@ usr
     │       └── id.waydro.Mount.service
 
 ```
+### 安装 microg 或 gapps 后 waydroid 无法启动
+如果在安装 microg 或 gapps 后遇到 waydroid 无法启动的问题，请尝试以下解决方案：
+
+1. **确保使用 vanilla 镜像**：确认您正在使用 vanilla 的 image 而不是 gapps 版本
+2. **清除包缓存**：尝试使用 Clear Package Cache 功能
+3. **完全重置数据**：如果上述方法仍然无法解决问题，请完全清除 `~/.local/share/waydroid/data` 目录，然后重新执行 `sudo waydroid init -f`. **注意**：此操作将删除所有 waydroid 数据，请确保已备份重要信息。
+
 
 ## 致谢
 

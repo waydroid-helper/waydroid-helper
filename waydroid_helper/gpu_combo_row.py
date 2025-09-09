@@ -2,6 +2,7 @@ import os
 import asyncio
 from typing import cast
 import gi
+from gettext import gettext as _
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -31,8 +32,8 @@ class GpuComboRow(Adw.ComboRow):
 
         # 创建自定义的factory来为每个选项添加tooltip
         factory = Gtk.SignalListItemFactory()
-        _ = factory.connect("setup", self._on_factory_setup)
-        _ = factory.connect("bind", self._on_factory_bind)
+        factory.connect("setup", self._on_factory_setup)
+        factory.connect("bind", self._on_factory_bind)
         
         self.set_model(self.store)
         self.set_factory(factory)
@@ -55,7 +56,7 @@ class GpuComboRow(Adw.ComboRow):
             label.set_text(item.label)
 
     async def load_gpu_info(self):
-        self.add_option("", "")
+        self.add_option(_("Default"), "")
         waydroid_cli_path = os.environ.get("WAYDROID_CLI_PATH")
         result = await self._subprocess_manager.run(
             command=f"{waydroid_cli_path} get_gpu_info", shell=False

@@ -23,12 +23,12 @@ class KeyMappingEventHandler(InputEventHandler):
 
     def can_handle(self, event: InputEvent) -> bool:
         """此处理器只处理按键和鼠标事件"""
-        return self.enabled and event.event_type in [
+        return self.enabled and event.event_type in {
             "key_press",
             "key_release",
             "mouse_press",
             "mouse_release",
-        ]
+        }
 
     def handle_event(self, event: InputEvent) -> bool:
         """
@@ -38,9 +38,9 @@ class KeyMappingEventHandler(InputEventHandler):
             return False
 
         # 对于按键事件，我们只关心主键（Key对象），组合逻辑由manager处理
-        if event.event_type in ["key_press", "mouse_press"]:
+        if event.event_type in {"key_press", "mouse_press"}:
             return self.key_mapping_manager.handle_key_press(event)
-        elif event.event_type in ["key_release", "mouse_release"]:
+        elif event.event_type in {"key_release", "mouse_release"}:
             return self.key_mapping_manager.handle_key_release(event)
         # 如果事件没有被按键处理器消费，则返回False
         return False

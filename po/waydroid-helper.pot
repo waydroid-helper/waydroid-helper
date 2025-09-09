@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-01 04:12+0800\n"
+"POT-Creation-Date: 2025-09-09 00:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -121,7 +121,7 @@ msgid "Cache Management"
 msgstr ""
 
 #: waydroid_helper/instance_detail_page.py:373
-#: waydroid_helper/instance_detail_page.py:662
+#: waydroid_helper/instance_detail_page.py:663
 msgid "Clear Package Cache"
 msgstr ""
 
@@ -130,8 +130,8 @@ msgid "Fix startup issues after installing GApps or microG"
 msgstr ""
 
 #: waydroid_helper/instance_detail_page.py:378
-#: waydroid_helper/instance_detail_page.py:670
-#: waydroid_helper/instance_detail_page.py:720
+#: waydroid_helper/instance_detail_page.py:671
+#: waydroid_helper/instance_detail_page.py:721
 msgid "Clear Cache"
 msgstr ""
 
@@ -151,10 +151,10 @@ msgstr ""
 #. 左侧取消按钮
 #: waydroid_helper/instance_detail_page.py:475
 #: waydroid_helper/instance_detail_page.py:525
-#: waydroid_helper/instance_detail_page.py:669
+#: waydroid_helper/instance_detail_page.py:670
 #: waydroid_helper/available_version_page.py:245
 #: waydroid_helper/gsf_retriever.py:97 waydroid_helper/gsf_retriever.py:127
-#: waydroid_helper/key_mapping_preference_dialog.py:74
+#: waydroid_helper/key_mapping_preference_dialog.py:70
 #: waydroid_helper/compat_widget/file_dialog.py:118
 #: waydroid_helper/compat_widget/shared_folder_dialog.py:231
 #: data/ui/InfoBar.ui:39
@@ -185,13 +185,13 @@ msgstr ""
 msgid "Continue"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:606
-#: waydroid_helper/instance_detail_page.py:638
+#: waydroid_helper/instance_detail_page.py:607
+#: waydroid_helper/instance_detail_page.py:639
 #: waydroid_helper/gsf_retriever.py:215 waydroid_helper/gsf_retriever.py:417
 msgid "Error"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:607
+#: waydroid_helper/instance_detail_page.py:608
 #, python-brace-format
 msgid ""
 "Failed to open key mapping window:\n"
@@ -199,9 +199,9 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:610
-#: waydroid_helper/instance_detail_page.py:644
-#: waydroid_helper/instance_detail_page.py:759
+#: waydroid_helper/instance_detail_page.py:611
+#: waydroid_helper/instance_detail_page.py:645
+#: waydroid_helper/instance_detail_page.py:760
 #: waydroid_helper/available_version_page.py:216
 #: waydroid_helper/available_version_page.py:236
 #: waydroid_helper/available_version_page.py:246
@@ -211,12 +211,12 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:626
-#: waydroid_helper/key_mapping_preference_dialog.py:27
+#: waydroid_helper/instance_detail_page.py:627
+#: waydroid_helper/key_mapping_preference_dialog.py:22
 msgid "Key Mapping Preferences"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:639
+#: waydroid_helper/instance_detail_page.py:640
 #, python-brace-format
 msgid ""
 "Failed to open key mapping preferences dialog:\n"
@@ -224,7 +224,7 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:664
+#: waydroid_helper/instance_detail_page.py:665
 msgid ""
 "This will clear Waydroid package cache files to fix startup issues after "
 "installing GApps or microG.\n"
@@ -232,24 +232,24 @@ msgid ""
 "A backup will be created before clearing. Do you want to continue?"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:692
+#: waydroid_helper/instance_detail_page.py:693
 #: waydroid_helper/gsf_retriever.py:367
 msgid "Clearing..."
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:697
+#: waydroid_helper/instance_detail_page.py:698
 msgid "WAYDROID_CLI_PATH not found"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:710
+#: waydroid_helper/instance_detail_page.py:711
 msgid "Package cache cleared successfully"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:745
+#: waydroid_helper/instance_detail_page.py:746
 msgid "Cache Cleared Successfully"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:748
+#: waydroid_helper/instance_detail_page.py:749
 #, python-brace-format
 msgid ""
 "Package cache has been cleared successfully.\n"
@@ -258,15 +258,15 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:751
+#: waydroid_helper/instance_detail_page.py:752
 msgid "Package cache has been cleared successfully."
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:754
+#: waydroid_helper/instance_detail_page.py:755
 msgid "Cache Clear Failed"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:755
+#: waydroid_helper/instance_detail_page.py:756
 #, python-brace-format
 msgid ""
 "Failed to clear package cache:\n"
@@ -274,19 +274,19 @@ msgid ""
 "{0}"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:766
+#: waydroid_helper/instance_detail_page.py:767
 msgid "Google Play Services"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:769
+#: waydroid_helper/instance_detail_page.py:770
 msgid "GSF ID Retriever"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:771
+#: waydroid_helper/instance_detail_page.py:772
 msgid "Retrieve Google Services Framework ID for Google Play registration"
 msgstr ""
 
-#: waydroid_helper/instance_detail_page.py:774
+#: waydroid_helper/instance_detail_page.py:775
 msgid "Retrieve GSF ID"
 msgstr ""
 
@@ -449,16 +449,19 @@ msgid "Failed to clear package data: {error}"
 msgstr ""
 
 #. 右侧确认按钮
-#: waydroid_helper/key_mapping_preference_dialog.py:80
+#: waydroid_helper/key_mapping_preference_dialog.py:76
 msgid "Confirm"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:100
+#: waydroid_helper/key_mapping_preference_dialog.py:96
 msgid "Cage Settings"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:101
-msgid "Configure cage functionality"
+#: waydroid_helper/key_mapping_preference_dialog.py:99
+msgid ""
+"Configure cage functionality. You can download prebuilt cage from: <a "
+"href='https://github.com/waydroid-helper/cage/releases'>https://github.com/"
+"waydroid-helper/cage/releases</a>"
 msgstr ""
 
 #: waydroid_helper/key_mapping_preference_dialog.py:105
@@ -497,103 +500,36 @@ msgstr ""
 msgid "Cage logical resolution"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:203
+#: waydroid_helper/key_mapping_preference_dialog.py:205
 msgid "Scale"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:204
+#: waydroid_helper/key_mapping_preference_dialog.py:206
 msgid "Cage display scale percentage"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:226
+#: waydroid_helper/key_mapping_preference_dialog.py:228
 msgid "Socket Name"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:227
+#: waydroid_helper/key_mapping_preference_dialog.py:229
 msgid "Custom socket name (default: waydroid-0)"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:387
+#: waydroid_helper/key_mapping_preference_dialog.py:241
+msgid "Hide Title Bar"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:242
+msgid "Hide cage window title bar (X11 backend only)"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:414
 msgid "Choose Cage Executable"
 msgstr ""
 
-#: waydroid_helper/models.py:94 waydroid_helper/models.py:188
-#: data/ui/PropsPage.ui:16
-msgid "Enable window integration with the desktop"
-msgstr ""
-
-#: waydroid_helper/models.py:103
-msgid ""
-"Workaround for showing the cursor in multi_windows mode on some compositors"
-msgstr ""
-
-#: waydroid_helper/models.py:112
-msgid "Swaps the color space from RGBA to BGRA"
-msgstr ""
-
-#: waydroid_helper/models.py:121
-msgid "Let the Waydroid container sleep when no apps are active"
-msgstr ""
-
-#: waydroid_helper/models.py:130 data/ui/PropsPage.ui:80
-msgid "Allow android direct access to hotplugged devices"
-msgstr ""
-
-#: waydroid_helper/models.py:139
-msgid "Interpret mouse inputs as touch inputs"
-msgstr ""
-
-#: waydroid_helper/models.py:147
-msgid "Make the Apps appear as if connected to WiFi"
-msgstr ""
-
-#: waydroid_helper/models.py:155 data/ui/PropsPage.ui:129
-msgid "Adjust height padding"
-msgstr ""
-
-#: waydroid_helper/models.py:163 data/ui/PropsPage.ui:147
-msgid "Adjust width padding"
-msgstr ""
-
-#: waydroid_helper/models.py:171 waydroid_helper/models.py:179
-#: data/ui/PropsPage.ui:165 data/ui/PropsPage.ui:183
-msgid "Used for user to override desired resolution"
-msgstr ""
-
-#: waydroid_helper/models.py:198
-msgid "Hide navbar"
-msgstr ""
-
-#: waydroid_helper/models.py:208
-msgid "Brand of the product"
-msgstr ""
-
-#: waydroid_helper/models.py:216
-msgid "Manufacturer of the product"
-msgstr ""
-
-#: waydroid_helper/models.py:224
-msgid "Model of the product"
-msgstr ""
-
-#: waydroid_helper/models.py:232
-msgid "Device of the product"
-msgstr ""
-
-#: waydroid_helper/models.py:240 data/ui/PropsPage.ui:236
-msgid "Enable overlay mounting"
-msgstr ""
-
-#: waydroid_helper/models.py:250 data/ui/PropsPage.ui:251
-msgid "Enable automatic ADB connection"
-msgstr ""
-
-#: waydroid_helper/models.py:260 data/ui/PropsPage.ui:266
-msgid "Path to Waydroid images"
-msgstr ""
-
-#: waydroid_helper/models.py:268 data/ui/PropsPage.ui:285
-msgid "Choose which GPU should be used by Waydroid"
+#: waydroid_helper/gpu_combo_row.py:59
+msgid "Default"
 msgstr ""
 
 #: waydroid_helper/tools/extensions_manager.py:486
@@ -631,7 +567,7 @@ msgstr ""
 #. Initial hint
 #. Enter edit mode: restore edit functions
 #: waydroid_helper/controller/app/window.py:199
-#: waydroid_helper/controller/app/window.py:1130
+#: waydroid_helper/controller/app/window.py:1139
 msgid "Edit Mode (F1: Switch Mode)"
 msgstr ""
 
@@ -639,7 +575,7 @@ msgstr ""
 msgid "This widget has no settings."
 msgstr ""
 
-#: waydroid_helper/controller/app/window.py:1120
+#: waydroid_helper/controller/app/window.py:1129
 msgid "Mapping Mode (F1: Switch Mode)"
 msgstr ""
 
@@ -678,25 +614,25 @@ msgstr ""
 msgid "Load Layout"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:54
-#: waydroid_helper/controller/widgets/components/aim.py:83
+#: waydroid_helper/controller/widgets/components/aim.py:55
+#: waydroid_helper/controller/widgets/components/aim.py:84
 msgctxt "Controller Widgets"
 msgid "Aim"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:57
+#: waydroid_helper/controller/widgets/components/aim.py:58
 msgctxt "Controller Widgets"
 msgid ""
 "FPS staple: drag to game's view area, pair with Fire for mouse-aim shooting. "
 "Resize box to match in-game rotation zone."
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:129
+#: waydroid_helper/controller/widgets/components/aim.py:130
 msgctxt "Controller Widgets"
 msgid "Sensitivity"
 msgstr ""
 
-#: waydroid_helper/controller/widgets/components/aim.py:136
+#: waydroid_helper/controller/widgets/components/aim.py:137
 msgctxt "Controller Widgets"
 msgid "Adjusts the sensitivity of aim movement"
 msgstr ""
@@ -966,6 +902,10 @@ msgid ""
 "restarting the Waydroid session to apply"
 msgstr ""
 
+#: data/ui/PropsPage.ui:16
+msgid "Enable window integration with the desktop"
+msgstr ""
+
 #: data/ui/PropsPage.ui:32
 msgid ""
 "Workaround for showing the cursor inmulti_windows mode on some compositors"
@@ -981,6 +921,10 @@ msgstr ""
 msgid ""
 "Let the Waydroid container sleep (after the display timeout) when no apps "
 "are active"
+msgstr ""
+
+#: data/ui/PropsPage.ui:80
+msgid "Allow android direct access to hotplugged devices"
 msgstr ""
 
 #: data/ui/PropsPage.ui:95
@@ -999,9 +943,21 @@ msgid ""
 "separated by \",\". Use the wildcard \"*\" to match all Apps"
 msgstr ""
 
+#: data/ui/PropsPage.ui:129
+msgid "Adjust height padding"
+msgstr ""
+
 #: data/ui/PropsPage.ui:138 data/ui/PropsPage.ui:156 data/ui/PropsPage.ui:174
 #: data/ui/PropsPage.ui:192
 msgid "empty or 0-9999"
+msgstr ""
+
+#: data/ui/PropsPage.ui:147
+msgid "Adjust width padding"
+msgstr ""
+
+#: data/ui/PropsPage.ui:165 data/ui/PropsPage.ui:183
+msgid "Used for user to override desired resolution"
 msgstr ""
 
 #: data/ui/PropsPage.ui:207
@@ -1018,8 +974,20 @@ msgid ""
 "Waydroid to take effect"
 msgstr ""
 
-#: data/ui/PropsPage.ui:272
-msgid "/etc/waydroid-extra/images"
+#: data/ui/PropsPage.ui:236
+msgid "Enable overlay mounting"
+msgstr ""
+
+#: data/ui/PropsPage.ui:251
+msgid "Enable automatic ADB connection"
+msgstr ""
+
+#: data/ui/PropsPage.ui:266
+msgid "Path to Waydroid images"
+msgstr ""
+
+#: data/ui/PropsPage.ui:285
+msgid "Choose which GPU should be used by Waydroid"
 msgstr ""
 
 #: data/ui/PropsPage.ui:296 data/ui/PropsPage.ui:303 data/ui/PropsPage.ui:310
