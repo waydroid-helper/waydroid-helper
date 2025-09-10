@@ -1,5 +1,10 @@
 # pyright: reportUnknownVariableType=false,reportMissingImports=false
 
+from gi.repository import Adw, Gio, GLib, GObject, Gtk
+from gi.events import GLibEventLoopPolicy
+import sys
+import os
+import asyncio
 from typing import Callable
 
 import gi
@@ -7,19 +12,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-import asyncio
-import os
-import sys
-
-from gi.events import GLibEventLoopPolicy
-from gi.repository import Adw, Gio, GLib, GObject, Gtk
-
-from waydroid_helper.compat_widget import GLIB_VERSION, MessageDialog
-from waydroid_helper.util.log import logger
-
-from .window import WaydroidHelperWindow
 
 Adw.init()
+
+GLIB_VERSION = GLib.MAJOR_VERSION, GLib.MINOR_VERSION, GLib.MICRO_VERSION
 
 if GLIB_VERSION >= (2, 74, 0):
     flags = Gio.ApplicationFlags.DEFAULT_FLAGS
@@ -33,9 +29,8 @@ class WaydroidHelperApplication(Adw.Application):
     def __init__(self, version: str):
         super().__init__(application_id="com.jaoushingan.WaydroidHelper", flags=flags)
         self.version = version
-        
-        # 日志系统已经在 log.py 模块加载时初始化了，直接使用
-        self.logger = logger
+
+        self.logger = None
 
         self.add_main_option(
             "log-level",
@@ -48,12 +43,13 @@ class WaydroidHelperApplication(Adw.Application):
 
         self.create_action(
             "quit",
-            lambda *_: self.quit(),  # pyright: ignore[reportUnknownArgumentType]
+            # pyright: ignore[reportUnknownArgumentType]
+            lambda *_: self.quit(),
             ["<primary>q"],
         )
         self.create_action("about", self.on_about_action)
         self.create_action("preferences", self.on_preferences_action)
-        
+
     def do_activate(self):
         """Called when the application is activated.
 
@@ -83,6 +79,12 @@ class WaydroidHelperApplication(Adw.Application):
         else:
             win = self.props.active_window
             if not win:
+
+                from waydroid_helper.compat_widget import MessageDialog
+                from waydroid_helper.util.log import logger
+                from .window import WaydroidHelperWindow
+
+                self.logger = logger
                 win = WaydroidHelperWindow(application=self)
             win.present()
 
@@ -126,18 +128,18 @@ class WaydroidHelperApplication(Adw.Application):
     def do_shutdown(self):
         """应用程序关闭时的清理工作"""
         sys.stderr.write("Application is shutting down...\n")
-        
+
         try:
             # 清理所有multiprocessing子进程（主要是KeyMapper等）
             self._cleanup_child_processes()
-            
+
             # 清理日志系统
             self._cleanup_logging_system()
-            
+
             sys.stderr.write("Cleanup resources completed\n")
         except Exception as e:
             sys.stderr.write(f"Cleanup resources failed: {e}\n")
-        
+
         # 调用父类的shutdown方法
         Adw.Application.do_shutdown(self)
 
@@ -152,34 +154,38 @@ class WaydroidHelperApplication(Adw.Application):
     def _cleanup_child_processes(self):
         """清理所有子进程"""
         import multiprocessing
-        
+
         try:
             # 获取当前所有活跃的子进程
             active_children = multiprocessing.active_children()
             if active_children:
-                sys.stderr.write(f"Found {len(active_children)} active child processes, cleaning up...\n")
-                
+                sys.stderr.write(
+                    f"Found {len(active_children)} active child processes, cleaning up...\n")
+
                 for child in active_children:
                     try:
                         if child.is_alive():
-                            sys.stderr.write(f"Terminate process: {child.name} (PID: {child.pid})\n")
+                            sys.stderr.write(
+                                f"Terminate process: {child.name} (PID: {child.pid})\n")
                             child.terminate()
                     except Exception as e:
-                        sys.stderr.write(f"Terminate process {child.name} failed: {e}\n")
-                        
+                        sys.stderr.write(
+                            f"Terminate process {child.name} failed: {e}\n")
+
                 # 给进程一点时间正常退出
                 import time
                 time.sleep(0.1)
-                
+
                 # 强制杀死仍然存活的进程
                 for child in active_children:
                     try:
                         if child.is_alive():
-                            sys.stderr.write(f"Force kill process: {child.name} (PID: {child.pid})\n")
+                            sys.stderr.write(
+                                f"Force kill process: {child.name} (PID: {child.pid})\n")
                             child.kill()
                     except Exception:
                         pass
-                        
+
         except Exception as e:
             sys.stderr.write(f"Cleanup child processes failed: {e}\n")
 
@@ -189,9 +195,9 @@ def main(version: str):
     asyncio.set_event_loop_policy(
         GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
     )
-    
+
     import multiprocessing
     multiprocessing.set_start_method("spawn", force=True)
-    
+
     app = WaydroidHelperApplication(version)
     return app.run(sys.argv)
