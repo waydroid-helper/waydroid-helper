@@ -32,5 +32,6 @@ __all__ = [
     "SharedFolderDialog",
     "GTK_VERSION",
     "ADW_VERSION",
-    "GLIB_VERSION"
+    "GLIB_VERSION",
+    "PropertyAnimationTarget"
 ]
