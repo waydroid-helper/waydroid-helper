@@ -16,14 +16,14 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, GLib, GObject, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 GTK_VERSION = Gtk.get_major_version(), Gtk.get_minor_version(), Gtk.get_micro_version()
 ADW_VERSION = Adw.get_major_version(), Adw.get_minor_version(), Adw.get_micro_version()
 GLIB_VERSION = GLib.MAJOR_VERSION, GLib.MINOR_VERSION, GLib.MICRO_VERSION
 
 
-def PropertyAnimationTarget(widget, property_name):
+def PropertyAnimationTarget(widget: Gtk.Widget, property_name: str)->Adw.AnimationTarget:
     """
     Compatibility wrapper for Adw.PropertyAnimationTarget.
     
