@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: unnamed project\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-09-09 00:51+0800\n"
-"PO-Revision-Date: 2025-09-09 19:25+0300\n"
+"PO-Revision-Date: 2025-09-11 18:05+0300\n"
 "Last-Translator: Fraxinus Acer\n"
 "Language-Team: Russian\n"
 "Language: ru\n"
@@ -1088,7 +1088,7 @@ msgstr ""
 
 #: data/ui/PropsPage.ui:236
 msgid "Enable overlay mounting"
-msgstr "Включить "
+msgstr "Включить закрепление оверлея"
 
 #: data/ui/PropsPage.ui:251
 msgid "Enable automatic ADB connection"
