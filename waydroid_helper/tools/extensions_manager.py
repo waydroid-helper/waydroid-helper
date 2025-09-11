@@ -669,9 +669,7 @@ class PackageManager(GObject.Object):
             elif func_name == "rm_apk":
                 apks = " ".join(['"' + apk + '"' for apk in args])
 
-                # 等待直到 self.waydroid.state == WaydroidState.RUNNING, 超时 raise
-                async def wait_for_running(timeout: float = 30.0):
-                    start_time = asyncio.get_event_loop().time()
+                async def wait_for_running():
                     while True:
                         await self.waydroid.refresh_persist_prop("boot_completed")
                         if (
@@ -681,15 +679,13 @@ class PackageManager(GObject.Object):
                             )
                         ):
                             return
-                        if asyncio.get_event_loop().time() - start_time > timeout:
-                            raise asyncio.TimeoutError(
-                                f"Failed to start waydroid session"
-                            )
                         await asyncio.sleep(0.5)
-
                 if self.waydroid.state == WaydroidState.STOPPED:
                     self._task.create_task(self.waydroid.start_session())
-                await wait_for_running()
+                try:
+                    await asyncio.wait_for(wait_for_running(), timeout=30)
+                except asyncio.TimeoutError:
+                    logger.error("Timeout waiting for waydroid to start")
 
                 commands = [
                     command_map[func_name].format(
