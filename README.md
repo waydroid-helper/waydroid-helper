@@ -1,6 +1,6 @@
 # Waydroid Helper
 
-**Language**: [English](README.md) | [中文](README_zh.md)
+**Language**: [English](README.md) | [中文](README_zh.md) | [Русский](README_ru.md)
 
 Waydroid Helper is a graphical user interface application written in Python using PyGObject. It provides a user-friendly way to configure Waydroid and install extensions, including Magisk and ARM translation.
 
