@@ -2,6 +2,7 @@
 import asyncio
 import os
 import shlex
+from socket import timeout
 from typing import TypedDict
 
 
@@ -42,13 +43,13 @@ class SubprocessManager:
         key: str | None = None,
         env: dict[str, str] | None = None,
         wait: bool = True,
+        timeout: float | None = None,
         shell: bool = False,
     )->SubprocessResult:
         if self._semaphore is None:
             raise RuntimeError("Semaphore is not initialized")
         
         env = env or {}  # Initialize empty dict if env is None
-
         async with self._semaphore:
             # command_list = command.split(" ")
             # if self.is_running_in_flatpak():
@@ -85,6 +86,12 @@ class SubprocessManager:
                 )
 
             if wait:
+                if timeout:
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=timeout)
+                    except asyncio.TimeoutError:
+                        process.kill()  # 超时强杀
+                        await process.wait()
                 stdout, stderr = await process.communicate()
             else:
                 return {

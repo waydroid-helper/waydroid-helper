@@ -130,7 +130,7 @@ class PropertyManager:
     async def get_persist_property(self, property_nick: str) -> str:
         """Get a persist property value using waydroid prop get"""
         try:
-            result = await self._subprocess.run(f"waydroid prop get {property_nick}", shell=False)
+            result = await self._subprocess.run(f"waydroid prop get {property_nick}", shell=False, timeout=10)
             output = result["stdout"].replace(
                 "[gbinder] Service manager /dev/binder has appeared", ""
             ).strip().split("\n")[-1]
@@ -155,7 +155,7 @@ class PropertyManager:
 
         async def get_prop(p: ParamSpec):
             try:
-                result = await self._subprocess.run(f"waydroid prop get {p.get_nick()}", shell=False)
+                result = await self._subprocess.run(f"waydroid prop get {p.get_nick()}", shell=False, timeout=10)
                 output = result["stdout"].replace(
                     "[gbinder] Service manager /dev/binder has appeared", ""
                 ).strip().split("\n")[-1]

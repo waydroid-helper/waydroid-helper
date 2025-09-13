@@ -96,12 +96,14 @@ class ModelController(GObject.Object):
 
     def _schedule_status_update(self) -> bool:
         """Schedule a status update task"""
-        self._task.create_task(self._update_session_status())
+        # self._task.create_task(self._update_session_status())
+        asyncio.create_task(self._update_session_status())
         return True  # Continue the timeout
 
     def _schedule_error_recovery(self) -> bool:
         """Schedule an error recovery check"""
-        self._task.create_task(self._handle_error_state_recovery())
+        # self._task.create_task(self._handle_error_state_recovery())
+        asyncio.create_task(self._handle_error_state_recovery())
         return True  # Continue the timeout
 
     async def _update_session_status(self):
