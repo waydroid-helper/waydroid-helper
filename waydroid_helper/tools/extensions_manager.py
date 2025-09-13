@@ -12,6 +12,7 @@ from collections.abc import Coroutine, Iterable
 from enum import IntEnum
 from gettext import gettext as _
 from typing import Any, TypedDict, TypeGuard
+from dataclasses import dataclass
 
 import aiofiles
 import httpx
@@ -26,6 +27,26 @@ from waydroid_helper.util.task import Task
 from waydroid_helper.waydroid import Waydroid, WaydroidState
 
 
+@dataclass
+class ValidationResult:
+    """验证结果类，包含验证状态和详细信息"""
+    is_valid: bool
+    error_type: str = ""
+    error_message: str = ""
+    
+    @classmethod
+    def success(cls) -> "ValidationResult":
+        return cls(is_valid=True)
+    
+    @classmethod
+    def failure(cls, error_type: str, error_message: str) -> "ValidationResult":
+        return cls(
+            is_valid=False,
+            error_type=error_type,
+            error_message=error_message
+        )
+
+
 class ExtensionManagerState(IntEnum):
     UNINITIALIZED = 0
     READY = 1
@@ -36,6 +57,7 @@ class PackageInfo(TypedDict):
     description: str
     version: str
     path: str
+    arch: list[str]
     android_version: str
     files: list[str]
     provides: list[str]
@@ -279,7 +301,51 @@ class PackageManager(GObject.Object):
                 ):
                     conflicts.add(installed_package["name"])
         return conflicts
-
+    
+    def check_arch(self, name: str, version: str, package_info: PackageInfo|None=None) -> ValidationResult:
+        """检查架构兼容性"""
+        if package_info is None:
+            package_info = self.get_package_info(name, version)
+        if package_info is None:
+            return ValidationResult.failure(
+                "package_not_found",
+                f"Package {name}-{version} not found"
+            )
+        
+        if "arch" in package_info.keys() and self.arch not in package_info["arch"]:
+            supported_arch = ", ".join(package_info["arch"])
+            return ValidationResult.failure(
+                "arch_mismatch",
+                _("Hardware architecture mismatch. Supported: {0}, Current: {1}").format(
+                    supported_arch, self.arch
+                )
+            )
+        
+        return ValidationResult.success()
+    
+    def check_android_version(self, name: str, version: str, package_info: PackageInfo|None=None) -> ValidationResult:
+        """检查 Android 版本兼容性"""
+        if package_info is None:
+            package_info = self.get_package_info(name, version)
+        if package_info is None:
+            return ValidationResult.failure(
+                "package_not_found",
+                f"Package {name}-{version} not found"
+            )
+        
+        if "android_version" in package_info.keys():
+            current_android_version = self.waydroid.get_android_version()
+            required_android_version = package_info["android_version"]
+            if current_android_version != required_android_version:
+                return ValidationResult.failure(
+                    "android_version_mismatch",
+                    _(
+                        "Your Android version is not supported. Required version: {0}. Current version: {1}."
+                    ).format(required_android_version, current_android_version)
+                )
+        
+        return ValidationResult.success()
+    
     def list_installed(self):
         return self.installed_packages
 
@@ -473,19 +539,9 @@ class PackageManager(GObject.Object):
                 logger.error(f"Package {name} not found.")
                 return
 
-            # 检查架构
-            if "arch" in package_info.keys() and self.arch not in package_info["arch"]:
-                raise ValueError("Hardware architecture mismatch")
+            # self.check_arch(package_info)
 
-            if "android_version" in package_info.keys():
-                current_android_version = self.waydroid.get_android_version()
-                required_android_version = package_info["android_version"]
-                if current_android_version != required_android_version:
-                    raise ValueError(
-                        _(
-                            "Your Android version is not supported. Required version: {0}. Current version: {1}."
-                        ).format(required_android_version, current_android_version)
-                    )
+            # self.check_android_version(package_info)
 
             # 检查依赖
             # missing_dependencies = self.check_dependencies(package_info)

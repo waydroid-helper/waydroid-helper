@@ -19,7 +19,7 @@ from waydroid_helper.tools import PackageManager
 from waydroid_helper.util import Task, logger
 
 if TYPE_CHECKING:
-    from waydroid_helper.tools.extensions_manager import PackageInfo
+    from waydroid_helper.tools.extensions_manager import PackageInfo, ValidationResult
 
 
 class AvailableRow(Adw.ActionRow):
@@ -264,6 +264,20 @@ class AvailableVersionPage(NavigationPage):
 
         return await future
 
+    async def show_validation_error(self, validation_result: "ValidationResult") -> bool:
+        if validation_result.is_valid:
+            return True
+            
+        dialog = MessageDialog(
+            heading=_("Installation Validation Failed"),
+            body=validation_result.error_message,
+            parent=self.get_root(),
+        )
+        dialog.add_response(Gtk.ResponseType.OK, _("OK"))
+        dialog.present()
+        return False
+    
+
     async def __install(self, name: str, version: str) -> None:
         installation_successful = False
         try:
@@ -272,6 +286,14 @@ class AvailableVersionPage(NavigationPage):
                 AvailableRow.State.INSTALLING
             )
             async with self.lock:
+                arch_check = self.extension_manager.check_arch(name, version)
+                if not await self.show_validation_error(arch_check):
+                    return
+                
+                android_version_check = self.extension_manager.check_android_version(name, version)
+                if not await self.show_validation_error(android_version_check):
+                    return
+                
                 conflicts = self.extension_manager.check_conflicts(
                     name=name, version=version
                 )
