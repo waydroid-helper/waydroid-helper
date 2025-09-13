@@ -19,6 +19,7 @@ import httpx
 import yaml
 from gi.repository import GLib, GObject
 
+from waydroid_helper.util.state_waiter import wait_for_state
 from waydroid_helper.util.abx_reader import AbxReader
 from waydroid_helper.util.arch import host
 from waydroid_helper.util.log import logger
@@ -747,23 +748,17 @@ class PackageManager(GObject.Object):
             elif func_name == "rm_apk":
                 apks = " ".join(['"' + apk + '"' for apk in args])
 
-                async def wait_for_running():
-                    while True:
-                        await self.waydroid.refresh_persist_prop("boot_completed")
-                        if (
-                            self.waydroid.state == WaydroidState.RUNNING
-                            and self.waydroid.persist_props.get_property(
-                                "boot_completed"
-                            )
-                        ):
-                            return
-                        await asyncio.sleep(0.5)
-                if self.waydroid.state == WaydroidState.STOPPED:
-                    self._task.create_task(self.waydroid.start_session())
-                try:
-                    await asyncio.wait_for(wait_for_running(), timeout=30)
-                except asyncio.TimeoutError:
-                    logger.error("Timeout waiting for waydroid to start")
+                await self.waydroid.start_session()
+
+                success = await wait_for_state(
+                    self.waydroid._controller.property_model,
+                    target_state=True,
+                    state_property="boot-completed",
+                    timeout=30,
+                )
+
+                if not success:
+                    logger.error("Timeout waiting for waydroid to boot")
 
                 commands = [
                     command_map[func_name].format(
