@@ -59,12 +59,12 @@ class WaydroidHelperApplication(Adw.Application):
 
         uid = os.getuid()
         if uid == 0:
+            from waydroid_helper.compat_widget import MessageDialog
             win = Adw.ApplicationWindow(application=self)
-
             def dialog_response(
                 dialog: MessageDialog, response: Gtk.ResponseType | str
             ):
-                sys.exit()
+                win.close()
 
             dialog = MessageDialog(
                 parent=win, heading="Error", body="Cannot run as root user!"
@@ -78,9 +78,7 @@ class WaydroidHelperApplication(Adw.Application):
 
         else:
             win = self.props.active_window
-            if not win:
-
-                from waydroid_helper.compat_widget import MessageDialog
+            if not win: 
                 from waydroid_helper.util.log import logger
                 from .window import WaydroidHelperWindow
 
