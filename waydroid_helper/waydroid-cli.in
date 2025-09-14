@@ -315,35 +315,6 @@ case "$action" in
     get_android_id)
         get_android_id
     ;;
-    clear_package_cache)
-        # Change to the system directory to handle wildcards properly
-        cd "$DATA_DIR/system" || exit 1
-
-        # Define the specific files and directories to clear
-        cache_items=("packages.list" "packages.xml" "package-watchdog.xml" "package_cache")
-        found_items=()
-
-        # Check which items exist
-        for item in "${cache_items[@]}"; do
-            if [ -e "$item" ]; then
-                found_items+=("$item")
-            fi
-        done
-
-        if [ ${#found_items[@]} -gt 0 ]; then
-            # Create backup with timestamp in parent directory to avoid deletion
-            backup_file="../package_cache_backup_$(date +%s).tar.gz"
-            echo "Creating backup: $backup_file"
-            tar -czpf "$backup_file" "${found_items[@]}"
-
-            # Remove the actual package cache files and directories
-            echo "Removing package cache files..."
-            rm -rf "${found_items[@]}"
-            echo "Package cache cleared successfully"
-        else
-            echo "No package cache files found to clear"
-        fi
-    ;;
     get_gpu_info)
         get_gpu_info
     ;;

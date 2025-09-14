@@ -308,9 +308,6 @@ class InstanceDetailPage(NavigationPage):
         key_mapping_group = self._create_key_mapping_group()
         prefs_page.add(key_mapping_group)
 
-        cache_management_group = self._create_cache_management_group()
-        prefs_page.add(cache_management_group)
-
         google_play_group = self._create_google_play_group()
         prefs_page.add(google_play_group)
 
@@ -362,26 +359,6 @@ class InstanceDetailPage(NavigationPage):
 
         key_mapping_row.add_suffix(button_box)
         group.add(key_mapping_row)
-
-        return group
-
-    def _create_cache_management_group(self):
-        group = Adw.PreferencesGroup.new()
-        group.set_title(_("Cache Management"))
-
-        clear_cache_row = Adw.ActionRow.new()
-        clear_cache_row.set_title(_("Clear Package Cache"))
-        clear_cache_row.set_subtitle(
-            _("Fix startup issues after installing GApps or microG")
-        )
-
-        self.clear_cache_button = Gtk.Button.new_with_label(_("Clear Cache"))
-        self.clear_cache_button.add_css_class("destructive-action")
-        self.clear_cache_button.set_size_request(160, 40)
-        self.clear_cache_button.connect("clicked", self.on_clear_cache_clicked)
-
-        clear_cache_row.add_suffix(self.clear_cache_button)
-        group.add(clear_cache_row)
 
         return group
 
@@ -651,116 +628,6 @@ class InstanceDetailPage(NavigationPage):
         logger.debug("Key mapping window closed")
         self.keymapper_proc = None
         self._update_key_mapping_buttons()
-
-    def on_clear_cache_clicked(self, button: Gtk.Button):
-        """Handle clear cache button click"""
-        logger.info("Clear package cache button clicked")
-        self._show_clear_cache_confirmation(button)
-
-    def _show_clear_cache_confirmation(self, button: Gtk.Button):
-        """Show confirmation dialog before clearing cache"""
-        dialog = MessageDialog(
-            heading=_("Clear Package Cache"),
-            body=_(
-                "This will clear Waydroid package cache files to fix startup issues after installing GApps or microG.\n\nA backup will be created before clearing. Do you want to continue?"
-            ),
-            parent=self.get_root(),
-        )
-
-        dialog.add_response(Gtk.ResponseType.CANCEL, _("Cancel"))
-        dialog.add_response(Gtk.ResponseType.OK, _("Clear Cache"))
-        dialog.set_response_appearance(Gtk.ResponseType.OK, "destructive-action")
-        dialog.set_default_response(Gtk.ResponseType.CANCEL)
-
-        dialog.connect("response", self._on_confirmation_response, button)
-        dialog.present()
-
-    def _on_confirmation_response(self, dialog, response, button: Gtk.Button):
-        """Handle confirmation dialog response"""
-        if (
-            response == Gtk.ResponseType.OK.value_nick
-            or response == Gtk.ResponseType.OK
-        ):
-            logger.debug("User confirmed cache clearing")
-            self._task.create_task(self._clear_package_cache(button))
-        else:
-            logger.info("User cancelled cache clearing")
-
-    async def _clear_package_cache(self, button: Gtk.Button):
-        """Clear Waydroid package cache"""
-        try:
-            button.set_sensitive(False)
-            button.set_label(_("Clearing..."))
-
-            cli_path = os.environ.get("WAYDROID_CLI_PATH")
-            if not cli_path:
-                logger.error("WAYDROID_CLI_PATH environment variable not set")
-                self._show_cache_clear_result(False, _("WAYDROID_CLI_PATH not found"))
-                return
-
-            command = f"{cli_path} clear_package_cache"
-
-            subprocess_manager = SubprocessManager()
-            result = await subprocess_manager.run(command, shell=False)
-
-            logger.debug(f"Clear cache command result: {result}")
-
-            if result["returncode"] == 0:
-                backup_path = self._extract_backup_path(result["stdout"])
-                self._show_cache_clear_result(
-                    True, _("Package cache cleared successfully"), backup_path
-                )
-            else:
-                self._show_cache_clear_result(False, f"Error: {result['stderr']}")
-
-        except Exception as e:
-            logger.error(f"Failed to clear package cache: {e}")
-            self._show_cache_clear_result(False, str(e))
-        finally:
-            button.set_sensitive(True)
-            button.set_label(_("Clear Cache"))
-
-    def _extract_backup_path(self, stdout: str) -> str:
-        """Extract backup file path from command output"""
-        try:
-            lines = stdout.split("\n")
-            for line in lines:
-                if "Creating backup:" in line:
-                    backup_filename = line.split("Creating backup: ")[1].strip()
-                    data_dir = os.path.expanduser("~/.local/share/waydroid/data")
-                    if backup_filename.startswith("../"):
-                        backup_path = os.path.join(data_dir, backup_filename[3:])
-                    else:
-                        backup_path = os.path.join(data_dir, "system", backup_filename)
-                    return backup_path
-        except Exception as e:
-            logger.error(f"Failed to extract backup path: {e}")
-        return ""
-
-    def _show_cache_clear_result(
-        self, success: bool, message: str, backup_path: str = ""
-    ):
-        """Show cache clear operation result"""
-        if success:
-            logger.debug(f"Cache clear success: {message}")
-            heading = _("Cache Cleared Successfully")
-            if backup_path:
-                body = _(
-                    "Package cache has been cleared successfully.\n\nBackup saved to:\n{0}"
-                ).format(backup_path)
-            else:
-                body = _("Package cache has been cleared successfully.")
-        else:
-            logger.error(f"Cache clear failed: {message}")
-            heading = _("Cache Clear Failed")
-            body = _("Failed to clear package cache:\n\n{0}").format(message)
-
-        dialog = MessageDialog(heading=heading, body=body, parent=self.get_root())
-
-        dialog.add_response(Gtk.ResponseType.OK, _("OK"))
-        dialog.set_default_response(Gtk.ResponseType.OK)
-
-        dialog.present()
 
     def _create_google_play_group(self):
         group = Adw.PreferencesGroup.new()
