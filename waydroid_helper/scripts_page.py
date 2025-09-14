@@ -16,6 +16,8 @@ gi.require_version("Vte", "3.91")
 
 from gi.repository import Adw, GObject, Gtk, Vte, GLib, Pango, Gdk
 from waydroid_helper.compat_widget.message_dialog import MessageDialog
+from waydroid_helper.compat_widget.header_bar import HeaderBar
+from waydroid_helper.compat_widget.dialog import Dialog
 
 
 class ScriptItem(Adw.ActionRow):
@@ -146,6 +148,8 @@ class TerminalWidget(Gtk.Box):
         def on_spawn(term, res):
             try:
                 term.spawn_async_finish(res)
+                # Shell 启动成功，发送信号通知
+                self.emit("shell-ready")
             except GLib.Error as e:
                 logger.error(f"Terminal spawn failed: {e}")
         
@@ -180,31 +184,95 @@ class TerminalWidget(Gtk.Box):
     
     def setup_copy_paste(self):
         """设置复制粘贴功能"""
-        # 创建键盘事件控制器
-        key_controller = Gtk.EventControllerKey()
-        _ = key_controller.connect("key-pressed", self.on_key_pressed)
-        self.terminal.add_controller(key_controller)
+        # 创建快捷键控制器
+        shortcut_controller = Gtk.ShortcutController()
+        
+        # 创建复制快捷键 Ctrl+Shift+C
+        copy_shortcut = Gtk.Shortcut.new(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Ctrl><Shift>c"),
+            action=Gtk.CallbackAction.new(self.on_copy_shortcut, None)
+        )
+        shortcut_controller.add_shortcut(copy_shortcut)
+        
+        # 创建粘贴快捷键 Ctrl+Shift+V
+        paste_shortcut = Gtk.Shortcut.new(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Ctrl><Shift>v"),
+            action=Gtk.CallbackAction.new(self.on_paste_shortcut, None)
+        )
+        shortcut_controller.add_shortcut(paste_shortcut)
+        
+        self.terminal.add_controller(shortcut_controller)
     
-    def on_key_pressed(self, controller, keyval, keycode, state):
-        """处理键盘按键事件"""
-        # Ctrl+Shift+C 复制（备用）
-        if keyval == Gdk.KEY_C and state & Gdk.ModifierType.CONTROL_MASK and state & Gdk.ModifierType.SHIFT_MASK:
-            if self.terminal.get_has_selection():
-                self.terminal.copy_clipboard()
-                return True
-        
-        # Ctrl+Shift+V 粘贴（备用）
-        elif keyval == Gdk.KEY_V and state & Gdk.ModifierType.CONTROL_MASK and state & Gdk.ModifierType.SHIFT_MASK:
-            self.terminal.paste_clipboard()
+    def on_copy_shortcut(self, *args):
+        """处理复制快捷键"""
+        if self.terminal.get_has_selection():
+            self.terminal.copy_clipboard()
             return True
-        
         return False
+    
+    def on_paste_shortcut(self, *args):
+        """处理粘贴快捷键"""
+        self.terminal.paste_clipboard()
+        return True
     
     def run_command(self, command: str):
         """在终端中运行命令"""
         # 使用 feed_child 方法发送命令到子进程执行
         # 需要发送命令字符串加上换行符
         self.terminal.feed_child((command + '\n').encode())
+
+
+class TerminalWindow(Dialog):
+    """独立的终端窗口"""
+    __gtype_name__: str = "TerminalWindow"
+    
+    def __init__(self, script_name: str, parent_window=None):
+        # 创建主容器
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        
+        # 创建头部栏
+        self.header_bar = HeaderBar()
+        title_label = Gtk.Label(label=f"Terminal - {script_name}")
+        self.header_bar.set_title_widget(title_label)
+        
+        # 添加头部栏到主容器
+        main_box.append(self.header_bar)
+        
+        # 创建终端组件
+        self.terminal_widget = TerminalWidget()
+        main_box.append(self.terminal_widget)
+        
+        # 调用父类构造函数
+        super().__init__(
+            title=f"Terminal - {script_name}",
+            content_widget=main_box,
+            parent=parent_window,
+            modal=False,
+            content_height=600,
+            content_width=800
+        )
+        
+        # 存储命令，等待 shell 准备好后执行
+        self._pending_command = None
+        
+        # 设置窗口图标（如果有的话）
+        try:
+            self.set_icon_name("utilities-terminal")
+        except:
+            pass
+    
+    def set_command(self, command: str):
+        """设置要执行的命令"""
+        self._pending_command = command
+        # 连接 shell-ready 信号
+        _ = self.terminal_widget.connect("shell-ready", self._on_shell_ready)
+    
+    def _on_shell_ready(self, terminal_widget):
+        """Shell 准备好后执行命令"""
+        if self._pending_command:
+            terminal_widget.run_command(self._pending_command)
+            logger.debug(f"Running script: {self._pending_command}")
+            self._pending_command = None
 
 
 class ScriptsPage(Gtk.Box):
@@ -214,21 +282,12 @@ class ScriptsPage(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         
-        # 创建分割面板
-        paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        
-        # 上半部分：脚本列表
+        # 只显示脚本列表
         self.scripts_list_widget = ScriptsListWidget()
-        paned.set_start_child(self.scripts_list_widget)
-        
-        # 下半部分：终端
-        self.terminal_widget = TerminalWidget()
-        paned.set_end_child(self.terminal_widget)
+        self.append(self.scripts_list_widget)
         
         # 连接脚本按钮事件
         self._connect_script_events()
-        
-        self.append(paned)
     
     def _connect_script_events(self):
         """连接脚本按钮事件"""
@@ -263,8 +322,12 @@ class ScriptsPage(Gtk.Box):
             else:
                 command = f"{script_item.script_path} --help"
             
-            self.terminal_widget.run_command(command)
-            logger.debug(f"Running script: {script_item.script_name} -> {command}")
+            # 创建并显示终端窗口
+            terminal_window = TerminalWindow(script_item.script_name, parent_window=self.get_root())
+            terminal_window.present()
+            
+            # 设置要执行的命令，等待 shell 准备好后自动执行
+            terminal_window.set_command(command)
         except Exception as e:
             logger.error(f"Failed to run script {script_item.script_name}: {e}")
     
