@@ -120,6 +120,9 @@ class TerminalWidget(Gtk.Box):
     """VTE 终端组件"""
     __gtype_name__: str = "TerminalWidget"
     
+    __gsignals__ = {
+        "shell-ready": (GObject.SignalFlags.RUN_FIRST, None, ())
+    }
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         
@@ -145,25 +148,26 @@ class TerminalWidget(Gtk.Box):
         """启动 shell"""
         shell = os.environ.get("SHELL", "/bin/bash")
         
-        def on_spawn(term, res):
+        def on_spawn(term, res, user_data):
             try:
-                term.spawn_async_finish(res)
                 # Shell 启动成功，发送信号通知
                 self.emit("shell-ready")
             except GLib.Error as e:
                 logger.error(f"Terminal spawn failed: {e}")
         
+        # 使用 spawn_async 的正确参数顺序
         self.terminal.spawn_async(
-            Vte.PtyFlags.DEFAULT,
-            os.path.expanduser("~"),
-            [shell],
-            None,
-            GLib.SpawnFlags.DEFAULT,
-            None,
-            0,
-            -1,
-            None,
-            None,
+            Vte.PtyFlags.DEFAULT,  # pty_flags
+            os.path.expanduser("~"),  # working_directory
+            [shell],  # argv
+            None,  # envv
+            GLib.SpawnFlags.DEFAULT,  # spawn_flags
+            None,  # child_setup
+            None,  # child_setup_data
+            -1,  # timeout
+            None,  # cancellable
+            on_spawn,  # callback
+            (),  # user_data
         )
     
     def _setup_theme_colors(self):
