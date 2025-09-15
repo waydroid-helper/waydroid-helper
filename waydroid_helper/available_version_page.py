@@ -359,7 +359,7 @@ class AvailableVersionPage(NavigationPage):
                     )
                     installation_successful = True
         except Exception as e:
-            logger.error(e)
+            logger.error(str(e))
             dialog = MessageDialog(
                 heading=_("Installation Failed"), body=str(e), parent=self.get_root()
             )
