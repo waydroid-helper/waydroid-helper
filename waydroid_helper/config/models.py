@@ -11,6 +11,7 @@ class CageConfig(GObject.Object):
     
     enabled = GObject.Property(type=bool, default=False)
     executable_path = GObject.Property(type=str, default="")
+    refresh_rate = GObject.Property(type=int, default=60)
     window_width = GObject.Property(type=int, default=1920)
     window_height = GObject.Property(type=int, default=1080)
     logical_width = GObject.Property(type=int, default=1920)

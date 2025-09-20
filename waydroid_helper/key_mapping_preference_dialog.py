@@ -35,6 +35,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.logical_width_spin: Gtk.SpinButton
         self.logical_height_spin: Gtk.SpinButton
         self.scale_spin: Gtk.SpinButton
+        self.refresh_rate_spin: Gtk.SpinButton
         self.socket_name_entry: Gtk.Entry
         self.hide_titlebar_switch: Gtk.Switch
 
@@ -223,6 +224,26 @@ class KeyMappingPreferenceDialog(Dialog):
 
         group.add(scale_row)
 
+        # Cage Refresh Rate
+        refresh_rate_row = Adw.ActionRow.new()
+        refresh_rate_row.set_title(_("Refresh Rate"))
+        refresh_rate_row.set_subtitle(_("Cage display refresh rate (Hz)"))
+
+        refresh_rate_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        self.refresh_rate_spin = Gtk.SpinButton.new_with_range(30, 240, 1)  # 范围30-240Hz，步长为1
+        self.refresh_rate_spin.set_size_request(80, 24)
+        self.refresh_rate_spin.set_valign(Gtk.Align.CENTER)
+
+        hz_label = Gtk.Label.new("Hz")
+
+        refresh_rate_box.append(self.refresh_rate_spin)
+        refresh_rate_box.append(hz_label)
+
+        refresh_rate_row.add_suffix(refresh_rate_box)
+
+        group.add(refresh_rate_row)
+
         # Cage Socket Name
         socket_name_row = Adw.ActionRow.new()
         socket_name_row.set_title(_("Socket Name"))
@@ -262,6 +283,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.logical_width_spin.set_sensitive(enabled)
         self.logical_height_spin.set_sensitive(enabled)
         self.scale_spin.set_sensitive(enabled)
+        self.refresh_rate_spin.set_sensitive(enabled)
         self.socket_name_entry.set_sensitive(enabled)
         self.hide_titlebar_switch.set_sensitive(enabled)
 
@@ -331,6 +353,13 @@ class KeyMappingPreferenceDialog(Dialog):
 
         self.config.cage.bind_property(
             "enabled",
+            self.refresh_rate_spin,
+            "sensitive",
+            GObject.BindingFlags.SYNC_CREATE,
+        )
+
+        self.config.cage.bind_property(
+            "enabled",
             self.socket_name_entry,
             "sensitive",
             GObject.BindingFlags.SYNC_CREATE,
@@ -374,6 +403,13 @@ class KeyMappingPreferenceDialog(Dialog):
         self.config.cage.bind_property(
             "scale",
             self.scale_spin,
+            "value",
+            GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+        )
+
+        self.config.cage.bind_property(
+            "refresh_rate",
+            self.refresh_rate_spin,
             "value",
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
         )

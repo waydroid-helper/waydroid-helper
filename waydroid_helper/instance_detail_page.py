@@ -534,9 +534,10 @@ class InstanceDetailPage(NavigationPage):
                 logic_height = self.config.cage.logical_height
                 socket_name = self.config.cage.socket_name
                 scale = self.config.cage.scale/100
+                refresh_rate = self.config.cage.refresh_rate
                 hide_titlebar_flag = "--hide-titlebar" if self.config.cage.hide_titlebar else ""
                 await sm.run(
-                    f"{self.config.cage.executable_path} -W {width} -H {height} -w {logic_width} -h {logic_height} -S {socket_name} --scale {scale} {hide_titlebar_flag} -- waydroid show-full-ui",
+                    f"{self.config.cage.executable_path} -W {width} -H {height} -w {logic_width} -h {logic_height} -S {socket_name} --scale {scale} --refresh-rate {refresh_rate} {hide_titlebar_flag} -- waydroid show-full-ui",
                     flag=True,
                     wait=False,
                 )
