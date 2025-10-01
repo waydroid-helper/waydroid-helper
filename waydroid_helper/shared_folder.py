@@ -1,6 +1,7 @@
 import asyncio
 import os
 import re
+import dbus
 from enum import IntEnum
 
 import aiofiles
@@ -12,7 +13,7 @@ from gettext import gettext as _
 
 from gi.repository import Adw, Gio, GObject, Gtk
 
-from waydroid_helper.compat_widget import SharedFolderDialog
+from waydroid_helper.compat_widget import SharedFolderDialog, MessageDialog
 from waydroid_helper.util import SubprocessManager, logger
 
 
@@ -187,6 +188,27 @@ class SharedFoldersWidget(Adw.PreferencesGroup):
             match self.list_store.get_item(i):
                 case SharedFolder() as item if item.source == folder.source and item.target == folder.target:
                     self.list_store.remove(i)
+
+                    try:
+                        mount_interface = dbus.Interface(
+                    dbus.SystemBus().get_object(
+                            "id.waydro.Mount",
+                            "/org/waydro/Mount"
+                            ),
+                            "id.waydro.Mount",
+                        )
+                        mount_interface.Unmount(folder.target)
+                    except Exception as e:
+                        logger.error(f"Failed to unmount {folder.target}: {e}")
+                        error_dialog = MessageDialog(
+                            heading=_("Error"),
+                            body=_("Failed to unmount {target}:\n\n{error}").format(
+                                target=folder.target, error=str(e)
+                            ),
+                            parent=self.get_root(),
+                        )
+                        error_dialog.add_response(Gtk.ResponseType.OK, _("OK"))
+                        error_dialog.present()
                     break
                 case _:
                     continue
