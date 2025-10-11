@@ -90,8 +90,6 @@ class AvailableRow(Adw.ActionRow):
             # Join multiple errors and set as subtitle with markup
             subtitle_markup = ' • '.join(subtitle_parts)
             self.set_subtitle(subtitle_markup)
-            self.set_use_markup(True)  # Enable markup parsing for subtitle
-            
             # Disable the entire row if there are validation errors
             self.set_sensitive(False)
             self.install_button.set_sensitive(False)
@@ -99,7 +97,6 @@ class AvailableRow(Adw.ActionRow):
         else:
             # Clear subtitle if no errors
             self.set_subtitle("")
-            self.set_use_markup(False)
             self.set_sensitive(True)
             self.install_button.set_sensitive(True)
             self.delete_button.set_sensitive(True)
