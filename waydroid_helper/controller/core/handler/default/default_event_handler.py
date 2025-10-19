@@ -167,6 +167,6 @@ class DefaultEventHandler(InputEventHandler):
         if not event.raw_data:
             return False
         self.mouse_handler.zoom_processor(
-            event.raw_data["controller"], event.raw_data["range"]
+            event.raw_data["controller"], event.raw_data["zoom"], status=event.raw_data["status"]
         )
         return True

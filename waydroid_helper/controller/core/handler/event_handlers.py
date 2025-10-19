@@ -23,6 +23,7 @@ class EventHandlerPriority(IntEnum):
     LOWEST = 100  # 最低优先级（默认处理器）
 
 
+# TODO: refactor this shit
 @dataclass
 class InputEvent:
     """输入事件数据结构"""

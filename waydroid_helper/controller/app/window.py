@@ -8,6 +8,7 @@ Provides implementation and window management for transparent windows
 import math
 from gettext import gettext as _
 from typing import TYPE_CHECKING
+from functools import partial
 
 import gi, signal
 
@@ -524,6 +525,12 @@ class TransparentWindow(Adw.Window):
         motion_controller.connect("motion", self.on_window_mouse_motion)
         self.add_controller(motion_controller)
 
+        zoom_controller = Gtk.GestureZoom()
+        zoom_controller.connect("begin", partial(self.on_window_mouse_zoom, status="begin"))
+        zoom_controller.connect("scale-changed", partial(self.on_window_mouse_zoom, status="scale-changed"))
+        zoom_controller.connect("end", partial(self.on_window_mouse_zoom, status="end"))
+        self.add_controller(zoom_controller)
+
         # Initialize drag and resize states
         self.dragging_widget = None
         self.resizing_widget = None
@@ -627,6 +634,13 @@ class TransparentWindow(Adw.Window):
                 raw_data={"controller": controller, "dx": dx, "dy": dy},
             )
             self.event_handler_chain.process_event(event)
+
+    def on_window_mouse_zoom(self, controller, zoom, status:str):
+        event = InputEvent(
+            event_type="mouse_zoom",
+            raw_data={"controller": controller, "zoom": zoom, "status": status},
+        )
+        self.event_handler_chain.process_event(event)
 
     def fixed_put(self, widget, x, y):
         self.fixed.put(widget, x, y)
