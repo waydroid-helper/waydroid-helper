@@ -226,7 +226,7 @@ class MouseDefault(MouseBase):
 
         # ctrl+scroll
         if (state & Gdk.ModifierType.CONTROL_MASK) and dy is not None:
-            ctrl_zoom_range = -dy * 0.01
+            ctrl_zoom_range = -dy
             return self.zoom_processor(controller, ctrl_zoom_range, None)
         else:
 
@@ -356,8 +356,10 @@ class MouseDefault(MouseBase):
                 self._start_zoom_timer()
 
 
-            if abs(range) == 0.01:
-                range *= 10
+            if abs(range) == 1:
+                range *= 0.1
+            else:
+                range *= 0.01
 
             old_zoom_length = self._current_zoom_length
             new_zoom_length = self._current_zoom_length + (self.zoom_in_init_length + self.zoom_out_init_length) * range
