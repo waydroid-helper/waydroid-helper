@@ -41,7 +41,6 @@ class SingleClick(BaseWidget):
         "Controller Widgets",
         "Simulate a click operation at a specific position.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 映射模式固定尺寸
     # MAPPING_MODE_WIDTH = 30

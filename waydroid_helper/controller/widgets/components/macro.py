@@ -608,7 +608,6 @@ class Macro(BaseWidget):
         "Controller Widgets",
         "Execute macro commands when triggered.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 映射模式固定尺寸
     MAPPING_MODE_HEIGHT = 30

@@ -78,7 +78,6 @@ class SkillCasting(BaseWidget):
         "Controller Widgets",
         "Commonly used when using the characters' skills, click and cooperate with the mouse to release skills.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 映射模式固定尺寸
     MAPPING_MODE_HEIGHT = 30

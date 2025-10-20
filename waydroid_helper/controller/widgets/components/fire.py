@@ -1,6 +1,6 @@
 import math
 from gettext import pgettext
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
@@ -13,6 +13,7 @@ from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
 from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
+from waydroid_helper.controller.widgets.config import create_dropdown_config
 
 
 class Fire(BaseWidget):
@@ -23,7 +24,6 @@ class Fire(BaseWidget):
         "Controller Widgets",
         "Commonly used in FPS games, add a button to the attack/fire button position, use the left mouse button to click, and must be used with the aim button. Note: Only supports left mouse button, cannot be modified, and won't work alone.",
     )
-    WIDGET_VERSION = "1.0"
 
     def __init__(
         self,
@@ -58,6 +58,8 @@ class Fire(BaseWidget):
         self.event_bus.subscribe(EventType.AIM_TRIGGERED, self._on_aim_triggered, subscriber=self)
         self.event_bus.subscribe(EventType.AIM_RELEASED, self._on_aim_released, subscriber=self)
         self.screen_info = ScreenInfo()
+        
+        self.setup_config()
 
     def _on_aim_triggered(self, event: Event[None]):
         """处理瞄准触发事件"""
@@ -66,6 +68,40 @@ class Fire(BaseWidget):
     def _on_aim_released(self, event: Event[None]):
         """处理瞄准释放事件"""
         self.aim_triggered = False
+        
+    def setup_config(self) -> None:
+        """设置配置项"""
+        # 添加鼠标按键选择配置
+        mouse_button_config = create_dropdown_config(
+            key="mouse_button",
+            label=pgettext("Controller Widgets", "Mouse Button"),
+            options=["left", "right"],
+            option_labels={
+                "left": pgettext("Controller Widgets", "Left Button"),
+                "right": pgettext("Controller Widgets", "Right Button"),
+            },
+            value="left",
+            description=pgettext(
+                "Controller Widgets", "Choose which mouse button to simulate for firing"
+            ),
+        )
+        
+        self.add_config_item(mouse_button_config)
+        self.add_config_change_callback("mouse_button", self._on_mouse_button_changed)
+        
+    def _on_mouse_button_changed(self, key: str, value: str, restoring: bool) -> None:
+        key_mapping_manager = self.get_root().key_mapping_manager
+        key_mapping_manager.unsubscribe(self)
+        if value == "right":
+            right_mouse_key = KeyCombination([self.key_registry.get_by_name("Mouse_Right")])
+            self.final_keys = set([right_mouse_key])
+            key_mapping_manager.subscribe(self, right_mouse_key)
+        else:
+            left_mouse_key = KeyCombination([self.key_registry.get_by_name("Mouse_Left")])
+            self.final_keys = set([left_mouse_key])
+            key_mapping_manager.subscribe(self, left_mouse_key)
+        self.queue_draw()
+
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制开火按钮的具体内容"""
@@ -87,7 +123,7 @@ class Fire(BaseWidget):
         cr.stroke()
 
     def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
-        """重写文本绘制 - 绘制标准鼠标图标，左键高亮为蓝色，其余为白色，尺寸更小，蓝白互换"""
+        """重写文本绘制 - 绘制标准鼠标图标，根据配置高亮左键或右键"""
         center_x = width / 2
         center_y = height / 2
 
@@ -98,6 +134,9 @@ class Fire(BaseWidget):
         mouse_y = center_y - mouse_h / 2
         border_width = 1.2
 
+        # 获取配置的鼠标按键
+        mouse_button: str = self.get_config_value("mouse_button")
+        
         # 1. 先绘制整个鼠标为蓝色填充
         cr.save()
         cr.translate(center_x, center_y)
@@ -107,13 +146,20 @@ class Fire(BaseWidget):
         cr.fill()
         cr.restore()
 
-        # 2. 左键（左上区域）用白色覆盖
+        # 2. 根据配置决定哪个按键用白色覆盖
         cr.save()
         cr.translate(center_x, center_y)
         cr.scale(mouse_w / 2, mouse_h / 2)
         cr.set_source_rgba(1, 1, 1, 1)  # 白色
         cr.move_to(0, 0)
-        cr.arc_negative(0, 0, 1, math.pi, math.pi * 1.5)
+        
+        if mouse_button == "right":
+            # 右键（右上区域）用白色覆盖
+            cr.arc_negative(0, 0, 1, math.pi * 1.5, 0)
+        else:
+            # 左键（左上区域）用白色覆盖（默认）
+            cr.arc_negative(0, 0, 1, math.pi, math.pi * 1.5)
+            
         cr.line_to(0, 0)
         cr.close_path()
         cr.fill()

@@ -45,7 +45,7 @@ class BaseWidget(Gtk.DrawingArea):
     # 组件元数据 - 子类可以覆盖这些属性
     WIDGET_NAME = "Base Widget"
     WIDGET_DESCRIPTION = "Base widget, providing basic drag and select functionality"
-    WIDGET_VERSION = "1.0"
+    WIDGET_VERSION = "1.1"
 
     # 映射模式固定尺寸 - 子类可以覆盖这些值
     MAPPING_MODE_WIDTH = 50  # 默认映射模式宽度

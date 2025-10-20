@@ -26,7 +26,6 @@ class CancelCasting(BaseWidget):
         "Controller Widgets",
         "Drag the key to the cancel casting position. While casting a spell, hold down the cancel cast button to cancel the cast.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 禁止通过右键菜单创建
     ALLOW_CONTEXT_MENU_CREATION = False

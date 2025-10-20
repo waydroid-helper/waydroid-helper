@@ -40,7 +40,6 @@ class RightClickToWalk(BaseWidget):
         "Controller Widgets",
         "Add to the game's movement wheel: hold and drag to steer, single-click to auto-walk to cursor. Ideal for MOBAs.",
     )
-    WIDGET_VERSION = "1.0"
 
     def __init__(
         self,

@@ -60,7 +60,6 @@ class RepeatedClick(BaseWidget):
         "Controller Widgets",
         "Simulate repeated click operations at a specific position.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 映射模式固定尺寸
     MAPPING_MODE_HEIGHT = 30

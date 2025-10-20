@@ -57,7 +57,6 @@ class Aim(BaseWidget):
         "Controller Widgets",
         "FPS staple: drag to game's view area, pair with Fire for mouse-aim shooting. Resize box to match in-game rotation zone.",
     )
-    WIDGET_VERSION = "1.0"
     IS_REENTRANT = True  # 支持可重入，实现长按瞄准功能
 
     # 固定圆形区域大小

@@ -19,13 +19,13 @@ from waydroid_helper.controller.core.control_msg import ScreenInfo
 from waydroid_helper.controller.core.key_system import Key, KeyCombination, KeyRegistry
 from waydroid_helper.util.log import logger
 from waydroid_helper.compat_widget.file_dialog import FileDialog
+from waydroid_helper.controller.widgets.base import BaseWidget
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 
 if TYPE_CHECKING:
     from waydroid_helper.controller.app.window import TransparentWindow
-    from waydroid_helper.controller.widgets.base import BaseWidget
     from waydroid_helper.controller.widgets.factory import WidgetFactory
 
 
@@ -356,7 +356,7 @@ class ContextMenuManager:
 
             # 创建完整的布局数据，包括屏幕尺寸信息
             layout_data = {
-                "version": "1.0",  # 增加版本号
+                "version": BaseWidget.WIDGET_VERSION,  # 增加版本号
                 "screen_resolution": {"width": screen_width, "height": screen_height},
                 "widgets": widgets_data,
                 "created_at": str(Path().absolute()),  # 保存创建时间戳
@@ -413,6 +413,9 @@ class ContextMenuManager:
             if "widgets" not in layout_data:
                 logger.error("Invalid layout file format")
                 return
+            
+            if layout_data.get("version") != BaseWidget.WIDGET_VERSION:
+                logger.warning(f"Layout file version mismatch: {layout_data.get('version')} != {BaseWidget.WIDGET_VERSION}")
 
             # 获取当前屏幕尺寸
             current_screen_width, current_screen_height = (

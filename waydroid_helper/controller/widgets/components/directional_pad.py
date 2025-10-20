@@ -57,7 +57,6 @@ class DirectionalPad(BaseWidget):
         "Controller Widgets",
         "Drag and place it onto the game's movement wheel to control walking direction. After assigning keys, drag the dotted frame to resize the button; make sure the blue frame of the directional pad matches the size of the game wheel.",
     )
-    WIDGET_VERSION = "1.0"
 
     # 方向常量
     DIRECTIONS = ["up", "down", "left", "right"]
