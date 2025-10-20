@@ -78,7 +78,7 @@ class MouseDefault(MouseBase):
         self._current_zoom_length = -1
         self._last_range = 1.0
         self._zoom_timer_id: int | None = None
-        self._zoom_timeout_seconds = 0.5
+        self._zoom_timeout_seconds = 0.25
 
     def _start_zoom_timer(self) -> None:
         self._stop_zoom_timer()
