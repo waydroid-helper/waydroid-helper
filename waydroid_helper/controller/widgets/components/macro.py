@@ -453,17 +453,15 @@ class SwipeholdRadiusCommand(Command):
         )
 
     async def cancel(self, context: "Macro") -> None:
-        """取消滑动半径切换 - 重置为默认半径并重置状态"""
-        if self.is_enabled:
-            # 重置为默认半径 (1.0)
-            context.event_bus.emit(
-                Event(
-                    type=EventType.SWIPEHOLD_RADIUS,
-                    source=context,
-                    data=1.0,
-                )
+        """取消滑动半径设置 - 重置为默认半径"""
+        # 重置为默认半径 (1.0)
+        context.event_bus.emit(
+            Event(
+                type=EventType.SWIPEHOLD_RADIUS,
+                source=context,
+                data=1.0,
             )
-            self.is_enabled = False
+        )
 
 
 class SwipeholdRadiusSwitchCommand(Command):
@@ -507,6 +505,36 @@ class SwipeholdRadiusSwitchCommand(Command):
             self.is_enabled = False
 
 
+class ToggleGroupCommand(Command):
+    """切换命令组 - 在两组命令之间切换执行"""
+
+    def __init__(self, command_groups: list[str]):
+        if len(command_groups) != 2:
+            return
+        self.current_group = 0  # 跟踪当前应该执行的命令组 (0 或 1)
+        
+        # 解析两组命令，重用 CommandParser 的逻辑
+        self.command_group_a = CommandParser.parse_command_lines(command_groups[0].strip().split(';'))
+        self.command_group_b = CommandParser.parse_command_lines(command_groups[1].strip().split(';'))
+        self.command_groups = [self.command_group_a, self.command_group_b]
+
+    async def execute(self, context: "Macro") -> None:
+        # 执行当前命令组中的所有命令
+        for command in self.command_groups[self.current_group]:
+            await command.execute(context)
+        
+        # 切换到另一个命令组
+        self.current_group = 1 - self.current_group
+
+    async def cancel(self, context: "Macro") -> None:
+        """取消切换执行 - 重置状态到第一个命令组，并取消所有命令状态"""
+        self.current_group = 0
+        # 取消所有命令组中的命令状态
+        for command_group in self.command_groups:
+            for command in command_group:
+                await command.cancel(context)
+
+
 class OtherCommand(Command):
     """其他命令占位符"""
 
@@ -515,6 +543,46 @@ class OtherCommand(Command):
 
     async def execute(self, context: "Macro") -> None:
         pass  # 可以在这里扩展其他命令
+
+
+# ==================== 命令解析器 ====================
+
+
+class CommandParser:
+    """命令解析器 - 负责解析命令字符串为命令对象"""
+
+    @staticmethod
+    def parse_command_lines(lines: list[str]) -> list[Command]:
+        """解析命令行列表为Command对象列表"""
+        commands = []
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            parts = line.split(" ", 1)
+            command_type = parts[0].lower()
+            args_str = parts[1] if len(parts) > 1 else ""
+
+            # 处理参数
+            if command_type in ["key_press", "key_release", "key_switch"] and args_str:
+                args = [k.strip() for k in args_str.split(",")]
+            elif command_type in ["click", "press", "release", "switch"] and args_str:
+                args = args_str.split()
+            elif command_type == "toggle_group" and args_str:
+                args = [args_str]  # toggle_group 需要保持完整字符串，在工厂中再分割
+            elif command_type == "sleep" and args_str:
+                args = [args_str]
+            else:
+                args = [args_str] if args_str else []
+
+            # 使用工厂创建命令
+            command = CommandFactory.create_command(command_type, args)
+            if command:
+                commands.append(command)
+
+        return commands
 
 
 # ==================== 命令工厂 ====================
@@ -590,6 +658,13 @@ class CommandFactory:
                 return SwipeholdRadiusSwitchCommand(float(args[0]))
             else:
                 return None
+        elif command_type == "toggle_group":
+            if len(args) == 1:
+                # args[0] 包含完整的命令字符串，用 | 分割
+                command_groups = [group.strip() for group in args[0].split("|")]
+                if len(command_groups) == 2:
+                    return ToggleGroupCommand(command_groups)
+            return None
 
         elif command_type == "other_command":
             return OtherCommand(args)
@@ -680,6 +755,7 @@ class Macro(BaseWidget):
                 "- press <x,y> [x1,y1] ...: Press at coordinates (DOWN events only)\n"
                 "- release <x,y> [x1,y1] ...: Release at coordinates (UP events only)\n"
                 "- switch <x,y> [x1,y1] ...: Switch at coordinates (toggle between press/release)\n"
+                "- toggle_group <command_group_1> | <command_group_2>: Toggle between two command groups (use ';' to separate commands within a group)\n"
                 "- sleep <milliseconds>: Delay execution\n"
                 "- release_all: Release all currently pressed keys\n"
                 "- enter_staring: Enter staring/aiming mode\n"
@@ -709,45 +785,15 @@ class Macro(BaseWidget):
         )
 
         # 解析按下命令
-        self.press_commands = self._parse_command_lines(parts[0].strip().splitlines())
+        self.press_commands = CommandParser.parse_command_lines(parts[0].strip().splitlines())
 
         # 解析释放命令
         if len(parts) > 1:
-            self.release_commands = self._parse_command_lines(
+            self.release_commands = CommandParser.parse_command_lines(
                 parts[1].strip().splitlines()
             )
         else:
             self.release_commands = []
-
-    def _parse_command_lines(self, lines: list[str]) -> list[Command]:
-        """解析命令行列表为Command对象列表"""
-        commands = []
-
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            parts = line.split(" ", 1)
-            command_type = parts[0].lower()
-            args_str = parts[1] if len(parts) > 1 else ""
-
-            # 处理参数
-            if command_type in ["key_press", "key_release", "key_switch"] and args_str:
-                args = [k.strip() for k in args_str.split(",")]
-            elif command_type in ["click", "press", "release", "switch"] and args_str:
-                args = args_str.split()
-            elif command_type == "sleep" and args_str:
-                args = [args_str]
-            else:
-                args = [args_str] if args_str else []
-
-            # 使用工厂创建命令
-            command = CommandFactory.create_command(command_type, args)
-            if command:
-                commands.append(command)
-
-        return commands
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
