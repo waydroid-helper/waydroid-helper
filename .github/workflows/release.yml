@@ -38,6 +38,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo add-apt-repository ppa:ichigo666/ppa
           sudo apt-get update
           sudo apt-get upgrade -y
           sudo apt-get install desktop-file-utils software-properties-common -y
