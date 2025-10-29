@@ -276,12 +276,23 @@ class TerminalWidget(Gtk.Box):
         completion_msg = _("Script execution completed. You can close this window.")
         full_command = f"clear; {command}; echo '{completion_msg}'; exit"
         shell = os.environ.get("SHELL", "/bin/bash")
+
+        env_vars = os.environ.copy()
+        env_vars["PATH"] = f"/usr/bin:/bin:{os.environ.get('PATH','')}"
+        env_vars["LD_LIBRARY_PATH"] = ""
+        env_vars["LD_PRELOAD"] = ""
+        env_vars["PYTHONPATH"] = ""
+        env_vars["PYTHONHOME"] = ""
+        env_vars["SHELL"] = shell
+
+        env_list = [f"{k}={v}" for k, v in env_vars.items()]
+
         # Spawn a non-interactive shell to execute the command so the command itself is not echoed
         self.terminal.spawn_async(
             Vte.PtyFlags.DEFAULT,
             os.path.expanduser("~"),
-            [shell, "-lc", full_command],
-            None,
+            [shell, "-c", full_command],
+            env_list,
             GLib.SpawnFlags.DEFAULT,
             None,
             None,
