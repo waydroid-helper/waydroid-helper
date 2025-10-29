@@ -1,0 +1,6 @@
+{
+    "name": "Launch Waydroid with Weston",
+    "description": "Launch Waydroid in a custom Weston window with configurable dimensions and kiosk mode",
+    "author": "Waydroid Helper",
+    "entry_file": "run.sh"
+}
