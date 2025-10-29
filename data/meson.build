@@ -59,6 +59,12 @@ install_data(
     install_dir: get_option('datadir') / meson.project_name() / 'data',
 )
 
+# 安装脚本文件
+install_subdir(
+    'scripts',
+    install_dir: get_option('datadir') / meson.project_name() / 'data',
+)
+
 compile_schemas = find_program('glib-compile-schemas', required: false, disabler: true)
 test(
     'Validate schema file',
