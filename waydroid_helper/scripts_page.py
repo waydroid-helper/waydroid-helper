@@ -234,13 +234,19 @@ class TerminalWidget(Gtk.Box):
         style_manager = Adw.StyleManager.get_default()
         
         def update_colors():
+            # Ensure explicit RGBA objects and avoid passing an empty palette,
+            # which can cause foreground color to be ignored in some runtimes (e.g. AppImage)
+            fg = Gdk.RGBA()
+            bg = Gdk.RGBA()
             if style_manager.get_dark():
-                fg = Gdk.RGBA(1, 1, 1, 1)
-                bg = Gdk.RGBA(0, 0, 0, 1)
+                fg.red, fg.green, fg.blue, fg.alpha = 1.0, 1.0, 1.0, 1.0  # white text
+                bg.red, bg.green, bg.blue, bg.alpha = 0.0, 0.0, 0.0, 1.0  # black background
             else:
-                fg = Gdk.RGBA(0, 0, 0, 1)
-                bg = Gdk.RGBA(1, 1, 1, 1)
-            self.terminal.set_colors(foreground=fg, background=bg, palette=[])
+                fg.red, fg.green, fg.blue, fg.alpha = 0.0, 0.0, 0.0, 1.0  # black text
+                bg.red, bg.green, bg.blue, bg.alpha = 1.0, 1.0, 1.0, 1.0  # white background
+
+            # Pass palette=None so VTE doesn't override our explicit foreground color
+            self.terminal.set_colors(foreground=fg, background=bg, palette=None)
         
         update_colors()
         _ = style_manager.connect("notify::dark", lambda *a: update_colors())
