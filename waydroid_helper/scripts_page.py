@@ -328,7 +328,7 @@ class TerminalWindow(Dialog):
             title=f"Terminal - {script_name}",
             content_widget=main_box,
             parent=parent_window,
-            modal=False,
+            modal=True,
             content_height=600,
             content_width=800
         )
