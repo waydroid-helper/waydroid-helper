@@ -69,6 +69,11 @@ def start_gui():
     sys.exit(main.main(VERSION))
 
 if __name__ == '__main__':
+    # 确保 PyInstaller/AppImage 下的 multiprocessing 使用 spawn 时能够正确处理
+    # 子进程的引导参数，避免 argparse 误解析 Python 内部参数。
+    import multiprocessing
+    multiprocessing.freeze_support()
+
     parser = ArgumentParser()
     parser.add_argument("--start-mount", action="store_true", help="Start the mounting service")
     parser.add_argument("--start-monitor", action="store_true", help="Start the monitoring service")
