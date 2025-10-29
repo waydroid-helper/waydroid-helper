@@ -11,7 +11,7 @@ on:
         required: true
 
 env:
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.x'
   CACHE_KEY_PREFIX: 'waydroid-helper'
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
       matrix:
         include:
           - arch: x64
-            runner: ubuntu-latest
+            runner: ubuntu-22.04
             artifact-name: linux-x64-dist
           - arch: arm64
             runner: ubuntu-24.04-arm
