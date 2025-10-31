@@ -1,0 +1,7 @@
+{
+    "name": "Workaround Android Directory Permissions",
+    "description": "Set 777 permissions for Android data and obb directories to workaround black screen issues in some games",
+    "author": "Waydroid Helper",
+    "entry_file": "run.sh"
+}
+
