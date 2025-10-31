@@ -36,6 +36,12 @@ class DialogMeta(type(GObject.Object)):
         # 只对 Dialog 基类应用 metaclass 的 __init__，不覆盖子类的 __init__
         if name != "Dialog":
             return super().__new__(mcs, name, bases, attrs)
+        
+        if ADW_VERSION >= (1, 5, 0):
+            attrs["__gsignals__"] = {
+                "close-request": (GObject.SignalFlags.RUN_LAST, bool, ()),
+            }
+
         if ADW_VERSION >= (1, 5, 0):
             # AdwDialog 版本
             def __init__(
@@ -58,13 +64,25 @@ class DialogMeta(type(GObject.Object)):
                 self._content_widget = None
                 self._title = title
                 
+                # 默认设置 can_close = False，让所有关闭请求都通过 close-attempt 处理
+                self.set_can_close(False)
+                
                 if title:
                     self.set_title(title)
                 
                 # 如果提供了内容组件，设置它
                 if content_widget:
                     self.set_content(content_widget)
-
+                
+                def on_close_attempt(self, *_args):
+                    # 触发 close-request 信号，让外部决定是否允许关闭
+                    should_block = self.emit("close-request")
+                    if not should_block:
+                        self.set_can_close(True)
+                        _ = Adw.Dialog.close(self)
+                
+                self.connect("close-attempt", on_close_attempt)
+            
             def set_content(self, widget: Gtk.Widget) -> None:
                 if self._content_widget:
                     Adw.Dialog.set_child(self, None)
@@ -115,6 +133,7 @@ class DialogMeta(type(GObject.Object)):
                 # 如果提供了内容组件，设置它
                 if content_widget:
                     self.set_content(content_widget)
+                
 
             def set_content(self, widget: Gtk.Widget) -> None:
                 if self._content_widget:
@@ -129,14 +148,23 @@ class DialogMeta(type(GObject.Object)):
         def get_content(self) -> Gtk.Widget | None:
             return self._content_widget
 
-        def close(self) -> None:
-            _BaseDialog.close(self)
+        def close(self) -> None: 
+            _ = _BaseDialog.close(self)
+
+        if ADW_VERSION >= (1, 5, 0):
+            def force_close(self) -> None:
+                self.set_can_close(True)
+                _ = Adw.Dialog.close(self)
+        else:
+            def force_close(self) -> None:
+                Adw.Window.destroy(self)
 
         attrs["__init__"] = __init__
         attrs["set_content"] = set_content
         attrs["get_content"] = get_content
         attrs["present"] = present
         attrs["close"] = close
+        attrs["force_close"] = force_close
 
         return super().__new__(mcs, name, bases, attrs)
 
@@ -166,4 +194,7 @@ class Dialog(_BaseDialog, metaclass=DialogMeta):
         pass
 
     def close(self) -> None:
+        pass
+
+    def force_close(self) -> None:
         pass

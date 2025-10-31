@@ -213,7 +213,8 @@ class TerminalWidget(Gtk.Box):
     __gtype_name__: str = "TerminalWidget"
     
     __gsignals__ = {
-        "shell-ready": (GObject.SignalFlags.RUN_FIRST, None, ())
+        "shell-ready": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "process-exited": (GObject.SignalFlags.RUN_FIRST, None, (int,))
     }
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -229,6 +230,10 @@ class TerminalWidget(Gtk.Box):
         self.append(self.terminal)
         
         self._setup_theme_colors()
+        
+        # 跟踪进程状态
+        self._process_running = False
+        _ = self.terminal.connect("child-exited", self._on_child_exited)
     
     def _setup_theme_colors(self):
         style_manager = Adw.StyleManager.get_default()
@@ -278,6 +283,24 @@ class TerminalWidget(Gtk.Box):
         self.terminal.paste_clipboard()
         return True
     
+    def _on_child_exited(self, terminal, status):
+        """子进程退出时的回调"""
+        self._process_running = False
+        self.emit("process-exited", status)
+        logger.debug(f"Child process exited with status: {status}")
+    
+    def is_process_running(self) -> bool:
+        return self._process_running
+    
+    def kill_process(self):
+        if self._process_running:
+            try:
+                # 向终端发送 Ctrl+C (SIGINT)
+                self.terminal.feed_child(b'\x03')
+                logger.info("Sent Ctrl+C to running process")
+            except Exception as e:
+                logger.error(f"Failed to kill process: {e}")
+    
     def run_command(self, command: str):
         completion_msg = _("Script execution completed. You can close this window.")
         full_command = f"clear; {command}; echo '{completion_msg}'; exit"
@@ -293,6 +316,15 @@ class TerminalWidget(Gtk.Box):
 
         env_list = [f"{k}={v}" for k, v in env_vars.items()]
 
+        self._process_running = True
+        
+        def on_spawn_callback(terminal, pid, error, user_data):
+            if error:
+                logger.error(f"Failed to spawn process: {error}")
+                self._process_running = False
+            else:
+                logger.debug(f"Process spawned with PID: {pid}")
+        
         # Spawn a non-interactive shell to execute the command so the command itself is not echoed
         self.terminal.spawn_async(
             Vte.PtyFlags.DEFAULT,
@@ -304,8 +336,8 @@ class TerminalWidget(Gtk.Box):
             None,
             -1,
             None,
+            on_spawn_callback,
             None,
-            (),
         )
 
 
@@ -334,11 +366,50 @@ class TerminalWindow(Dialog):
         )
         
         self._pending_command = None
+        self._script_name = script_name
+        
+        # 连接 close-request 信号，实现关闭确认
+        self.connect("close-request", self._on_close_request)
         
         try:
             self.set_icon_name("utilities-terminal")
         except:
             pass
+    
+    def _on_close_request(self, dialog) -> bool:
+        logger.debug(f"Checking if process is running: {self.terminal_widget.is_process_running()}")
+        if not self.terminal_widget.is_process_running():
+            logger.debug(f"Process is not running, allowing close")
+            return False
+        
+        logger.debug(f"Process is running, showing confirm dialog")
+        confirm_dialog = MessageDialog(
+            heading=_("Confirm Close"),
+            body=_("Script '{script_name}' is still running.\nForce closing will terminate the running script.\n\nAre you sure you want to close?").format(
+                script_name=self._script_name
+            ),
+            parent=self,
+        )
+        confirm_dialog.add_response(Gtk.ResponseType.CANCEL, _("Cancel"))
+        confirm_dialog.add_response(Gtk.ResponseType.OK, _("OK"))
+        confirm_dialog.set_response_appearance(Gtk.ResponseType.OK, "destructive-action")
+        confirm_dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        
+        def on_confirm_response(dialog, response):
+            if response == Gtk.ResponseType.OK or response == Gtk.ResponseType.OK.value_nick:
+                logger.info(f"User confirmed to close terminal with running script: {self._script_name}")
+                self.terminal_widget.kill_process()
+                
+                def do_force_close():
+                    self.force_close()
+                    return False
+                
+                _ = GLib.timeout_add(100, do_force_close)
+        
+        confirm_dialog.connect("response", on_confirm_response)
+        confirm_dialog.present()
+        
+        return True
     
     def set_command(self, command: str):
         self._pending_command = command
