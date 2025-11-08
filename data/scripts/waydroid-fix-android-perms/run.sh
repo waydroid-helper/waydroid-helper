@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Workaround Android Directory Permissions
-# Set 777 permissions for Android data and obb directories to workaround black screen issues in some games
+# Android Permissions Workaround
+# Set 777 permissions for Android data and obb directories as a workaround for black screen issues in some games
 
 set -e
 
