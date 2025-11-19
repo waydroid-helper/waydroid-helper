@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: unnamed project\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-29 09:35+0800\n"
+"POT-Creation-Date: 2025-11-19 18:38+0800\n"
 "PO-Revision-Date: 2025-09-11 18:05+0300\n"
 "Last-Translator: Fraxinus Acer\n"
 "Language-Team: Russian\n"
@@ -143,7 +143,8 @@ msgstr "Выберите способ закрытия окна привязки
 #: waydroid_helper/instance_detail_page.py:530
 #: waydroid_helper/available_version_page.py:285
 #: waydroid_helper/gsf_retriever.py:97 waydroid_helper/gsf_retriever.py:127
-#: waydroid_helper/key_mapping_preference_dialog.py:71
+#: waydroid_helper/key_mapping_preference_dialog.py:72
+#: waydroid_helper/scripts_page.py:393
 #: waydroid_helper/compat_widget/file_dialog.py:118
 #: waydroid_helper/compat_widget/shared_folder_dialog.py:231
 #: data/ui/InfoBar.ui:39
@@ -178,14 +179,14 @@ msgstr ""
 msgid "Continue"
 msgstr "Продолжить"
 
-#: waydroid_helper/instance_detail_page.py:613
-#: waydroid_helper/instance_detail_page.py:645
+#: waydroid_helper/instance_detail_page.py:614
+#: waydroid_helper/instance_detail_page.py:646
 #: waydroid_helper/shared_folder.py:204 waydroid_helper/gsf_retriever.py:215
-#: waydroid_helper/gsf_retriever.py:417 waydroid_helper/scripts_page.py:416
+#: waydroid_helper/gsf_retriever.py:417 waydroid_helper/scripts_page.py:488
 msgid "Error"
 msgstr "Ошибка"
 
-#: waydroid_helper/instance_detail_page.py:614
+#: waydroid_helper/instance_detail_page.py:615
 #, python-brace-format
 msgid ""
 "Failed to open key mapping window:\n"
@@ -196,8 +197,8 @@ msgstr ""
 "\n"
 "{0}"
 
-#: waydroid_helper/instance_detail_page.py:617
-#: waydroid_helper/instance_detail_page.py:651
+#: waydroid_helper/instance_detail_page.py:618
+#: waydroid_helper/instance_detail_page.py:652
 #: waydroid_helper/shared_folder.py:210
 #: waydroid_helper/available_version_page.py:256
 #: waydroid_helper/available_version_page.py:276
@@ -205,17 +206,18 @@ msgstr ""
 #: waydroid_helper/available_version_page.py:316
 #: waydroid_helper/available_version_page.py:363
 #: waydroid_helper/available_version_page.py:391
-#: waydroid_helper/scripts_page.py:410 waydroid_helper/scripts_page.py:425
+#: waydroid_helper/scripts_page.py:394 waydroid_helper/scripts_page.py:482
+#: waydroid_helper/scripts_page.py:497
 #: waydroid_helper/controller/app/window.py:352 data/ui/InfoBar.ui:46
 msgid "OK"
 msgstr "OK"
 
-#: waydroid_helper/instance_detail_page.py:633
+#: waydroid_helper/instance_detail_page.py:634
 #: waydroid_helper/key_mapping_preference_dialog.py:22
 msgid "Key Mapping Preferences"
 msgstr "Настройки привязок клавиш"
 
-#: waydroid_helper/instance_detail_page.py:646
+#: waydroid_helper/instance_detail_page.py:647
 #, python-brace-format
 msgid ""
 "Failed to open key mapping preferences dialog:\n"
@@ -226,21 +228,21 @@ msgstr ""
 "\n"
 "{0}"
 
-#: waydroid_helper/instance_detail_page.py:663
+#: waydroid_helper/instance_detail_page.py:664
 msgid "Google Play Services"
 msgstr "Сервисы Google Play"
 
-#: waydroid_helper/instance_detail_page.py:666
+#: waydroid_helper/instance_detail_page.py:667
 msgid "GSF ID Retriever"
 msgstr "GSF ID Retriever"
 
-#: waydroid_helper/instance_detail_page.py:668
+#: waydroid_helper/instance_detail_page.py:669
 msgid "Retrieve Google Services Framework ID for Google Play registration"
 msgstr ""
 "Получить идентификатор платформы Google Services Framework для регистрации в "
 "Google Play"
 
-#: waydroid_helper/instance_detail_page.py:671
+#: waydroid_helper/instance_detail_page.py:672
 msgid "Retrieve GSF ID"
 msgstr "Получить GSF ID"
 
@@ -443,15 +445,15 @@ msgid "Failed to clear package data: {error}"
 msgstr "Не удалось очистить данные пакета: {error}"
 
 #. 右侧确认按钮
-#: waydroid_helper/key_mapping_preference_dialog.py:77
+#: waydroid_helper/key_mapping_preference_dialog.py:78
 msgid "Confirm"
 msgstr "Подтвердить"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:97
+#: waydroid_helper/key_mapping_preference_dialog.py:98
 msgid "Cage Settings"
 msgstr "Настройки сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:100
+#: waydroid_helper/key_mapping_preference_dialog.py:101
 msgid ""
 "Configure cage functionality. You can download prebuilt cage from: <a "
 "href='https://github.com/waydroid-helper/cage/releases'>https://github.com/"
@@ -461,75 +463,83 @@ msgstr ""
 "href='https://github.com/waydroid-helper/cage/releases'>https://github.com/"
 "waydroid-helper/cage/releases</a>"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:106
+#: waydroid_helper/key_mapping_preference_dialog.py:107
 msgid "Enable Cage"
 msgstr "Включить сетку"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:107
+#: waydroid_helper/key_mapping_preference_dialog.py:108
 msgid "Enable cage for key mapping"
 msgstr "Включить сетку для привязки клавиш"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:118
+#: waydroid_helper/key_mapping_preference_dialog.py:119
 msgid "Cage Executable"
 msgstr "Файл сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:119
+#: waydroid_helper/key_mapping_preference_dialog.py:120
 msgid "Path to cage executable"
 msgstr "Путь к файлу сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:133
+#: waydroid_helper/key_mapping_preference_dialog.py:134
 msgid "Choose executable file"
 msgstr "Выберете файл"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:146
+#: waydroid_helper/key_mapping_preference_dialog.py:147
 msgid "Window Size"
 msgstr "Размер окна"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:147
+#: waydroid_helper/key_mapping_preference_dialog.py:148
 msgid "Cage window size"
 msgstr "Размер окна сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:175
+#: waydroid_helper/key_mapping_preference_dialog.py:176
 msgid "Logical Resolution"
 msgstr "Логическое разрешение"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:176
+#: waydroid_helper/key_mapping_preference_dialog.py:177
 msgid "Cage logical resolution"
 msgstr "Логическое разрешение сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:206
+#: waydroid_helper/key_mapping_preference_dialog.py:207
 msgid "Scale"
 msgstr "Масштаб"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:207
+#: waydroid_helper/key_mapping_preference_dialog.py:208
 msgid "Cage display scale percentage"
 msgstr "Процентное соотношение масштаба отображения сетки"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:229
+#: waydroid_helper/key_mapping_preference_dialog.py:230
 msgid "Refresh Rate"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:230
+#: waydroid_helper/key_mapping_preference_dialog.py:231
 msgid "Cage display refresh rate (Hz)"
 msgstr ""
 
-#: waydroid_helper/key_mapping_preference_dialog.py:249
+#: waydroid_helper/key_mapping_preference_dialog.py:250
 msgid "Socket Name"
 msgstr "Имя сокета"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:250
+#: waydroid_helper/key_mapping_preference_dialog.py:251
 msgid "Custom socket name (default: waydroid-0)"
 msgstr "Пользовательское имя сокета (по-умолчанию: waydroid-0)"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:262
+#: waydroid_helper/key_mapping_preference_dialog.py:263
 msgid "Hide Title Bar"
 msgstr "Скрыть строку заголовка"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:263
+#: waydroid_helper/key_mapping_preference_dialog.py:264
 msgid "Hide cage window title bar (X11 backend only)"
 msgstr "Скрыть строку заголовка окна сетки (только на X11)"
 
-#: waydroid_helper/key_mapping_preference_dialog.py:450
+#: waydroid_helper/key_mapping_preference_dialog.py:275
+msgid "Confine Pointer"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:276
+msgid "Confine mouse pointer within cage window"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:478
 msgid "Choose Cage Executable"
 msgstr "Выберите файл сетки"
 
@@ -566,29 +576,42 @@ msgstr ""
 msgid "Refresh Scripts"
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:301
+#: waydroid_helper/scripts_page.py:305
 msgid "Script execution completed. You can close this window."
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:373 waydroid_helper/scripts_page.py:389
+#: waydroid_helper/scripts_page.py:387
+msgid "Confirm Close"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:388
+#, python-brace-format
+msgid ""
+"Script '{script_name}' is still running.\n"
+"Force closing will terminate the running script.\n"
+"\n"
+"Are you sure you want to close?"
+msgstr ""
+
+#: waydroid_helper/scripts_page.py:445 waydroid_helper/scripts_page.py:461
 msgid "Script Error"
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:374
+#: waydroid_helper/scripts_page.py:446
 #, python-brace-format
 msgid "Script executable not found: {}"
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:390
+#: waydroid_helper/scripts_page.py:462
 #, python-brace-format
 msgid "Failed to run script: {}"
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:406
+#: waydroid_helper/scripts_page.py:478
 msgid "Script Information"
 msgstr ""
 
-#: waydroid_helper/scripts_page.py:417
+#: waydroid_helper/scripts_page.py:489
 #, python-brace-format
 msgid "Failed to show script info: {}"
 msgstr ""

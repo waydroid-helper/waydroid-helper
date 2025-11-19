@@ -38,6 +38,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.refresh_rate_spin: Gtk.SpinButton
         self.socket_name_entry: Gtk.Entry
         self.hide_titlebar_switch: Gtk.Switch
+        self.confine_pointer_switch: Gtk.Switch
 
         self._setup_ui()
         self._setup_signals()
@@ -269,6 +270,18 @@ class KeyMappingPreferenceDialog(Dialog):
 
         group.add(hide_titlebar_row)
 
+        # Confine Pointer
+        confine_pointer_row = Adw.ActionRow.new()
+        confine_pointer_row.set_title(_("Confine Pointer"))
+        confine_pointer_row.set_subtitle(_("Confine mouse pointer within cage window"))
+
+        self.confine_pointer_switch = Gtk.Switch.new()
+        self.confine_pointer_switch.set_valign(Gtk.Align.CENTER)
+        confine_pointer_row.add_suffix(self.confine_pointer_switch)
+        confine_pointer_row.set_activatable_widget(self.confine_pointer_switch)
+
+        group.add(confine_pointer_row)
+
         return group
 
     def _update_controls_sensitivity(self):
@@ -286,6 +299,7 @@ class KeyMappingPreferenceDialog(Dialog):
         self.refresh_rate_spin.set_sensitive(enabled)
         self.socket_name_entry.set_sensitive(enabled)
         self.hide_titlebar_switch.set_sensitive(enabled)
+        self.confine_pointer_switch.set_sensitive(enabled)
 
     def _setup_signals(self):
         """设置信号连接"""
@@ -431,6 +445,20 @@ class KeyMappingPreferenceDialog(Dialog):
         self.config.cage.bind_property(
             "hide_titlebar",
             self.hide_titlebar_switch,
+            "active",
+            GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+        )
+
+        self.config.cage.bind_property(
+            "enabled",
+            self.confine_pointer_switch,
+            "sensitive",
+            GObject.BindingFlags.SYNC_CREATE,
+        )
+
+        self.config.cage.bind_property(
+            "confine_pointer",
+            self.confine_pointer_switch,
             "active",
             GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
         )

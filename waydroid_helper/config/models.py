@@ -8,7 +8,7 @@ from .file_manager import ConfigManager
 from waydroid_helper.util.log import logger
 
 class CageConfig(GObject.Object):
-    
+
     enabled = GObject.Property(type=bool, default=False)
     executable_path = GObject.Property(type=str, default="")
     refresh_rate = GObject.Property(type=int, default=60)
@@ -19,6 +19,7 @@ class CageConfig(GObject.Object):
     scale = GObject.Property(type=int, default=100)
     socket_name = GObject.Property(type=str, default="waydroid-0")
     hide_titlebar = GObject.Property(type=bool, default=False)
+    confine_pointer = GObject.Property(type=bool, default=False)
 
 
 class RootConfig(GObject.Object):
