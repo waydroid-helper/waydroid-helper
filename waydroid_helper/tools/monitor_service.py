@@ -6,6 +6,7 @@ import select
 import signal
 import struct
 import sys
+import re
 from enum import IntEnum
 from types import FrameType
 from typing import final
@@ -31,7 +32,7 @@ class InotifyEvent(ctypes.Structure):
     ]
 
 
-def send_dbus_signal():
+def send_dbus_signal(user_id: str):
     system_bus = dbus.SystemBus()
     mount_object = system_bus.get_object( # pyright: ignore[reportUnknownMemberType]
         "id.waydro.Mount", "/org/waydro/Mount"
@@ -43,7 +44,8 @@ def send_dbus_signal():
         uid = os.getuid()
         gid = os.getgid()
         for source, target in zip(sources, targets):
-            if source != "" and target != "":
+            logging.info(f"source: {source}, target: {target}")
+            if source != "" and target != "" and  os.path.basename(os.path.dirname(target)) == user_id:
                 mount_interface.Unmount(target)  # pyright: ignore[reportUnknownMemberType]
                 result = mount_interface.BindMount(
                     source,
@@ -63,7 +65,6 @@ def send_dbus_signal():
 
 def check_new_content(fd: int):
     leftover = ""
-    target = "Android with user 0 is ready"
 
     while True:
         data = os.read(fd, 4096)
@@ -76,8 +77,12 @@ def check_new_content(fd: int):
         leftover = lines[-1]
 
         for line in lines[:-1]:
-            if target in line:
-                send_dbus_signal()
+            user_id = re.search(r"Android with user (\d+) is ready", line)
+            if user_id:
+                logging.info(f"user_id: {user_id.group(1)}")
+                user_id = user_id.group(1)
+                send_dbus_signal(user_id)
+
 
 
 class Monitor:
