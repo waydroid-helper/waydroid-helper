@@ -128,7 +128,7 @@ print_info "Starting Weston with Waydroid..."
 print_command "weston --width=$width --height=$height --socket=waydroid --shell=kiosk-shell.so"
 
 # Start weston in background
-weston --width="$width" --height="$height" --socket=waydroid --shell=kiosk-shell.so &>/dev/null &
+nohup weston --width="$width" --height="$height" --socket=waydroid --shell=kiosk-shell.so &>/dev/null &
 WESTON_PID=$!
 
 # Wait a moment for weston to start up
@@ -144,28 +144,40 @@ fi
 
 print_success "Weston started successfully (PID: $WESTON_PID)"
 
-# Launch waydroid show-full-ui
-print_info "Launching Waydroid full UI..."
-print_command "WAYLAND_DISPLAY=waydroid XDG_SESSION_TYPE=wayland waydroid show-full-ui"
-
-echo
-print_warning "Starting Waydroid UI... This may take a few moments"
-print_info "To stop: Close this terminal or press Ctrl+C"
-echo
-
 # Trap signals to clean up weston on exit
 cleanup() {
     print_info "Cleaning up..."
-    if kill -0 $WESTON_PID 2>/dev/null; then
-        print_info "Stopping Weston (PID: $WESTON_PID)..."
-        kill $WESTON_PID 2>/dev/null || true
-    fi
-    print_info "Stopping Waydroid session..."
-    waydroid session stop 2>/dev/null || true
-    print_success "Cleanup completed"
+    # print_info "Cleaning up..."
+    # if kill -0 $WESTON_PID 2>/dev/null; then
+    #     print_info "Stopping Weston (PID: $WESTON_PID)..."
+    #     kill $WESTON_PID 2>/dev/null || true
+    # fi
+    # print_info "Stopping Waydroid session..."
+    # waydroid session stop 2>/dev/null || true
+    # print_success "Cleanup completed"
     exit 0
 }
 trap cleanup SIGINT SIGTERM
 
-# Launch waydroid show-full-ui
-WAYLAND_DISPLAY=waydroid XDG_SESSION_TYPE=wayland waydroid show-full-ui
+# Launch waydroid show-full-ui in background
+echo
+print_info "Starting Waydroid..."
+nohup env WAYLAND_DISPLAY=waydroid XDG_SESSION_TYPE=wayland waydroid show-full-ui &>/dev/null &
+WAYDROID_PID=$!
+
+# Wait a moment for waydroid to start
+sleep 2
+
+if ! kill -0 $WAYDROID_PID 2>/dev/null; then
+    print_error "Failed to start Waydroid"
+    exit 1
+fi
+
+print_success "Waydroid started successfully (PID: $WAYDROID_PID)"
+echo
+print_success "Both Weston and Waydroid are now running in the background"
+print_info "Weston PID: $WESTON_PID"
+print_info "Waydroid PID: $WAYDROID_PID"
+echo
+print_info "To stop Waydroid: waydroid session stop"
+print_info "To stop Weston: pkill -f 'weston.*socket=waydroid'"
