@@ -1,8 +1,3 @@
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
-# pyright: reportUnknownParameterType=false
-# pyright: reportMissingParameterType=false
-
 import os
 import subprocess
 from typing import final
@@ -21,9 +16,7 @@ class MountError(dbus.DBusException):
 
 class MountService(dbus.service.Object):
     def __init__(self):
-        bus_name = dbus.service.BusName( # pyright:ignore[reportUnknownVariableType]
-            "id.waydro.Mount", bus=dbus.SystemBus()
-        )  
+        bus_name = dbus.service.BusName("id.waydro.Mount", bus=dbus.SystemBus())
         dbus.service.Object.__init__(self, bus_name, "/org/waydro/Mount")
 
     @dbus.service.method("id.waydro.Mount", in_signature="ssuu", out_signature="a{sv}")
@@ -94,6 +87,31 @@ class MountService(dbus.service.Object):
         except Exception as e:
             error_msg = f"Unexpected error: {str(e)}"
             raise MountError(error_msg)
+
+    @dbus.service.method("id.waydro.Mount", in_signature="", out_signature="s")
+    def GetCurrentUser(self):
+        try:
+            boot_check = subprocess.run(
+                ["waydroid", "shell", "--", "sh", "-c", "getprop sys.boot_completed"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            boot_completed = boot_check.stdout.strip()
+            if boot_completed != "1":
+                return ""
+            result = subprocess.run(
+                ["waydroid", "shell", "--", "sh", "-c", "am get-current-user"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            output = result.stdout.strip()
+            if "Can't find service: activity" in output:
+                return ""
+            return output
+        except Exception as e:
+            return ""
 
 
 def start():

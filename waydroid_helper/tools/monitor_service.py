@@ -6,7 +6,7 @@ import select
 import signal
 import struct
 import sys
-import re
+import threading
 from enum import IntEnum
 from types import FrameType
 from typing import final
@@ -32,58 +32,6 @@ class InotifyEvent(ctypes.Structure):
     ]
 
 
-def send_dbus_signal(user_id: str):
-    system_bus = dbus.SystemBus()
-    mount_object = system_bus.get_object( # pyright: ignore[reportUnknownMemberType]
-        "id.waydro.Mount", "/org/waydro/Mount"
-    )
-    mount_interface = dbus.Interface(mount_object, "id.waydro.Mount")
-    try:
-        sources = os.environ.get("SOURCE", "").split(":")
-        targets = os.environ.get("TARGET", "").split(":")
-        uid = os.getuid()
-        gid = os.getgid()
-        for source, target in zip(sources, targets):
-            logging.info(f"source: {source}, target: {target}")
-            if source != "" and target != "" and  os.path.basename(os.path.dirname(target)) == user_id:
-                mount_interface.Unmount(target)  # pyright: ignore[reportUnknownMemberType]
-                result = mount_interface.BindMount(
-                    source,
-                    target,
-                    dbus.UInt32(uid),
-                    dbus.UInt32(gid),
-                ) # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-                if int(result["returncode"]) == 0: # pyright: ignore[reportUnknownArgumentType]
-                    logging.info(f"mount {source} to {target} succeeded")
-                else:
-                    logging.error(
-                        f"mount {source} to {target} failed {result['stderr']}",
-                    )
-    except Exception as e:
-        logging.error(f"Mount error: {e}")
-
-
-def check_new_content(fd: int):
-    leftover = ""
-
-    while True:
-        data = os.read(fd, 4096)
-        if not data:
-            break
-
-        content = leftover + data.decode("utf-8", errors="ignore")
-        lines = content.split("\n")
-
-        leftover = lines[-1]
-
-        for line in lines[:-1]:
-            user_id = re.search(r"Android with user (\d+) is ready", line)
-            if user_id:
-                logging.info(f"user_id: {user_id.group(1)}")
-                user_id = user_id.group(1)
-                send_dbus_signal(user_id)
-
-
 
 class Monitor:
     def __init__(self, filename: str = "/var/lib/waydroid/waydroid.log") -> None:
@@ -93,14 +41,132 @@ class Monitor:
         self.watch_fd: int = -1
         self.libc: ctypes.CDLL = ctypes.CDLL(ctypes.util.find_library("c"))
         self.running: bool = True
-        # Create pipe to interrupt select
         self.pipe_r: int
         self.pipe_w: int
         self.pipe_r, self.pipe_w = os.pipe()
+        self.current_state: str = ""
+        self.current_user_id: str = ""
+        self.monitor_thread = None
+        self.stop_thread_event = threading.Event()
+        self.system_bus = dbus.SystemBus()
+        self.mount_object = self.system_bus.get_object("id.waydro.Mount", "/org/waydro/Mount")
+        self.mount_interface = dbus.Interface(self.mount_object, "id.waydro.Mount")
+
+    def get_mount_pairs_for_user(self, user_id: str):
+        if not user_id:
+            return []
+        sources = os.environ.get("SOURCE", "").split(":")
+        targets = os.environ.get("TARGET", "").split(":")
+        pairs = []
+        for source, target in zip(sources, targets):
+            if source != "" and target != "" and os.path.basename(os.path.dirname(target)) == user_id:
+                pairs.append((source, target))
+        return pairs
+
+    def unmount_for_user(self, user_id: str):
+        try:
+            pairs = self.get_mount_pairs_for_user(user_id)
+            for source, target in pairs:
+                logging.info(f"Unmounting {target} for user {user_id}")
+                result = self.mount_interface.Unmount(target)
+                if int(result["returncode"]) == 0:
+                    logging.info(f"unmount {target} succeeded")
+                else:
+                    logging.error(f"unmount {target} failed {result['stderr']}")
+        except Exception as e:
+            logging.error(f"Unmount error: {e}")
+
+    def mount_for_user(self, user_id: str):
+        try:
+            pairs = self.get_mount_pairs_for_user(user_id)
+            uid = os.getuid()
+            gid = os.getgid()
+            for source, target in pairs:
+                logging.info(f"Mounting {source} to {target} for user {user_id}")
+                result = self.mount_interface.BindMount(source, target, dbus.UInt32(uid), dbus.UInt32(gid))
+                if int(result["returncode"]) == 0:
+                    logging.info(f"mount {source} to {target} succeeded")
+                else:
+                    logging.error(f"mount {source} to {target} failed {result['stderr']}")
+        except Exception as e:
+            logging.error(f"Mount error: {e}")
+
+    def get_current_user_via_dbus(self):
+        try:
+            result = self.mount_interface.GetCurrentUser()
+            if result and result.strip():
+                return str(result).strip()
+            return None
+        except Exception as e:
+            logging.error(f"Failed to get current user via dbus: {e}")
+            return None
+
+    def user_monitor_thread(self):
+        logging.info("User monitor thread started")
+        while not self.stop_thread_event.is_set():
+            try:
+                user_id = self.get_current_user_via_dbus()
+                if user_id and user_id != self.current_user_id:
+                    logging.info(f"User ID changed from '{self.current_user_id}' to '{user_id}'")
+                    if self.current_user_id:
+                        self.unmount_for_user(self.current_user_id)
+                    self.current_user_id = user_id
+                    self.unmount_for_user(user_id)
+                    self.mount_for_user(user_id)
+            except Exception as e:
+                logging.error(f"Error in user monitor thread: {e}")
+            self.stop_thread_event.wait(1)
+        
+        logging.info("User monitor thread stopped")
+
+    def stop_monitor_thread(self):
+        if self.monitor_thread and self.monitor_thread.is_alive():
+            logging.info("Stopping user monitor thread...")
+            self.stop_thread_event.set()
+            self.monitor_thread.join(timeout=3)
+            if self.monitor_thread.is_alive():
+                logging.warning("User monitor thread did not stop in time")
+            else:
+                logging.info("User monitor thread stopped successfully")
+        if self.current_user_id:
+            logging.info(f"Unmounting directories for user {self.current_user_id}")
+            self.unmount_for_user(self.current_user_id)
+            self.current_user_id = ""
+        self.monitor_thread = None
+        self.stop_thread_event.clear()
+
+    def start_monitor_thread(self):
+        self.stop_monitor_thread()
+        self.current_user_id = ""
+        self.stop_thread_event.clear()
+        self.monitor_thread = threading.Thread(target=self.user_monitor_thread, daemon=True)
+        self.monitor_thread.start()
+        logging.info("User monitor thread started")
+
+    def check_new_content(self):
+        leftover = ""
+        while True:
+            data = os.read(self.file_fd, 4096)
+            if not data:
+                break
+            content = leftover + data.decode("utf-8", errors="ignore")
+            lines = content.split("\n")
+            leftover = lines[-1]
+            for line in lines[:-1]:
+                if "STOPPED" in line:
+                    if self.current_state != "STOPPED":
+                        logging.info("Status changed to STOPPED")
+                        self.current_state = "STOPPED"
+                        self.stop_monitor_thread()
+                elif "RUNNING" in line:
+                    if self.current_state != "RUNNING":
+                        logging.info("Status changed to RUNNING")
+                        self.current_state = "RUNNING"
+                        self.start_monitor_thread()
 
     def cleanup(self, signum: int | IntEnum, frame: FrameType | None):
         self.running = False
-        # 向管道写入数据以中断 select
+        self.stop_monitor_thread()
         try:
             os.write(self.pipe_w, b"x")
         except:
@@ -151,20 +217,16 @@ class Monitor:
 
         try:
             while self.running:
-                # wait
                 ready, _, _ = select.select([self.inotify_fd, self.pipe_r], [], [], 1.0)
                 if not self.running:
                     break
                 if ready:
-                    for fd in ready: # pyright: ignore[reportAny]
+                    for fd in ready:
                         if fd == self.inotify_fd:
                             event_data = os.read(self.inotify_fd, EVENT_SIZE + 16)
-                            event = InotifyEvent.from_buffer_copy(
-                                event_data[:EVENT_SIZE]
-                            )
-
-                            if event.mask & IN_MODIFY:  # pyright: ignore[reportAny]
-                                check_new_content(self.file_fd)
+                            event = InotifyEvent.from_buffer_copy(event_data[:EVENT_SIZE])
+                            if event.mask & IN_MODIFY:
+                                self.check_new_content()
                         elif fd == self.pipe_r:
                             os.read(self.pipe_r, 1)
                             break
