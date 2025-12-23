@@ -52,6 +52,17 @@ class Monitor:
         self.mount_object = self.system_bus.get_object("id.waydro.Mount", "/org/waydro/Mount")
         self.mount_interface = dbus.Interface(self.mount_object, "id.waydro.Mount")
 
+    def path_has_ancestor(self, path: str, ancestor_name: str) -> bool:
+        path = os.path.abspath(path)
+        while True:
+            parent = os.path.dirname(path)
+            if parent == path:
+                break
+            if os.path.basename(parent) == ancestor_name:
+                return True
+            path = parent
+        return False
+
     def get_mount_pairs_for_user(self, user_id: str):
         if not user_id:
             return []
@@ -59,7 +70,7 @@ class Monitor:
         targets = os.environ.get("TARGET", "").split(":")
         pairs = []
         for source, target in zip(sources, targets):
-            if source != "" and target != "" and os.path.basename(os.path.dirname(target)) == user_id:
+            if source != "" and target != "" and self.path_has_ancestor(target, user_id):
                 pairs.append((source, target))
         return pairs
 
