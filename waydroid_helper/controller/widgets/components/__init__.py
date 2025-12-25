@@ -11,6 +11,7 @@ from .repeated_click import RepeatedClick
 from .right_click_to_walk import RightClickToWalk
 from .single_click import SingleClick
 from .skill_casting import SkillCasting
+from .gamepad_joystick import GamepadJoystick
 
 __all__ = [
     'Aim',
@@ -22,4 +23,5 @@ __all__ = [
     'SkillCasting',
     'CancelCasting',
     'RepeatedClick',
+    'GamepadJoystick',
 ] 
