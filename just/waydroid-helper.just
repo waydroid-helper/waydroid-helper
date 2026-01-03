@@ -90,7 +90,7 @@ update-waydroid-helper:
         # Check if update is available
         if rpm-ostree upgrade --check 2>/dev/null | grep -q waydroid-helper; then
             echo "Update available, upgrading..."
-            rpm-ostree upgrade waydroid-helper
+            rpm-ostree upgrade
             echo "✓ Waydroid Helper updated successfully!"
         else
             echo "✓ Waydroid Helper is already at the latest version!"
