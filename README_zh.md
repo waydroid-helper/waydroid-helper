@@ -78,6 +78,25 @@ sudo apt update
 sudo apt install waydroid-helper
 ```
 
+### Universal Blue / Bazzite
+
+对于 Universal Blue、Bazzite 或其他 rpm-ostree 系统：
+
+1. 下载 justfile：
+   ```bash
+   wget https://raw.githubusercontent.com/waydroid-helper/waydroid-helper/main/just/waydroid-helper.just
+   ```
+
+2. 从 COPR 安装（推荐）：
+   ```bash
+   just --justfile waydroid-helper.just install-waydroid-helper
+   ```
+
+3. 更新到最新版本：
+   ```bash
+   just --justfile waydroid-helper.just update-waydroid-helper
+   ```
+
 ### 从发布版本安装
 1. 前往[发布页面](https://github.com/waydroid-helper/waydroid-helper/releases)
 2. 下载适合您发行版的软件包
