@@ -21,8 +21,8 @@ class MountService(dbus.service.Object):
 
     @dbus.service.method("id.waydro.Mount", in_signature="ssuu", out_signature="a{sv}")
     def BindMount(self, source, target, uid, gid):
-        source_str = str(source)
-        target_str = str(target)
+        source_str = os.path.realpath(str(source))
+        target_str = os.path.realpath(str(target))
         try:
             stat_info = os.stat(target_str)
             fuse_version_result = subprocess.run(
@@ -71,7 +71,7 @@ class MountService(dbus.service.Object):
 
     @dbus.service.method("id.waydro.Mount", in_signature="s", out_signature="a{sv}")
     def Unmount(self, target):
-        target_str = str(target)
+        target_str = os.path.realpath(str(target))
         try:
             result = subprocess.run(
                 ["fusermount", "-u", "-z", target_str], capture_output=True, text=True
