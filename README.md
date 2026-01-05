@@ -62,6 +62,16 @@ sudo apt update
 sudo apt install waydroid-helper
 ```
 
+##### For **Debian 13** run the following:
+
+```
+echo 'deb http://download.opensuse.org/repositories/home:/CuteNeko:/waydroid-helper/Debian_13/ /' | sudo tee /etc/apt/sources.list.d/home:CuteNeko:waydroid-helper.list
+curl -fsSL https://download.opensuse.org/repositories/home:CuteNeko:waydroid-helper/Debian_13/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_CuteNeko_waydroid-helper.gpg > /dev/null
+echo -e "Package: python3-pywayland\nPin: origin \"download.opensuse.org\"\nPin-Priority: 1001" | sudo tee /etc/apt/preferences.d/99-pywayland.pref
+sudo apt update
+sudo apt install waydroid-helper
+```
+
 ### Fedora
 
 ```
