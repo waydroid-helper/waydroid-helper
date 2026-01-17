@@ -89,25 +89,6 @@ sudo apt update
 sudo apt install waydroid-helper
 ```
 
-### Universal Blue / Bazzite
-
-Для систем Universal Blue, Bazzite или других rpm-ostree систем:
-
-1. Скачайте justfile:
-   ```bash
-   wget https://raw.githubusercontent.com/waydroid-helper/waydroid-helper/main/just/waydroid-helper.just
-   ```
-
-2. Установка из COPR (рекомендуется):
-   ```bash
-   just --justfile waydroid-helper.just install-waydroid-helper
-   ```
-
-3. Обновление до последней версии:
-   ```bash
-   just --justfile waydroid-helper.just update-waydroid-helper
-   ```
-
 ### Установка Релизных сборок
 
 1. Перейдите на страницу [releases](https://github.com/waydroid-helper/waydroid-helper/releases)
