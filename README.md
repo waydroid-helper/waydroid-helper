@@ -212,11 +212,22 @@ usr
     │       └── id.waydro.Mount.service
 
 ```
-### Waydroid won't start after installing microg or gapps
+### Waydroid fails to start after installing MicroG or GApps
 If you encounter issues with waydroid not starting after installing microg or gapps, try the following solutions:
 
 1. **Ensure vanilla image usage**: Confirm that you are using a vanilla image instead of a gapps version
 2. **Complete data reset**: If the above methods still don't resolve the issue, completely remove the `~/.local/share/waydroid/data` directory and re-run `sudo waydroid init -f`. **Note**: This operation will delete all waydroid data, so please ensure you have backed up any important information.
+
+### ZygiskNext / ReZygisk not working
+
+In some cases, ZygiskNext or ReZygisk may fail to function inside Waydroid.
+
+These modules rely on SuperCall, a kernel-side IOCTL interface installed through a reboot kprobe hook. Waydroid's default seccomp profile blocks the reboot syscall, which prevents the SuperCall interface from being initialized.
+
+Remove the reboot rule from the Waydroid seccomp configuration and then apply the change:
+
+sudo sed -i '/reboot/d' /usr/lib/waydroid/data/configs/waydroid.seccomp
+sudo waydroid upgrade -o
 
 ## Credits
 
