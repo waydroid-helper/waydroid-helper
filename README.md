@@ -226,8 +226,10 @@ These modules rely on SuperCall, a kernel-side IOCTL interface installed through
 
 Remove the reboot rule from the Waydroid seccomp configuration and then apply the change:
 
+```
 sudo sed -i '/reboot/d' /usr/lib/waydroid/data/configs/waydroid.seccomp
 sudo waydroid upgrade -o
+```
 
 ## Credits
 
