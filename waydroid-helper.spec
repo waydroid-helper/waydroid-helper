@@ -100,5 +100,9 @@ including Magisk, ARM translation, and various Google services alternatives.
 %{_userunitdir}/waydroid-monitor.service
 
 %changelog
+%if 0%{?suse_version}
+* Sun Mar 08 2026 Name <mail>
+- Initial build
+%else
 %autochangelog
-
+%endif
