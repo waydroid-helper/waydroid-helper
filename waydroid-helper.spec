@@ -5,20 +5,19 @@ Summary:        A GUI application for Waydroid configuration and extension insta
 
 License:        GPLv3+
 URL:            https://github.com/waydroid-helper/waydroid-helper
+Source:        {{{ git_dir_pack }}}
+
 %if 0%{suse_version}
-Source:        %{name}-%{version}.tar.gz
 BuildRequires:  ninja
 BuildRequires:  dbus-1-devel
 Requires:       libvte-2_91-0
 Requires:       python3-dbus-python
 %else
-Source:        {{{ git_dir_pack }}}
 BuildRequires:  ninja-build
 BuildRequires:  dbus-devel
 Requires:       vte291-gtk4
 Requires:       python3-dbus
 %endif
-
 BuildRequires:  meson
 BuildRequires:  pkgconfig
 BuildRequires:  gcc
