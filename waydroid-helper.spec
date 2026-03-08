@@ -7,7 +7,7 @@ License:        GPLv3+
 URL:            https://github.com/waydroid-helper/waydroid-helper
 Source:        {{{ git_dir_pack }}}
 
-%if 0%{suse_version}
+%if 0%{?suse_version}
 BuildRequires:  ninja
 BuildRequires:  dbus-1-devel
 Requires:       libvte-2_91-0
