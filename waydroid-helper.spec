@@ -1,5 +1,5 @@
 Name:           waydroid-helper
-Version:         0.2.9
+Version:        0.2.9
 Release:        0.%(date +%%Y%%m%%d.%%H%%M)%{?dist}
 Summary:        A GUI application for Waydroid configuration and extension installation
 
@@ -7,8 +7,18 @@ License:        GPLv3+
 URL:            https://github.com/waydroid-helper/waydroid-helper
 Source:        {{{ git_dir_pack }}}
 
-BuildRequires:  meson
+%if 0%{suse_version}
+BuildRequires:  ninja
+BuildRequires:  dbus-1-devel
+Requires:       libvte-2_91-0
+Requires:       python3-dbus-python
+%else
 BuildRequires:  ninja-build
+BuildRequires:  dbus-devel
+Requires:       vte291-gtk4
+Requires:       python3-dbus
+%endif
+BuildRequires:  meson
 BuildRequires:  pkgconfig
 BuildRequires:  gcc
 BuildRequires:  python3-devel
@@ -17,7 +27,6 @@ BuildRequires:  gtk4-devel
 BuildRequires:  libadwaita-devel
 BuildRequires:  gobject-introspection-devel
 BuildRequires:  gettext
-BuildRequires:  dbus-devel
 BuildRequires:  systemd
 BuildRequires:  desktop-file-utils
 
@@ -32,9 +41,7 @@ Requires:       python3-cairo
 Requires:       python3-gobject >= 3.50
 Requires:       python3-pywayland
 Requires:       python3-yaml
-Requires:       python3-dbus
 Requires:       android-tools
-Requires:       vte291-gtk4
 
 Recommends:     bindfs
 
