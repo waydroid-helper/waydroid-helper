@@ -1,6 +1,6 @@
 Name:           waydroid-helper
 Version:        0.2.9
-Release:        0.%(date +%%Y%%m%%d.%%H%%M)%{?dist}
+Release:        0.%(date +%%Y%%m%%d.%%H)%{?dist}
 Summary:        A GUI application for Waydroid configuration and extension installation
 
 License:        GPLv3+
@@ -101,7 +101,7 @@ including Magisk, ARM translation, and various Google services alternatives.
 
 %changelog
 %if 0%{?suse_version}
-* Sun Mar 08 2026 Name <mail>
+* Sun Mar 08 2026 Name <ayasa0520@gmail.com>
 - Initial build
 %else
 %autochangelog
