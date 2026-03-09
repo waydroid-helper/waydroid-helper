@@ -322,6 +322,10 @@ class WaydroidCompat(GObject.Object):
     async def reset_waydroid_props(self):
         """Reset waydroid config properties"""
         return await self._controller.reset_waydroid_properties()
+    
+    async def refresh_images_path(self):
+        """Refresh images path"""
+        return await self._controller.refresh_images_path()
 
     async def restore_waydroid_props(self):
         """Restore waydroid config properties"""

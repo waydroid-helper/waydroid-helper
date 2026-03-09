@@ -275,6 +275,14 @@
                     <property name="sensitive">False</property>
                   </object>
                 </child>
+                <child type="suffix">
+                  <object class="GtkButton" id="images_path_detect_btn">
+                    <property name="label" translatable="true">Detect</property>
+                    <property name="valign">center</property>
+                    <property name="tooltip-text" translatable="true">Auto-detect images_path</property>
+                    <signal name="clicked" handler="on_images_path_detect_clicked"/>
+                  </object>
+                </child>
               </object>
             </child>
             <child>

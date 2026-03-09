@@ -10,12 +10,14 @@ from typing import Any, Callable
 import gi
 
 from waydroid_helper.gpu_combo_row import GpuComboRow
+from waydroid_helper.models import _get_valid_images_path
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
 import json
 import os
+import stat
 from functools import partial
 from gettext import gettext as _
 
@@ -48,6 +50,7 @@ class PropsPage(Gtk.Box):
     waydroid_switch_1: Gtk.Switch = Gtk.Template.Child()
     waydroid_switch_2: Gtk.Switch = Gtk.Template.Child()
     waydroid_entry_1: Gtk.Entry = Gtk.Template.Child()
+    images_path_detect_btn: Gtk.Button = Gtk.Template.Child()
     gpu_combo_row: GpuComboRow = Gtk.Template.Child()
     overlay: Gtk.Overlay | None = None
     waydroid: Waydroid = GObject.Property(
@@ -89,6 +92,9 @@ class PropsPage(Gtk.Box):
         self.waydroid.waydroid_props.connect(
             "notify::state", self.on_waydroid_waydroid_state_changed
         )
+
+        # 初始化时先根据当前 images_path 做一次可视化校验
+        self._update_images_path_visual_state(self.waydroid_entry_1)
 
         self.save_notification: InfoBar = InfoBar(
             label=_("Restart the session to apply the changes"),
@@ -447,6 +453,11 @@ class PropsPage(Gtk.Box):
             ),
         )
 
+        self.waydroid_entry_1.connect(
+            "notify::text",
+            self._on_images_path_text_notify,
+        )
+
 
     def on_waydroid_privileged_state_changed(
         self, w: GObject.Object, param: GObject.ParamSpec
@@ -669,6 +680,53 @@ class PropsPage(Gtk.Box):
     @Gtk.Template.Callback()
     def on_reset_waydroid_clicked(self, button: Gtk.Button):
         self._task.create_task(self.waydroid.reset_waydroid_props())
+
+    @Gtk.Template.Callback()
+    def on_images_path_detect_clicked(self, button: Gtk.Button):
+        self._task.create_task(self.waydroid.refresh_images_path())
+
+    def _on_images_path_text_notify(self, entry: Gtk.Entry, pspec: GObject.ParamSpec):
+        """notify::text handler dedicated to images_path validation."""
+        self._update_images_path_visual_state(entry)
+
+    def _update_images_path_visual_state(self, entry: Gtk.Entry):
+        """
+        Check whether the current images_path exists and update the
+        entry's visual state (color/icon) accordingly.
+        """
+        text = entry.get_text().strip()
+
+        exists = False
+        if os.path.isdir(text):
+            system_path = os.path.join(text, "system.img")
+            vendor_path = os.path.join(text, "vendor.img")
+            try:
+                system_ok = os.path.isfile(system_path) or stat.S_ISBLK(os.stat(system_path).st_mode)
+                vendor_ok = os.path.isfile(vendor_path) or stat.S_ISBLK(os.stat(vendor_path).st_mode)
+                exists = system_ok and vendor_ok
+            except OSError:
+                exists = False
+
+        style_context = entry.get_style_context()
+
+        if exists:
+            style_context.remove_class("error")
+            entry.set_icon_from_icon_name(
+                Gtk.EntryIconPosition.SECONDARY, None
+            )
+            entry.set_icon_tooltip_text(
+                Gtk.EntryIconPosition.SECONDARY, None
+            )
+        else:
+            style_context.add_class("error")
+            entry.set_icon_from_icon_name(
+                Gtk.EntryIconPosition.SECONDARY,
+                "dialog-warning-symbolic",
+            )
+            entry.set_icon_tooltip_text(
+                Gtk.EntryIconPosition.SECONDARY,
+                _("Invalid images path"),
+            )
 
     def _retry_load_privileged_properties(self) -> bool:
         """Retry loading privileged properties (called from GLib timeout)"""

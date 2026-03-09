@@ -449,6 +449,11 @@ class ModelController(GObject.Object):
             logger.error(f"Failed to reset waydroid properties: {e}")
             self.property_model.set_property("waydroid-state", ModelState.ERROR)
             return False
+    
+    async def refresh_images_path(self) -> bool:
+        """Refresh images path"""
+        self.property_model.refresh_images_path()
+        return True
 
     async def restore_privileged_properties(self) -> bool:
         """Restore privileged properties from saved config"""

@@ -13,8 +13,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-import asyncio
 import enum
+import os
+import stat
 from typing import Any
 from functools import partial
 from gettext import gettext as _
@@ -22,6 +23,27 @@ from gettext import gettext as _
 from gi.repository import GObject
 
 from waydroid_helper.util import logger
+
+
+def _get_valid_images_path() -> str:
+    """Determine the default images_path by checking candidate directories."""
+    candidate_paths = [
+        "/etc/waydroid-extra/images",
+        "/usr/share/waydroid-extra/images",
+    ]
+    for path in candidate_paths:
+        if not os.path.isdir(path):
+            continue
+        system_path = os.path.join(path, "system.img")
+        vendor_path = os.path.join(path, "vendor.img")
+        try:
+            system_ok = os.path.isfile(system_path) or stat.S_ISBLK(os.stat(system_path).st_mode)
+            vendor_ok = os.path.isfile(vendor_path) or stat.S_ISBLK(os.stat(vendor_path).st_mode)
+        except OSError:
+            continue
+        if system_ok and vendor_ok:
+            return path
+    return "/var/lib/waydroid/images"
 
 
 class ModelState(enum.IntEnum):
@@ -255,7 +277,7 @@ class PropertyModel(GObject.Object):
 
     images_path = categorized_property(
         type=str,
-        default="/etc/waydroid-extra/images",
+        default=_get_valid_images_path(),
         nick="images_path",
         # blurb=_("Path to Waydroid images"),
         category=PropertyCategory.WAYDROID,
@@ -361,6 +383,10 @@ class PropertyModel(GObject.Object):
             prop_obj = getattr(PropertyModel, attr_name, None)
             if prop_obj is not None and getattr(prop_obj, "_category", None) == category:
                 self.set_property(prop.name, prop.get_default_value())
+
+    def refresh_images_path(self):
+        """Refresh images path"""
+        self.set_property("images-path", _get_valid_images_path())
 
 
 class SessionModel(GObject.Object):
