@@ -55,7 +55,7 @@ class CircleOverlay(Gtk.DrawingArea):
 
     def __init__(self):
         super().__init__()
-        self.circle_data = None
+        self.circle_data: dict | None = None
         self.set_draw_func(self._draw_circle, None)
 
     def set_circle_data(self, data):
@@ -64,27 +64,75 @@ class CircleOverlay(Gtk.DrawingArea):
         self.queue_draw()
 
     def _draw_circle(self, widget, cr, width, height, user_data):
-        """Draws a circle"""
+        """Draws a perspective-projected circle, matching skill mapping logic"""
         if not self.circle_data:
             return
 
-        # Get circle parameters
-        circle_radius = self.circle_data.get("circle_radius", 200)
+        # Read perspective parameters (kept in sync with SkillCasting)
+        radius_world = float(self.circle_data.get("circle_radius", 5.0) or 5.0)
+        tilt_deg = float(self.circle_data.get("tilt_angle", 45.0) or 45.0)
+        fov_deg = float(self.circle_data.get("camera_fov", 36.0) or 36.0)
+        origin_x_percent = float(self.circle_data.get("origin_x", 50.0) or 50.0)
+        origin_y_percent = float(self.circle_data.get("origin_y", 50.0) or 50.0)
+        origin_x_ratio = origin_x_percent / 100.0
+        origin_y_ratio = origin_y_percent / 100.0
 
-        # Calculate circle parameters
-        window_center_x = width / 2
-        window_center_y = height / 2
+        if width <= 0 or height <= 0 or radius_world <= 0:
+            return
 
-        # Draw circle boundary
+        origin_sx = origin_x_ratio * width
+        origin_sy = origin_y_ratio * height
+
+        # Vertical FOV -> focal length (match HTML demo)
+        if fov_deg <= 0 or fov_deg >= 180:
+            fov_deg = 36.0
+        fov_rad = math.radians(fov_deg)
+        focal = (height / 2.0) / math.tan(fov_rad / 2.0)
+
+        tilt_rad = math.radians(tilt_deg)
+
+        # Camera distance: keep constant so changing radius visibly changes projection
+        cam_dist = 13.66
+
+        def world_to_screen(wx: float, wz: float) -> tuple[float, float] | None:
+            depth = cam_dist + wz * math.cos(tilt_rad)
+            if depth <= 1e-3:
+                return None
+            sx = origin_sx + wx * focal / depth
+            sy = origin_sy - wz * math.sin(tilt_rad) * focal / depth
+            return sx, sy
+
+        # Sample world-circle points and project to screen
+        samples = 240
+        points: list[tuple[float, float]] = []
+        for i in range(samples + 1):
+            t = 2.0 * math.pi * i / samples
+            wx = radius_world * math.cos(t)
+            wz = radius_world * math.sin(t)
+            sp = world_to_screen(wx, wz)
+            if sp is not None:
+                points.append(sp)
+
+        if len(points) < 3:
+            return
+
+        # Draw projected circle boundary
         cr.set_source_rgba(0.6, 0.6, 0.6, 0.8)  # Semi-transparent gray
         cr.set_line_width(3)
-        cr.arc(window_center_x, window_center_y, circle_radius, 0, 2 * math.pi)
+        first_x, first_y = points[0]
+        cr.move_to(first_x, first_y)
+        for x, y in points[1:]:
+            cr.line_to(x, y)
+        cr.close_path()
         cr.stroke()
 
-        # Draw circle center point
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.9)
-        cr.arc(window_center_x, window_center_y, 4, 0, 2 * math.pi)
-        cr.fill()
+        # Draw projected center point (world origin)
+        center_sp = world_to_screen(0.0, 0.0)
+        if center_sp is not None:
+            cx, cy = center_sp
+            cr.set_source_rgba(0.5, 0.5, 0.5, 0.9)
+            cr.arc(cx, cy, 4, 0, 2 * math.pi)
+            cr.fill()
 
 
 class TransparentWindow(Adw.Window):

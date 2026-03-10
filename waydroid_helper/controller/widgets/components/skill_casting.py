@@ -482,17 +482,72 @@ class SkillCasting(BaseWidget):
     def setup_config(self) -> None:
         """设置配置项"""
 
-        # 添加圆半径配置
+        # 添加圆半径配置（世界空间半径，而非屏幕像素）
         circle_radius_config = create_slider_config(
             key="circle_radius",
             label=pgettext("Controller Widgets", "Casting Radius"),
-            value=200,
-            min_value=50,
-            max_value=500,
-            step=10,
+            value=5.0,
+            min_value=1.0,
+            max_value=12.0,
+            step=0.1,
             description=pgettext(
                 "Controller Widgets",
-                "Fine-tune according to the casting range of different skills",
+                "Radius of the ground-circle in world space used for perspective mapping",
+            ),
+        )
+
+        # 相机俯仰角（tilt）
+        tilt_angle_config = create_slider_config(
+            key="tilt_angle",
+            label=pgettext("Controller Widgets", "Camera Tilt"),
+            value=45.0,
+            min_value=8.0,
+            max_value=85.0,
+            step=0.5,
+            description=pgettext(
+                "Controller Widgets",
+                "Camera tilt angle for perspective circle mapping",
+            ),
+        )
+
+        # 垂直视野（FOV）
+        camera_fov_config = create_slider_config(
+            key="camera_fov",
+            label=pgettext("Controller Widgets", "Vertical FOV"),
+            value=36.0,
+            min_value=20.0,
+            max_value=120.0,
+            step=0.5,
+            description=pgettext(
+                "Controller Widgets",
+                "Vertical field of view used in the perspective projection",
+            ),
+        )
+
+        # 地面原点在屏幕上的位置，使用百分比（0~100）
+        origin_x_config = create_slider_config(
+            key="origin_x",
+            label=pgettext("Controller Widgets", "Origin X"),
+            value=50.0,
+            min_value=0.0,
+            max_value=100.0,
+            step=0.1,
+            description=pgettext(
+                "Controller Widgets",
+                "Horizontal position of ground origin on screen",
+            ),
+        )
+
+        origin_y_config = create_slider_config(
+            key="origin_y",
+            label=pgettext("Controller Widgets", "Origin Y"),
+            value=50.0,
+            min_value=0.0,
+            max_value=100.0,
+            step=0.1,
+            description=pgettext(
+                "Controller Widgets",
+                "Vertical position of ground origin on screen",
             ),
         )
 
@@ -522,11 +577,19 @@ class SkillCasting(BaseWidget):
         # 添加取消施法按钮配置
 
         self.add_config_item(circle_radius_config)
+        self.add_config_item(tilt_angle_config)
+        self.add_config_item(camera_fov_config)
+        self.add_config_item(origin_x_config)
+        self.add_config_item(origin_y_config)
         self.add_config_item(cast_timing_config)
         self.add_config_item(self.cancel_button_config)
 
         # 添加配置变更回调
         self.add_config_change_callback("circle_radius", self._on_circle_radius_changed)
+        self.add_config_change_callback("tilt_angle", self._on_tilt_angle_changed)
+        self.add_config_change_callback("camera_fov", self._on_camera_fov_changed)
+        self.add_config_change_callback("origin_x", self._on_origin_x_changed)
+        self.add_config_change_callback("origin_y", self._on_origin_y_changed)
         self.add_config_change_callback("cast_timing", self._on_cast_timing_changed)
         self.add_config_change_callback(
             "enable_cancel_button", self._on_cancel_button_config_changed
@@ -537,6 +600,35 @@ class SkillCasting(BaseWidget):
         try:
             # self.circle_radius = int(value)
             # 如果当前选中状态，重新发送圆形绘制事件
+            self._update_circle_if_selected()
+        except (ValueError, TypeError):
+            pass
+
+    def _on_tilt_angle_changed(self, key: str, value: float, restoring: bool) -> None:
+        """处理相机俯仰角配置变更"""
+        try:
+            # 仅影响映射算法，不需要立即触摸事件；更新选区叠加即可
+            self._update_circle_if_selected()
+        except (ValueError, TypeError):
+            pass
+
+    def _on_camera_fov_changed(self, key: str, value: float, restoring: bool) -> None:
+        """处理相机FOV配置变更"""
+        try:
+            self._update_circle_if_selected()
+        except (ValueError, TypeError):
+            pass
+
+    def _on_origin_x_changed(self, key: str, value: float, restoring: bool) -> None:
+        """处理原点X配置变更"""
+        try:
+            self._update_circle_if_selected()
+        except (ValueError, TypeError):
+            pass
+
+    def _on_origin_y_changed(self, key: str, value: float, restoring: bool) -> None:
+        """处理原点Y配置变更"""
+        try:
             self._update_circle_if_selected()
         except (ValueError, TypeError):
             pass
@@ -618,6 +710,10 @@ class SkillCasting(BaseWidget):
                 "widget_id": id(self),
                 "widget_type": "skill_casting",
                 "circle_radius": self.get_config_value("circle_radius"),
+                "tilt_angle": self.get_config_value("tilt_angle"),
+                "camera_fov": self.get_config_value("camera_fov"),
+                "origin_x": self.get_config_value("origin_x"),
+                "origin_y": self.get_config_value("origin_y"),
                 "action": "show",
             }
             self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
@@ -630,6 +726,10 @@ class SkillCasting(BaseWidget):
                 "widget_id": id(self),
                 "widget_type": "skill_casting",
                 "circle_radius": self.get_config_value("circle_radius"),
+                "tilt_angle": self.get_config_value("tilt_angle"),
+                "camera_fov": self.get_config_value("camera_fov"),
+                "origin_x": self.get_config_value("origin_x"),
+                "origin_y": self.get_config_value("origin_y"),
                 "action": "show",
             }
             self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
@@ -886,50 +986,79 @@ class SkillCasting(BaseWidget):
         self, mouse_x: float, mouse_y: float
     ) -> tuple[float, float]:
         """
-        将鼠标在圆形范围内的坐标映射到虚拟摇杆圆形范围内的坐标
+        使用透视投影，将屏幕上的坐标映射到地面圆（世界空间）上，
+        再将该圆上的点归一化映射到技能按钮自身的圆形范围内。
 
-        外圆：窗口中心为圆心，半径按百分比缩放
-        内圆：widget中心为圆心，宽度/2为半径
+        参考 `perspective_circle_static.html` 中的 screenToWorld + 归一化逻辑：
+        - 世界平面：X 轴向右，Z 轴向前，Y=0 为地面
+        - 相机绕 X 轴俯仰 tilt_angle，垂直视野 camera_fov
+        - (origin_x, origin_y) 定义地面原点在屏幕上的位置（归一化 0~1）
         """
-        # 获取窗口信息
-        window_center_x, window_center_y = self._get_window_center()
+        # 获取窗口分辨率
         window_width, window_height = self._get_window_size()
+        if window_width <= 0 or window_height <= 0:
+            return (self.center_x, self.center_y)
 
-        # 外圆参数（使用像素值）
-        outer_radius = self.get_config_value("circle_radius")
+        # 读取透视相关配置
+        radius_world = float(self.get_config_value("circle_radius") or 5.0)
+        tilt_deg = float(self.get_config_value("tilt_angle") or 45.0)
+        fov_deg = float(self.get_config_value("camera_fov") or 36.0)
+        origin_x_percent = float(self.get_config_value("origin_x") or 50.0)
+        origin_y_percent = float(self.get_config_value("origin_y") or 50.0)
+        origin_x_ratio = origin_x_percent / 100.0
+        origin_y_ratio = origin_y_percent / 100.0
 
-        # 虚拟摇杆圆形参数
+        # 屏幕上的地面原点（像素）
+        origin_sx = origin_x_ratio * window_width
+        origin_sy = origin_y_ratio * window_height
+
+        # 垂直 FOV -> 焦距（以窗口高度为参考）
+        if fov_deg <= 0 or fov_deg >= 180:
+            fov_deg = 36.0
+        fov_rad = math.radians(fov_deg)
+        focal = (window_height / 2.0) / math.tan(fov_rad / 2.0)
+
+        # 相机到原点的距离 L：保持常量，避免被半径缩放抵消屏幕效果
+        # 对齐 HTML demo：默认半径 5、距离约 13.66
+        cam_dist = 13.66
+
+        tilt_rad = math.radians(tilt_deg)
+
+        # 将屏幕坐标反投影到地面 (Y=0) 上的世界坐标 (wx, wz)
+        sx_n = (mouse_x - origin_sx) / focal
+        sy_n = (origin_sy - mouse_y) / focal
+
+        denom = math.sin(tilt_rad) - sy_n * math.cos(tilt_rad)
+        if abs(denom) < 1e-7:
+            # 退化情况，直接返回技能按钮中心
+            return (self.center_x, self.center_y)
+
+        wz = sy_n * cam_dist / denom
+        depth = cam_dist + wz * math.cos(tilt_rad)
+        wx = sx_n * depth
+
+        # 世界空间中，地面圆心固定为 (0, 0)
+        dx = wx
+        dz = wz
+        dist = math.hypot(dx, dz)
+
         widget_center_x = self.center_x
         widget_center_y = self.center_y
-        widget_radius = self.width / 2
+        widget_radius = self.width / 2.0
 
-        # 计算鼠标相对于外圆中心的位置
-        rel_x = mouse_x - window_center_x
-        rel_y = mouse_y - window_center_y
+        if dist <= 1e-6 or radius_world <= 0 or widget_radius <= 0:
+            return (widget_center_x, widget_center_y)
 
-        # 计算距离
-        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+        # 归一化到 [0, 1]，超过圆半径则截断到边界
+        ratio_world = min(1.0, dist / radius_world)
+        nx = dx / dist * ratio_world
+        nz = dz / dist * ratio_world
 
-        if distance <= outer_radius:
-            # 鼠标在外圆内，直接按比例映射
-            if distance == 0:
-                # 避免除零，直接返回widget中心
-                target_x = widget_center_x
-                target_y = widget_center_y
-            else:
-                # 按距离比例映射
-                ratio = distance / outer_radius
-                target_x = widget_center_x + (rel_x / distance) * ratio * widget_radius
-                target_y = widget_center_y + (rel_y / distance) * ratio * widget_radius
-        else:
-            # 鼠标在外圆外，投影到圆形边界，再映射到widget圆形边界
-            if distance == 0:
-                target_x = widget_center_x
-                target_y = widget_center_y
-            else:
-                # 投影到外圆边界，然后映射到widget圆形边界
-                target_x = widget_center_x + (rel_x / distance) * widget_radius
-                target_y = widget_center_y + (rel_y / distance) * widget_radius
+        # 将世界归一化坐标映射到 widget 自身的圆形范围
+        # 注意：世界中的 +Z 在屏幕上是“向上”（参考 perspective_circle_static.html 的 top view），
+        # 所以这里要对 Y 轴取反，保证方向一致。
+        target_x = widget_center_x + nx * widget_radius
+        target_y = widget_center_y - nz * widget_radius
 
         return (target_x, target_y)
 
