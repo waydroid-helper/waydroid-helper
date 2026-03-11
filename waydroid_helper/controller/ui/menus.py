@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from gettext import gettext as _
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -491,6 +492,29 @@ class ContextMenuManager:
                                 if key_combo:
                                     default_keys.append(key_combo)
                         create_kwargs["default_keys"] = default_keys
+
+                    if widget_type == "macro":
+                        if "config" in widget_data and "macro_command" in widget_data["config"]:
+                            macro_cfg = widget_data["config"]["macro_command"]
+                            value = macro_cfg.get("value")
+                            if isinstance(value, str) and (scale_x != 1.0 or scale_y != 1.0):
+                                def _scale_coords(match: re.Match) -> str:
+                                    x_str, y_str = match.group(1), match.group(2)
+                                    try:
+                                        x = float(x_str)
+                                        y = float(y_str)
+                                    except ValueError:
+                                        return match.group(0)
+                                    scaled_x = int(x * scale_x)
+                                    scaled_y = int(y * scale_y)
+                                    return f"{scaled_x},{scaled_y}"
+
+                                scaled_value = re.sub(
+                                    r"(\d+)\s*,\s*(\d+)",
+                                    _scale_coords,
+                                    value,
+                                )
+                                macro_cfg["value"] = scaled_value
 
                     # 创建widget
                     widget = widget_factory.create_widget(widget_type, **create_kwargs)
