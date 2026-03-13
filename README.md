@@ -98,6 +98,10 @@ sudo apt install waydroid-helper
 
 For manual installation, you'll need to install the dependencies and build the project using Meson.
 
+### OpenSUSE, Mageia based distributions
+<iframe src='https://software.opensuse.org/download/package.iframe?project=home:juzbun:NekoBox&package=waydroid-helper'></iframe>
+
+
 #### Arch, Manjaro and EndeavourOS based distributions
 1. Install dependencies:
 
