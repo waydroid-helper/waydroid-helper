@@ -31,6 +31,12 @@ For Arch users, Waydroid Helper is available in the AUR:
 yay -S waydroid-helper
 ```
 
+### OpenSUSE, Mageia based distributions
+[![build result](https://build.opensuse.org/projects/home:juzbun:NekoBox/packages/waydroid-helper/badge.svg?type=percent)](https://build.opensuse.org/package/show/home:juzbun:NekoBox/waydroid-helper)
+
+Visit [download page](https://software.opensuse.org/download/package?project=home:juzbun:NekoBox&package=waydroid-helper) for instructions
+
+
 ### Debian
 
 ##### For **Debian Unstable** run the following:
@@ -97,9 +103,6 @@ sudo apt install waydroid-helper
 ### Manual Build and Installation
 
 For manual installation, you'll need to install the dependencies and build the project using Meson.
-
-### OpenSUSE, Mageia based distributions
-Visit [download page](https://software.opensuse.org/download/package?project=home:juzbun:NekoBox&package=waydroid-helper) for instructions
 
 #### Arch, Manjaro and EndeavourOS based distributions
 1. Install dependencies:
