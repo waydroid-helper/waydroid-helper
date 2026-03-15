@@ -27,7 +27,7 @@ Waydroid Helper 是一个使用 Python 和 PyGObject 编写的图形用户界面
 ### OpenSUSE Build System (OpenSUSE, Fedora, Mageia, Debian, Ubuntu, Raspbian, Arch)
 [![build result](https://build.opensuse.org/projects/home:juzbun:NekoBox/packages/waydroid-helper/badge.svg?type=percent)](https://build.opensuse.org/package/show/home:juzbun:NekoBox/waydroid-helper)
 
-Visit [download page](https://software.opensuse.org/download/package?project=home:juzbun:NekoBox&package=waydroid-helper) for instructions
+请访问 [下载页面](https://software.opensuse.org/download/package?project=home:juzbun:NekoBox&package=waydroid-helper) 查看说明
 
 
 ### Arch
