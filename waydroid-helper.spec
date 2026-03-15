@@ -40,7 +40,12 @@ Requires:       python3-httpx
 Requires:       python3-cairo
 Requires:       python3-gobject >= 3.50
 Requires:       python3-pywayland
+
+%if 0%{?suse_version}
+Requires:       python3-PyYAML
+%else
 Requires:       python3-yaml
+%endif
 Requires:       android-tools
 
 Recommends:     bindfs
