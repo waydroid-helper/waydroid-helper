@@ -76,7 +76,10 @@ class AvailableRow(Adw.ActionRow):
             self.spinner.show()
 
     def set_validation_errors(self, arch_error: bool = False, android_version_error: bool = False):
-        """Set validation errors as colored subtitle text and disable row if needed"""
+        """Set validation errors as colored subtitle text.
+
+        只做提示，不禁用安装/卸载按钮；真正的拦截逻辑在点击安装时处理。
+        """
         subtitle_parts = []
         
         if arch_error:
@@ -90,16 +93,9 @@ class AvailableRow(Adw.ActionRow):
             # Join multiple errors and set as subtitle with markup
             subtitle_markup = ' • '.join(subtitle_parts)
             self.set_subtitle(subtitle_markup)
-            # Disable the entire row if there are validation errors
-            self.set_sensitive(False)
-            self.install_button.set_sensitive(False)
-            self.delete_button.set_sensitive(False)
         else:
             # Clear subtitle if no errors
             self.set_subtitle("")
-            self.set_sensitive(True)
-            self.install_button.set_sensitive(True)
-            self.delete_button.set_sensitive(True)
 
 
 # class CircularProgressBar(Gtk.DrawingArea):
@@ -326,13 +322,26 @@ class AvailableVersionPage(NavigationPage):
                 AvailableRow.State.INSTALLING
             )
             async with self.lock:
+                # 先统一做兼容性检查，但不自动终止，仅在有问题时弹出一次 compat 弹窗让用户决定
                 arch_check = self.extension_manager.check_arch(name, version)
-                if not await self.show_validation_error(arch_check):
-                    return
-                
                 android_version_check = self.extension_manager.check_android_version(name, version)
-                if not await self.show_validation_error(android_version_check):
-                    return
+
+                validation_errors: list[str] = []
+                if not arch_check.is_valid:
+                    validation_errors.append(arch_check.error_message)
+                if not android_version_check.is_valid:
+                    validation_errors.append(android_version_check.error_message)
+
+                if validation_errors:
+                    body = "\n".join(validation_errors) + "\n\n" + _(
+                        "Do you still want to install this extension?"
+                    )
+                    # 使用 compat 版本的 MessageDialog
+                    if not await self.show_dialog(
+                        _("Extension Compatibility Warning"),
+                        body,
+                    ):
+                        return
                 
                 conflicts = self.extension_manager.check_conflicts(
                     name=name, version=version
