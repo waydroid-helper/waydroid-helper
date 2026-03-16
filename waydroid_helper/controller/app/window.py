@@ -562,11 +562,16 @@ class TransparentWindow(Adw.Window):
         self.add_controller(scroll_controller)
 
         # Window-level mouse event controller
-        click_controller = Gtk.GestureClick()
-        click_controller.set_button(0)  # All buttons
-        click_controller.connect("pressed", self.on_window_mouse_pressed)
-        click_controller.connect("released", self.on_window_mouse_released)
+        click_controller = Gtk.EventControllerLegacy()
+        click_controller.connect("event", self.on_window_mouse_event)
         self.add_controller(click_controller)
+
+        click_edit_controller = Gtk.GestureClick()
+        click_edit_controller.set_button(0)
+        click_edit_controller.connect("pressed", self.on_window_mouse_pressed)
+        click_edit_controller.connect("released", self.on_window_mouse_released)
+        self.add_controller(click_edit_controller)
+        
 
         # Window-level mouse motion events
         motion_controller = Gtk.EventControllerMotion.new()
@@ -594,19 +599,27 @@ class TransparentWindow(Adw.Window):
         self.interaction_start_y = 0
         self.pending_resize_direction = None
 
-    def on_window_mouse_pressed(self, controller, n_press, x, y):
-        """Window-level mouse press event"""
-        button = controller.get_current_button()
-
-        # Use event handler chain in mapping mode
+    def on_window_mouse_event(self, controller, event):
         if self.current_mode == self.MAPPING_MODE:
+            event = controller.get_current_event()
+            if event is None:
+                return False
 
+            etype = event.get_event_type()
+
+            if etype not in (Gdk.EventType.BUTTON_PRESS, Gdk.EventType.BUTTON_RELEASE):
+                return False
+
+            button = event.get_button() if event is not None else 0
+
+            ok, x,y = event.get_position()
+            n_press = 1
             # Create Key object for mouse button
             mouse_key = self.key_registry.create_mouse_key(button)
 
             # Create input event
             event = InputEvent(
-                event_type="mouse_press",
+                event_type="mouse_press" if etype == Gdk.EventType.BUTTON_PRESS else "mouse_release",
                 key=mouse_key,
                 button=button,
                 position=(int(x), int(y)),
@@ -617,9 +630,19 @@ class TransparentWindow(Adw.Window):
             handled = self.event_handler_chain.process_event(event)
             if handled:
                 return True
-            return
+            else:
+                return False
 
+        return False
+
+    def on_window_mouse_pressed(self, controller, n_press, x, y):
+        """Window-level mouse press event"""
         # Mouse event handling in edit mode
+        if self.current_mode == self.MAPPING_MODE:
+            return False
+
+        button = controller.get_current_button()
+
         if button == Gdk.BUTTON_SECONDARY:  # Right click
             widget_at_position = self.workspace_manager.get_widget_at_position(x, y)
             if not widget_at_position:
@@ -794,30 +817,8 @@ class TransparentWindow(Adw.Window):
 
     def on_window_mouse_released(self, controller, n_press, x, y):
         """Window-level mouse release event"""
-        button = controller.get_current_button()
-
-        # Use event handler chain in mapping mode
         if self.current_mode == self.MAPPING_MODE:
-
-            # Create Key object for mouse button
-            mouse_key = self.key_registry.create_mouse_key(button)
-
-            # Create input event
-            event = InputEvent(
-                event_type="mouse_release",
-                key=mouse_key,
-                button=button,
-                position=(int(x), int(y)),
-                raw_data={"controller": controller, "n_press": n_press, "x": x, "y": y},
-            )
-
-            # Process with event handler chain
-            handled = self.event_handler_chain.process_event(event)
-            if handled:
-                return True
-            return
-
-        # Mouse release handling in edit mode, delegate to workspace_manager
+            return False
         self.workspace_manager.handle_mouse_release(controller, n_press, x, y)
 
     def start_widget_drag(self, widget, x, y):
