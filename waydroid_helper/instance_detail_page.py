@@ -630,13 +630,15 @@ class InstanceDetailPage(NavigationPage):
 
             parent_window = self.get_root()
 
-            settings_dialog = KeyMappingPreferenceDialog(
+            # 必须在 Python 侧保留强引用；否则 connect_weakly 绑定的方法会因为 self 被回收而失效
+            # （GTK 侧仍可能显示对话框，但 Python 回调已经断开）。
+            self._key_mapping_settings_dialog = KeyMappingPreferenceDialog(
                 title=_("Key Mapping Preferences"),
                 parent=parent_window,
                 config=self.config,
             )
 
-            settings_dialog.present()
+            self._key_mapping_settings_dialog.present()
 
         except Exception as e:
             logger.error(f"Failed to open key mapping preferences dialog: {e}")
