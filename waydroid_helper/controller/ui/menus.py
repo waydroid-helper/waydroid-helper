@@ -400,10 +400,16 @@ class ContextMenuManager:
         """处理加载文件选择的回调"""
         if not success or not file_path:
             return
+        self.load_layout_from_path(file_path, widget_factory)
 
+    def load_layout_from_path(
+        self, file_path: str, widget_factory: "WidgetFactory"
+    ):
+        """Load a layout from a JSON file path (callable programmatically)."""
         try:
             # 检查文件是否存在
             if not Path(file_path).exists():
+                logger.error(f"Layout file not found: {file_path}")
                 return
 
             # 读取布局文件

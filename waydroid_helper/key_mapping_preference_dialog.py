@@ -1,3 +1,5 @@
+import os
+
 import gi
 
 from waydroid_helper.util.log import logger
@@ -83,12 +85,13 @@ class KeyMappingPreferenceDialog(Dialog):
         return header_bar
 
     def _create_preferences_page(self):
-        """创建 AdwPreferencesPage"""
         preferences_page = Adw.PreferencesPage.new()
 
-        # Cage 设置组
         cage_group = self._create_cage_group()
         preferences_page.add(cage_group)
+
+        profile_group = self._create_profile_switch_group()
+        preferences_page.add(profile_group)
 
         return preferences_page
 
@@ -283,6 +286,91 @@ class KeyMappingPreferenceDialog(Dialog):
         group.add(confine_pointer_row)
 
         return group
+
+    def _create_profile_switch_group(self):
+        group = Adw.PreferencesGroup.new()
+        group.set_title(_("Profile Switching"))
+        group.set_description(
+            _("Assign layout files to F1+digit hotkeys for mid-game profile switching")
+        )
+
+        self._profile_entries: dict[int, Gtk.Label] = {}
+        digit_labels = [str(i) for i in range(1, 10)] + ["0"]
+
+        for idx, digit in enumerate(digit_labels, start=1):
+            prop_name = f"profile_{idx}"
+            row = Adw.ActionRow.new()
+            row.set_title(_("F1 + {0}").format(digit))
+
+            current_path = self.config.profile_switch.get_property(prop_name)
+            display_name = os.path.basename(current_path) if current_path else _("Not assigned")
+
+            path_label = Gtk.Label.new(display_name)
+            path_label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+            path_label.set_max_width_chars(20)
+            path_label.set_valign(Gtk.Align.CENTER)
+            self._profile_entries[idx] = path_label
+
+            clear_button = Gtk.Button.new_from_icon_name("edit-clear-symbolic")
+            clear_button.set_valign(Gtk.Align.CENTER)
+            clear_button.set_tooltip_text(_("Clear"))
+            clear_button.add_css_class("flat")
+            clear_button.connect(
+                "clicked",
+                lambda btn, pn=prop_name, sl=idx: self._on_profile_clear(pn, sl)
+            )
+
+            choose_button = Gtk.Button.new_from_icon_name("document-open-symbolic")
+            choose_button.set_valign(Gtk.Align.CENTER)
+            choose_button.set_tooltip_text(_("Choose layout file"))
+            choose_button.add_css_class("flat")
+            choose_button.connect(
+                "clicked",
+                lambda btn, pn=prop_name, sl=idx: self._on_profile_choose(pn, sl)
+            )
+
+            suffix_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            suffix_box.append(path_label)
+            suffix_box.append(choose_button)
+            suffix_box.append(clear_button)
+
+            row.add_suffix(suffix_box)
+            group.add(row)
+
+        return group
+
+    def _on_profile_clear(self, prop_name: str, slot: int):
+        self.config.profile_switch.set_property(prop_name, "")
+        self._profile_entries[slot].set_label(_("Not assigned"))
+
+    def _on_profile_choose(self, prop_name: str, slot: int):
+        json_filter = Gtk.FileFilter()
+        json_filter.set_name(_("JSON files"))
+        json_filter.add_pattern("*.json")
+
+        from gi.repository import GLib
+        layouts_dir = os.path.join(
+            os.getenv("XDG_CONFIG_HOME", GLib.get_user_config_dir()),
+            "waydroid-helper", "layouts"
+        )
+        os.makedirs(layouts_dir, exist_ok=True)
+
+        file_dialog = FileDialog(
+            parent=self.get_root(),
+            title=_("Choose Layout File"),
+            modal=True,
+        )
+
+        def on_file_selected(success: bool, file_path: str | None):
+            if success and file_path:
+                self.config.profile_switch.set_property(prop_name, file_path)
+                self._profile_entries[slot].set_label(os.path.basename(file_path))
+
+        file_dialog.open_file(
+            on_file_selected,
+            file_filter=json_filter,
+            initial_folder=layouts_dir,
+        )
 
     def _update_controls_sensitivity(self):
         """根据enable开关状态更新其他控件的敏感性"""
