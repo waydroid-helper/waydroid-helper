@@ -1299,6 +1299,7 @@ class TransparentWindow(Adw.Window):
 
     def switch_to_profile(self, slot: int):
         """Switch to a profile layout by slot number (1-10)."""
+        self.config.load_from_file()
         prop_name = f"profile_{slot}"
         layout_path = self.config.profile_switch.get_property(prop_name)
         if not layout_path:
