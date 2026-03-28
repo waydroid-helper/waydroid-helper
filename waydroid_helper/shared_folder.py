@@ -93,14 +93,14 @@ class SharedFoldersWidget(Adw.PreferencesGroup):
         monitor_service_name = "waydroid-monitor.service"
         mount_service_name = "waydroid-mount.service"
         try:
-            await self._subprocess.run(
+            await self._subprocess.submit(
                 f"systemctl --user list-unit-files {monitor_service_name}",
                 shell=False
-            )
-            await self._subprocess.run(
+            ).get()
+            await self._subprocess.submit(
                 f"systemctl list-unit-files {mount_service_name}",
                 shell=False
-            )
+            ).get()
         except Exception:
             logger.error(
                 f"{monitor_service_name} or {monitor_service_name} not exists!"
@@ -168,11 +168,11 @@ class SharedFoldersWidget(Adw.PreferencesGroup):
     def restart_service(self):
         async def _restart_service():
             try:
-                await self._subprocess.run("systemctl --user daemon-reload", shell=False)
-                await self._subprocess.run(
+                await self._subprocess.submit("systemctl --user daemon-reload", shell=False).get()
+                await self._subprocess.submit(
                     "systemctl --user restart waydroid-monitor.service",
                     shell=False
-                )
+                ).get()
             except Exception as e:
                 logger.error(e)
 

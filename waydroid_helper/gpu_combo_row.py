@@ -58,9 +58,9 @@ class GpuComboRow(Adw.ComboRow):
     async def load_gpu_info(self):
         self.add_option(_("Default"), "")
         waydroid_cli_path = os.environ.get("WAYDROID_CLI_PATH")
-        result = await self._subprocess_manager.run(
+        result = await self._subprocess_manager.submit(
             command=f"{waydroid_cli_path} get_gpu_info", shell=False
-        )
+        ).get()
         # 解析 stdout，按 : 分割，加入 option
         if result and result["stdout"]:
             lines = result["stdout"].strip().splitlines()

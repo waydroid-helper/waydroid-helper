@@ -1,6 +1,6 @@
 from .abx_reader import AbxReader
 from .log import logger
-from .subprocess_manager import SubprocessError, SubprocessManager
+from .subprocess_manager import SubprocessError, SubprocessJob, SubprocessManager
 from .task import Task
 from .template import template
 from .adb_helper import AdbHelper
@@ -10,6 +10,7 @@ from .weak_ref import \
 __all__ = [
     'logger',
     'SubprocessError',
+    'SubprocessJob',
     'SubprocessManager',
     'Task',
     'connect_weakly',

@@ -36,7 +36,7 @@ class WaydroidSDK:
     async def get_session_status(self) -> SessionState:
         """Get current Waydroid session status"""
         try:
-            result = await self._subprocess.run("waydroid status", shell=False)
+            result = await self._subprocess.submit("waydroid status", shell=False).get()
             output = result["stdout"]
             
             if "WayDroid is not initialized" in output:
@@ -55,7 +55,10 @@ class WaydroidSDK:
     async def start_session(self, wait: bool = False) -> bool:
         """Start Waydroid session"""
         try:
-            await self._subprocess.run("waydroid session start", flag=True, wait=wait, shell=False)
+            if wait:
+                await self._subprocess.submit("waydroid session start", flag=True, shell=False).get()
+            else:
+                await self._subprocess.start("waydroid session start", flag=True, shell=False)
             return True
         except SubprocessError as e:
             logger.error(f"Failed to start Waydroid session: {e}")
@@ -64,7 +67,10 @@ class WaydroidSDK:
     async def stop_session(self, wait: bool = False) -> bool:
         """Stop Waydroid session"""
         try:
-            await self._subprocess.run("waydroid session stop", flag=True, wait=wait, shell=False)
+            if wait:
+                await self._subprocess.submit("waydroid session stop", flag=True, shell=False).get()
+            else:
+                await self._subprocess.start("waydroid session stop", flag=True, shell=False)
             return True
         except SubprocessError as e:
             logger.error(f"Failed to stop Waydroid session: {e}")
@@ -84,7 +90,7 @@ class WaydroidSDK:
     async def show_full_ui(self) -> bool:
         """Show Waydroid full UI"""
         try:
-            await self._subprocess.run("waydroid show-full-ui", flag=True, wait=False, shell=False)
+            await self._subprocess.start("waydroid show-full-ui", flag=True, shell=False)
             return True
         except SubprocessError as e:
             logger.error(f"Failed to show Waydroid full UI: {e}")
@@ -93,7 +99,11 @@ class WaydroidSDK:
     async def restart_container(self, wait: bool = False) -> bool:
         """"""
         try:
-            await self._subprocess.run(f"pkexec {os.environ['WAYDROID_CLI_PATH']} restart_container", flag=True, wait=wait, shell=False)
+            command = f"pkexec {os.environ['WAYDROID_CLI_PATH']} restart_container"
+            if wait:
+                await self._subprocess.submit(command, flag=True, shell=False).get()
+            else:
+                await self._subprocess.start(command, flag=True, shell=False)
             return True
         except SubprocessError as e:
             logger.error(f"Failed to restart Waydroid container: {e}")
@@ -107,7 +117,7 @@ class WaydroidSDK:
             else:
                 cmd = f"pkexec {os.environ['WAYDROID_CLI_PATH']} upgrade"
             
-            await self._subprocess.run(cmd, flag=True, shell=False)
+            await self._subprocess.submit(cmd, flag=True, shell=False).get()
             return True
         except SubprocessError as e:
             logger.error(f"Failed to upgrade Waydroid: {e}")
@@ -130,7 +140,7 @@ class PropertyManager:
     async def get_persist_property(self, property_nick: str) -> str:
         """Get a persist property value using waydroid prop get"""
         try:
-            result = await self._subprocess.run(f"waydroid prop get {property_nick}", shell=False, timeout=10)
+            result = await self._subprocess.submit(f"waydroid prop get {property_nick}", shell=False, timeout=10).get()
             output = result["stdout"].replace(
                 "[gbinder] Service manager /dev/binder has appeared", ""
             ).strip().split("\n")[-1]
@@ -142,7 +152,7 @@ class PropertyManager:
     async def set_persist_property(self, property_nick: str, value: str) -> bool:
         """Set a persist property value using waydroid prop set"""
         try:
-            await self._subprocess.run(f'waydroid prop set {property_nick} "{value}"', shell=False)
+            await self._subprocess.submit(f'waydroid prop set {property_nick} "{value}"', shell=False).get()
             return True
         except SubprocessError as e:
             logger.error(f"Failed to set persist property {property_nick}: {e}")
@@ -155,7 +165,7 @@ class PropertyManager:
 
         async def get_prop(p: ParamSpec):
             try:
-                result = await self._subprocess.run(f"waydroid prop get {p.get_nick()}", shell=False, timeout=10)
+                result = await self._subprocess.submit(f"waydroid prop get {p.get_nick()}", shell=False, timeout=10).get()
                 output = result["stdout"].replace(
                     "[gbinder] Service manager /dev/binder has appeared", ""
                 ).strip().split("\n")[-1]
@@ -363,7 +373,7 @@ class ConfigManager:
             
             # Copy to system location with pkexec
             cmd = f"pkexec {os.environ['WAYDROID_CLI_PATH']} copy_to_var {cache_config_path} waydroid.cfg"
-            await self._subprocess.run(cmd, flag=True, shell=False)
+            await self._subprocess.submit(cmd, flag=True, shell=False).get()
             return True
         except SubprocessError as e:
             logger.error(f"Failed to save config: {e}")
@@ -379,10 +389,10 @@ class ConfigManager:
             system_image_path = os.path.join(
                 self._config_cache.get("waydroid", "images_path"), "system.img"
             )
-            result = await self._subprocess.run(
+            result = await self._subprocess.submit(
                 f"debugfs -R 'cat /system/build.prop' {system_image_path} | grep '^ro.build.version.release=' | cut -d'=' -f2",
                 shell=True
-            )
+            ).get()
             return result["stdout"].strip()
         except Exception as e:
             logger.error(f"Failed to get Android version: {e}")

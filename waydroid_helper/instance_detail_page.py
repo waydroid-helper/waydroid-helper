@@ -44,36 +44,6 @@ from waydroid_helper.config.models import RootConfig
 class InstanceDetailPage(NavigationPage):
     __gtype_name__: str = "InstanceDetailPage"
 
-    async def _check_cage_runtime_deps(self, cage_executable: str) -> None:
-        if not cage_executable:
-            raise RuntimeError(_("Cage executable path is empty."))
-
-        resolved = shutil.which(cage_executable) if not os.path.isabs(cage_executable) else cage_executable
-        if not resolved:
-            raise RuntimeError(
-                _("Cage executable not found: {0}").format(cage_executable)
-            )
-        if not os.path.exists(resolved):
-            raise RuntimeError(_("Cage executable not found: {0}").format(resolved))
-        if not os.access(resolved, os.X_OK):
-            raise RuntimeError(_("Cage executable is not executable: {0}").format(resolved))
-
-        sm = SubprocessManager()
-        try:
-            r = await sm.run(f"ldd {shlex.quote(resolved)}", wait=True, shell=True)
-            out = (r.get("stdout") or "") + "\n" + (r.get("stderr") or "")
-        except Exception:
-            return
-
-        lowered = out.lower()
-        if "libseat" in lowered and "not found" in lowered:
-            raise RuntimeError(
-                _(
-                    "Cage failed preflight check: missing runtime dependency 'libseat'.\n\n"
-                    + "Please install libseat/seatd (package name varies by distro), then try again."
-                )
-            )
-
     def __init__(
         self, waydroid: Waydroid, navigation_view, config: RootConfig, **kwargs
     ):
@@ -597,24 +567,18 @@ class InstanceDetailPage(NavigationPage):
                 refresh_rate = self.config.cage.refresh_rate
                 hide_titlebar_flag = "--hide-titlebar" if self.config.cage.hide_titlebar else ""
                 confine_pointer_flag = "--confine-pointer" if self.config.cage.confine_pointer else ""
-                # await self._check_cage_runtime_deps(self.config.cage.executable_path)
-                # 异步启动 cage，但要做“秒退探测”以便把 stderr 给到用户
-                handle = await sm.run_async(
+                
+                handle = await sm.start(
                     f"{self.config.cage.executable_path} -W {width} -H {height} -w {logic_width} -h {logic_height} -S {socket_name} --scale {scale} --refresh-rate {refresh_rate} {hide_titlebar_flag} {confine_pointer_flag} -- waydroid show-full-ui",
                     flag=True,
                     shell=False,
                 )
                 try:
-                    result = await handle.wait(timeout=1.0)
-                    if result["returncode"] != 0:
-                        raise RuntimeError(
-                            _("Cage exited unexpectly (code {0}).\n\n{1}").format(
-                                str(result["returncode"]),
-                                (result["stderr"] or result["stdout"] or "").strip(),
-                            )
-                        )
-                except asyncio.TimeoutError:
-                    pass
+                    await handle.verify_started(timeout=1.0)
+                except Exception as e:
+                    raise RuntimeError(
+                        _("Cage exited unexpectly.\n\n{0}").format(str(e))
+                    ) from e
 
                 await wait_for_state(
                     self.waydroid._controller.property_model,

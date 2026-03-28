@@ -281,10 +281,10 @@ class GSFIDRetrieverDialog(dialog.Dialog):
             
             while True:
                 cli_path = os.environ.get("WAYDROID_CLI_PATH")
-                result = await self._subprocess_manager.run(
+                result = await self._subprocess_manager.submit(
                     command=f"pkexec {cli_path} get_android_id",
                     shell=False
-                )
+                ).get()
                 logger.info(result["stdout"])
                 logger.warning(result["stderr"])
                 
@@ -383,10 +383,10 @@ class GSFIDRetrieverDialog(dialog.Dialog):
             # 逐个清理包数据
             for package in packages_to_clear:
                 logger.info(f"Clearing data for package: {package}")
-                result = await self._subprocess_manager.run(
+                result = await self._subprocess_manager.submit(
                     command=f"pkexec {cli_path} clear_package_data {package}",
                     shell=False
-                )
+                ).get()
                 logger.info(f"Clear result for {package}: {result['stdout']}")
                 if result["stderr"]:
                     logger.warning(f"Clear stderr for {package}: {result['stderr']}")

@@ -385,18 +385,18 @@ class PackageManager(GObject.Object):
 
                 # Prefer SHA-256 validation; fall back to MD5 if SHA-256 not provided
                 if sha256 is not None:
-                    result = await self._subprocess.run(
+                    result = await self._subprocess.submit(
                         f'sha256sum "{dest_path}"', shell=False
-                    )
+                    ).get()
                     actual_sha256 = result["stdout"].split()[0]
                     if actual_sha256 != sha256:
                         raise ValueError(
                             f"SHA256 mismatch: expected {sha256}, got {actual_sha256}"
                         )
                 elif md5 is not None:
-                    result = await self._subprocess.run(
+                    result = await self._subprocess.submit(
                         f'md5sum "{dest_path}"', shell=False
-                    )
+                    ).get()
                     actual_md5 = result["stdout"].split()[0]
                     if actual_md5 != md5:
                         raise ValueError(
@@ -474,14 +474,14 @@ class PackageManager(GObject.Object):
                 )
                 if os.path.exists(file_path):
                     if use_sha256:
-                        result = await self._subprocess.run(
+                        result = await self._subprocess.submit(
                             f'sha256sum "{file_path}"', shell=False
-                        )
+                        ).get()
                         actual = result["stdout"].split()[0]
                     else:
-                        result = await self._subprocess.run(
+                        result = await self._subprocess.submit(
                             f'md5sum "{file_path}"', shell=False
-                        )
+                        ).get()
                         actual = result["stdout"].split()[0]
 
                     if actual == expected:
@@ -569,7 +569,7 @@ class PackageManager(GObject.Object):
             pkgdir = os.path.join(startdir, "pkg")
             package = f"{startdir}/{package_name}-{package_version}.tar.gz"
             logger.info(f"Starting package build: {package_name}-{package_version}")
-            await self._subprocess.run(
+            await self._subprocess.submit(
                 f'{os.environ["WAYDROID_CLI_PATH"]} call_package "{startdir}" "{package_name}" "{package_version}"',
                 env={
                     "CARCH": self.arch,
@@ -578,7 +578,7 @@ class PackageManager(GObject.Object):
                     ),
                 },
                 shell=False,
-            )
+            ).get()
             logger.info(f"Package build completed: {package_name}-{package_version}")
             if "install" in package_info.keys():
                 logger.info(f"Executing pre-install operations: {package_name}")
@@ -586,10 +586,10 @@ class PackageManager(GObject.Object):
                 logger.info(f"Pre-install operations completed: {package_name}")
             
             logger.info(f"Starting package installation to system: {package_name}")
-            await self._subprocess.run(
+            await self._subprocess.submit(
                 f'pkexec {os.environ["WAYDROID_CLI_PATH"]} install "{package}"',
                 shell=False,
-            )
+            ).get()
             logger.info(f"Package installation to system completed: {package_name}")
 
             installed_files = self.get_all_files_relative(pkgdir)
@@ -619,9 +619,9 @@ class PackageManager(GObject.Object):
             if "install" in package_info.keys():
                 cache_install = os.path.join(startdir, package_info["install"])
                 local_install = os.path.join(local_dir, "install")
-                await self._subprocess.run(
+                await self._subprocess.submit(
                     f"install -Dm 755 {cache_install} {local_install}", shell=False
-                )
+                ).get()
 
             # 标记已安装包
             # await self._subprocess.run(f"pkexec waydroid-cli mkdir {local_dir}")
@@ -685,7 +685,7 @@ class PackageManager(GObject.Object):
                                 )
                             },
                         )
-                        resp = await self._subprocess.run(cmd, shell=False)
+                        resp = await self._subprocess.submit(cmd, shell=False).get()
                         logger.info(resp)
                 else:
                     logger.error(
@@ -804,10 +804,10 @@ class PackageManager(GObject.Object):
                 self.emit("uninstallation-started", package_name, version)
                 
                 logger.info(f"Starting system overlay file removal: {package_name}")
-                await self._subprocess.run(
+                await self._subprocess.submit(
                     f'pkexec {os.environ["WAYDROID_CLI_PATH"]} rm_overlay {" ".join(self.installed_packages[package_name]["installed_files"])}',
                     shell=False,
-                )
+                ).get()
                 logger.info(f"System overlay file removal completed: {package_name}")
                 # await self._subprocess.run(
                 #     f"pkexec waydroid-cli rm {os.path.join(self.storage_dir, 'local', package_name)}"
@@ -830,10 +830,10 @@ class PackageManager(GObject.Object):
                     logger.info(f"Post-removal operations completed: {package_name}")
                     
                 logger.info(f"Starting local package file deletion: {package_name}")
-                await self._subprocess.run(
+                await self._subprocess.submit(
                     f"rm -rf {os.path.join(self.storage_dir, 'local', package_name)}",
                     shell=False,
-                )
+                ).get()
                 logger.info(f"Local package file deletion completed: {package_name}")
                 # await asyncio.gather(coro1, coro2, coro3)
 
