@@ -22,14 +22,30 @@ class CageConfig(GObject.Object):
     confine_pointer = GObject.Property(type=bool, default=False)
 
 
+class ProfileSwitchConfig(GObject.Object):
+
+    profile_1 = GObject.Property(type=str, default="")
+    profile_2 = GObject.Property(type=str, default="")
+    profile_3 = GObject.Property(type=str, default="")
+    profile_4 = GObject.Property(type=str, default="")
+    profile_5 = GObject.Property(type=str, default="")
+    profile_6 = GObject.Property(type=str, default="")
+    profile_7 = GObject.Property(type=str, default="")
+    profile_8 = GObject.Property(type=str, default="")
+    profile_9 = GObject.Property(type=str, default="")
+    profile_10 = GObject.Property(type=str, default="")
+
+
 class RootConfig(GObject.Object):
     
     cage = GObject.Property(type=object)
+    profile_switch = GObject.Property(type=object)
     
     def __init__(self):
         super().__init__()
         self._file_manager = ConfigManager()
         self.cage = CageConfig()
+        self.profile_switch = ProfileSwitchConfig()
         self.load_from_file()
     
     def load_from_file(self) -> None:

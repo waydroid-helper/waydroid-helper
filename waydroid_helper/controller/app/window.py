@@ -38,6 +38,7 @@ from waydroid_helper.controller.core.handler import (DefaultEventHandler,
 from waydroid_helper.controller.ui.menus import ContextMenuManager
 from waydroid_helper.controller.ui.styles import StyleManager
 from waydroid_helper.controller.widgets.factory import WidgetFactory
+from waydroid_helper.config.models import RootConfig
 from waydroid_helper.util import AdbHelper, logger
 
 if TYPE_CHECKING:
@@ -243,6 +244,19 @@ class TransparentWindow(Adw.Window):
 
         # Set UI (mainly event controllers)
         self.setup_controllers()
+
+        # Profile switching state
+        self._f1_pressed = False
+        self._f1_digit_used = False
+        self.config = RootConfig()
+
+        # Digit keyval to profile slot mapping
+        self._digit_keyval_to_slot = {
+            Gdk.KEY_1: 1, Gdk.KEY_2: 2, Gdk.KEY_3: 3,
+            Gdk.KEY_4: 4, Gdk.KEY_5: 5, Gdk.KEY_6: 6,
+            Gdk.KEY_7: 7, Gdk.KEY_8: 8, Gdk.KEY_9: 9,
+            Gdk.KEY_0: 10,
+        }
 
         # Initial hint
         GLib.idle_add(self.show_notification, _("Edit Mode (F1: Switch Mode)"))
@@ -1037,13 +1051,16 @@ class TransparentWindow(Adw.Window):
 
     def on_global_key_press(self, controller, keyval, keycode, state):
         """Global keyboard event - supports dual mode, uses event handler chain"""
-        # Special keys: mode switching and debug functions - these are directly judged by original keyval
+        # F1 handling: defer mode toggle to release so F1+digit combos work
         if keyval == Gdk.KEY_F1:
-            # F1 switches between two modes
-            if self.current_mode == self.EDIT_MODE:
-                self.switch_mode(self.MAPPING_MODE)
-            else:
-                self.switch_mode(self.EDIT_MODE)
+            self._f1_pressed = True
+            return True
+
+        # F1+digit: profile switching (works in any mode)
+        if self._f1_pressed and keyval in self._digit_keyval_to_slot:
+            slot = self._digit_keyval_to_slot[keyval]
+            self._f1_digit_used = True
+            self.switch_to_profile(slot)
             return True
         # elif keyval == Gdk.KEY_F2:
         #     self.switch_mode(self.MAPPING_MODE)
@@ -1280,8 +1297,32 @@ class TransparentWindow(Adw.Window):
         """Clears all key mappings"""
         return self.key_mapping_manager.clear()
 
+    def switch_to_profile(self, slot: int):
+        """Switch to a profile layout by slot number (1-10)."""
+        self.config.load_from_file()
+        prop_name = f"profile_{slot}"
+        layout_path = self.config.profile_switch.get_property(prop_name)
+        if not layout_path:
+            display_digit = str(slot) if slot < 10 else "0"
+            self.show_notification(_("No profile assigned to F1 + {0}").format(display_digit))
+            return
+        self.menu_manager.load_layout_from_path(layout_path, self.widget_factory)
+        display_digit = str(slot) if slot < 10 else "0"
+        self.show_notification(_("Profile {0} loaded").format(display_digit))
+
     def on_global_key_release(self, controller, keyval, keycode, state):
         """Global key release event - uses event handler chain"""
+        # F1 release: toggle mode if no digit was used
+        if keyval == Gdk.KEY_F1:
+            if not self._f1_digit_used:
+                if self.current_mode == self.EDIT_MODE:
+                    self.switch_mode(self.MAPPING_MODE)
+                else:
+                    self.switch_mode(self.EDIT_MODE)
+            self._f1_pressed = False
+            self._f1_digit_used = False
+            return True
+
         if self.current_mode == self.MAPPING_MODE:
             # Get standard keyval for physical key
             physical_keyval = self.get_physical_keyval(keycode)
