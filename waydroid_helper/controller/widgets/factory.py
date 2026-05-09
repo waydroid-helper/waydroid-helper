@@ -17,11 +17,13 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from waydroid_helper.controller.widgets.base import BaseWidget
+    from waydroid_helper.controller.core.runtime import ControllerRuntimeContext
 
 class WidgetFactory:
     """动态组件工厂类"""
     
-    def __init__(self):
+    def __init__(self, runtime_context: "ControllerRuntimeContext | None" = None):
+        self.runtime_context = runtime_context
         self.widget_classes: dict[str, type["BaseWidget"]] = {}
         self.widget_metadata: dict[str, dict[str, Any]] = {}
         self._discover_widgets()
@@ -104,6 +106,8 @@ class WidgetFactory:
             raise ValueError(f"Unsupported widget type: {widget_type}. Available types: {available}")
         
         widget_class = self.widget_classes[widget_type]
+        if self.runtime_context is not None:
+            kwargs.setdefault("runtime_context", self.runtime_context)
         
         try:
             widget = widget_class(**kwargs)
@@ -153,4 +157,4 @@ class WidgetFactory:
             if len(desc) > 50:
                 desc = desc[:47] + "..."
             logger.info(f"  Description: {desc}")
-            logger.info("") 
+            logger.info("")

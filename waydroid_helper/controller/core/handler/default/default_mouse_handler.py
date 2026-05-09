@@ -1,14 +1,19 @@
+from dataclasses import replace
+
 import gi
 
-from waydroid_helper.controller.core.handler.event_handlers import InputEvent
+from waydroid_helper.controller.core.handler.event_handlers import (
+    InputEvent,
+    InputEventType,
+    InputModifierState,
+)
 
-gi.require_version("Gdk", "4.0")
 gi.require_version("GLib", "2.0")
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from gi.repository import Gdk, GLib
+from gi.repository import GLib
 
 from waydroid_helper.controller.android.input import (
     AMotionEventAction,
@@ -17,9 +22,9 @@ from waydroid_helper.controller.android.input import (
 from waydroid_helper.controller.core.control_msg import (
     InjectScrollEventMsg,
     InjectTouchEventMsg,
-    ScreenInfo,
 )
 from waydroid_helper.controller.core.event_bus import Event, EventType, EventBus
+from waydroid_helper.controller.core.runtime import ScreenGeometry
 
 if TYPE_CHECKING:
     from gi.repository import Gtk
@@ -33,30 +38,19 @@ class PointerId(IntEnum):
 
 class MouseBase(ABC):
     @abstractmethod
-    def click_processor(
-        self, controller: "Gtk.GestureClick", n_press: int, x: float, y: float
-    ) -> bool:
+    def click_processor(self, event: InputEvent) -> bool:
         pass
 
     @abstractmethod
-    def scroll_processor(
-        self,
-        controller: "Gtk.EventControllerScroll",
-        dx: float | None = None,
-        dy: float | None = None,
-    ) -> bool:
+    def scroll_processor(self, event: InputEvent) -> bool:
         pass
 
     @abstractmethod
-    def motion_processor(
-        self, controller: "Gtk.EventControllerMotion", x: float, y: float
-    ) -> bool:
+    def motion_processor(self, event: InputEvent) -> bool:
         pass
 
     @abstractmethod
-    def zoom_processor(
-        self, controller: "Gtk.EventControllerScroll", range: float, status:str|None
-    ) -> bool:
+    def zoom_processor(self, event: InputEvent) -> bool:
         pass
 
     # @abstractmethod
@@ -65,13 +59,13 @@ class MouseBase(ABC):
 
 
 class MouseDefault(MouseBase):
-    def __init__(self, event_bus: EventBus) -> None:
+    def __init__(self, event_bus: EventBus, screen_geometry: ScreenGeometry) -> None:
         self.event_bus = event_bus
         self.natural_scroll: bool = True
         self.mouse_hover: bool = False
         self._current_x: float = 0
         self._current_y: float = 0
-        self.screen_info = ScreenInfo()
+        self.screen_geometry = screen_geometry
         self.zoom_in_init_length = 20
         self.zoom_out_init_length = 100
         self._is_zooming = False
@@ -105,51 +99,21 @@ class MouseDefault(MouseBase):
         
         return False
 
-    def convert_click_action(self, event: Gdk.Event) -> AMotionEventAction:
-        if event.get_event_type() == Gdk.EventType.BUTTON_PRESS:
+    def convert_click_action(self, event: InputEvent) -> AMotionEventAction:
+        if event.event_type == InputEventType.MOUSE_PRESS:
             action = AMotionEventAction.DOWN
         else:
             action = AMotionEventAction.UP
         return action
 
-    def convert_button(self, event: Gdk.ButtonEvent) -> AMotionEventButtons | int:
-        button = event.get_button()  # type: ignore
-        if button == Gdk.BUTTON_PRIMARY:
-            return AMotionEventButtons.PRIMARY
-        elif button == Gdk.BUTTON_MIDDLE:
-            return AMotionEventButtons.TERTIARY
-        elif button == Gdk.BUTTON_SECONDARY:
-            return AMotionEventButtons.SECONDARY
-        else:
-            return 0
-
-    def convert_buttons(
-        self, event: Gdk.Event, action_button: AMotionEventButtons | int | None = None
-    ) -> AMotionEventButtons | int:
-        state = event.get_modifier_state()
-        buttons = 0
-        if state & Gdk.ModifierType.BUTTON1_MASK:
-            buttons |= AMotionEventButtons.PRIMARY
-        if state & Gdk.ModifierType.BUTTON2_MASK:
-            buttons |= AMotionEventButtons.TERTIARY
-        if state & Gdk.ModifierType.BUTTON3_MASK:
-            buttons |= AMotionEventButtons.SECONDARY
-        if action_button:
-            buttons ^= action_button
-        return buttons
-
-    def motion_processor(
-        self, controller: "Gtk.EventControllerMotion", x: float, y: float
-    ) -> bool:
-        # print(controller.get_current_event().get_event_type(), x, y)
-        widget = controller.get_widget()
-        if widget is None:
+    def motion_processor(self, event: InputEvent) -> bool:
+        if event.position is None:
             return False
-        w, h = self.screen_info.get_host_resolution()
-        event = controller.get_current_event()
-        if event is None:
-            return False
-        buttons_state = self.convert_buttons(event)
+
+        x, y = event.position
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
+        buttons_state = event.buttons
 
         x = max(0, x)
         y = max(0, y)
@@ -169,6 +133,7 @@ class MouseDefault(MouseBase):
             action=action,
             pointer_id=PointerId.MOUSE,
             position=position,
+            device_resolution=device_resolution,
             pressure=pressure,
             action_button=0,
             buttons=buttons_state,
@@ -176,64 +141,59 @@ class MouseDefault(MouseBase):
         self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
-    def click_processor(
-        self, controller: "Gtk.GestureClick", n_press: int, x: float, y: float
-    ) -> bool:
-        widget = controller.get_widget()
-        if widget is None:
+    def click_processor(self, event: InputEvent) -> bool:
+        if event.position is None:
             return False
-        
-        w, h = self.screen_info.get_host_resolution()
 
-        event = controller.get_current_event()
-        event = cast(Gdk.ButtonEvent, event)
+        x, y = event.position
+        
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
+
         action = self.convert_click_action(event)
         position = (int(x), int(y), w, h)
         pressure = 1.0 if action == AMotionEventAction.DOWN else 0.0
-        action_button = self.convert_button(event)
-        buttons = self.convert_buttons(event, action_button)
         msg = InjectTouchEventMsg(
             action=action,
             pointer_id=PointerId.MOUSE,
             position=position,
+            device_resolution=device_resolution,
             pressure=pressure,
-            action_button=action_button,
-            buttons=buttons,
+            action_button=event.action_button,
+            buttons=event.buttons,
         )
         self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         return True
 
-    def scroll_processor(
-        self,
-        controller: "Gtk.EventControllerScroll",
-        dx: float | None = None,
-        dy: float | None = None,
-    ) -> bool:
-        widget = controller.get_widget()
-        if widget is None:
+    def scroll_processor(self, event: InputEvent) -> bool:
+        if event.scroll_delta is None:
             return False
 
-        w, h = self.screen_info.get_host_resolution()
-
-        event = controller.get_current_event()
-        if event is None:
-            return False
-        state = event.get_modifier_state()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
+        dx, dy = event.scroll_delta
 
         scroll_begin_x = round(self._current_x)
         scroll_begin_y = round(self._current_y)
         # ctrl+scroll begin
 
         # ctrl+scroll
-        if (state & Gdk.ModifierType.CONTROL_MASK) and dy is not None:
+        if (event.modifier_state & InputModifierState.CTRL) and dy is not None:
             ctrl_zoom_range = -dy
-            return self.zoom_processor(controller, ctrl_zoom_range, None)
+            zoom_event = replace(
+                event,
+                event_type=InputEventType.MOUSE_ZOOM,
+                zoom=ctrl_zoom_range,
+                zoom_status=None,
+                zoom_is_touchpad=False,
+            )
+            return self.zoom_processor(zoom_event)
         else:
 
             position = (scroll_begin_x, scroll_begin_y, w, h)
-            hscroll = dx if dx else 0
-            vscroll = dy if dy else 0
-            if controller.get_unit() == Gdk.ScrollUnit.SURFACE:
+            hscroll = dx
+            vscroll = dy
+            if event.scroll_is_surface:
                 hscroll = float(hscroll)
                 vscroll = float(vscroll)
             if hscroll == 0 and vscroll == 0:
@@ -241,7 +201,7 @@ class MouseDefault(MouseBase):
             if self.natural_scroll:
                 hscroll = -hscroll
                 vscroll = -vscroll
-            buttons = self.convert_buttons(event)
+            buttons = event.buttons
 
             if hscroll !=0 and hscroll.is_integer() or vscroll != 0 and vscroll.is_integer():
                 factor = 0.0625
@@ -251,7 +211,13 @@ class MouseDefault(MouseBase):
             hscroll_clamped = max(-1.0, min(1.0, hscroll * factor))
             vscroll_clamped = max(-1.0, min(1.0, vscroll * factor))
 
-            msg = InjectScrollEventMsg(position, hscroll_clamped, vscroll_clamped, buttons)
+            msg = InjectScrollEventMsg(
+                position=position,
+                device_resolution=device_resolution,
+                hscroll=hscroll_clamped,
+                vscroll=vscroll_clamped,
+                buttons=buttons,
+            )
             self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
             return True
 
@@ -268,11 +234,13 @@ class MouseDefault(MouseBase):
         action_button: int = 0,
         buttons: int = 0
     ) -> InjectTouchEventMsg:
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         return InjectTouchEventMsg(
             action=action,
             pointer_id=pointer_id,
             position=(int(self._current_x + x_offset), int(self._current_y + y_offset), w, h),
+            device_resolution=device_resolution,
             pressure=pressure,
             action_button=action_button,
             buttons=buttons,
@@ -306,20 +274,16 @@ class MouseDefault(MouseBase):
         self._send_dual_finger_events(AMotionEventAction.UP, int(old_length), 0.0, action_button, buttons)
         self._send_dual_finger_events(AMotionEventAction.DOWN, int(new_length), 1.0, action_button, buttons)
 
-    def zoom_processor(
-        self, controller, range: float, status:str|None
-    ) -> bool:
-        event = controller.get_current_event()
-        if event is None:
+    def zoom_processor(self, event: InputEvent) -> bool:
+        if event.zoom is None:
             return False
         
+        range = event.zoom
+        status = event.zoom_status
         action_button = 0
-        buttons = 0
+        buttons = event.buttons
         
-        if event.get_event_type() != Gdk.EventType.TOUCHPAD_PINCH:
-            buttons = self.convert_buttons(event)
-        
-        if event.get_event_type() == Gdk.EventType.TOUCHPAD_PINCH:
+        if event.zoom_is_touchpad:
             if status == "begin":
                 self._is_zooming = True
             elif status == "scale-changed":

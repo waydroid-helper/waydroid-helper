@@ -13,5 +13,43 @@
     <key name="is-fullscreen" type="b">
       <default>false</default>
     </key>
+    <key name="key-mapping-config-migrated" type="b">
+      <default>false</default>
+      <summary>Whether the legacy key mapping window configuration was migrated</summary>
+      <description>Used internally to migrate the old JSON-backed key mapping preferences to GSettings only once.</description>
+    </key>
+    <key name="cage-enabled" type="b">
+      <default>false</default>
+    </key>
+    <key name="cage-executable-path" type="s">
+      <default>''</default>
+    </key>
+    <key name="cage-refresh-rate" type="i">
+      <default>60</default>
+    </key>
+    <key name="cage-window-width" type="i">
+      <default>1920</default>
+    </key>
+    <key name="cage-window-height" type="i">
+      <default>1080</default>
+    </key>
+    <key name="cage-logical-width" type="i">
+      <default>1920</default>
+    </key>
+    <key name="cage-logical-height" type="i">
+      <default>1080</default>
+    </key>
+    <key name="cage-scale" type="i">
+      <default>100</default>
+    </key>
+    <key name="cage-socket-name" type="s">
+      <default>'waydroid-0'</default>
+    </key>
+    <key name="cage-hide-titlebar" type="b">
+      <default>false</default>
+    </key>
+    <key name="cage-confine-pointer" type="b">
+      <default>false</default>
+    </key>
   </schema>
 </schemalist>

@@ -8,6 +8,7 @@
 venv/
 
 # Build and distribution output
+.build/
 build/
 dist/
 __pycache__/

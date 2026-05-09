@@ -7,54 +7,21 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
 
-from waydroid_helper.util.log import logger
 from waydroid_helper.controller.android import (AKeyCode, AKeyEventAction,
                                                 AMetaState, AMotionEventAction,
                                                 AMotionEventButtons)
 
 
-class ScreenInfo:
-    _instance = None
-    host_width: int = 0
-    host_height: int = 0
-    width: int = 0
-    height: int = 0
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def set_resolution(self, width: int, height: int):
-        self.width = width
-        self.height = height
-
-    def get_resolution(self) -> tuple[int, int]:
-        return self.width, self.height
-    
-    def set_host_resolution(self, width: int, height: int):
-        self.host_width = width
-        self.host_height = height
-    
-    def get_host_resolution(self) -> tuple[int, int]:
-        return self.host_width, self.host_height
-
-
-# 全局单例实例，避免重复创建
-_screen_info = ScreenInfo()
-_resolution_warning_shown = False
-
-
-def scale_coordinates(client_x: int, client_y: int, client_w: int, client_h: int) -> tuple[int, int, int, int]:
-    """优化的坐标缩放函数，减少重复代码和计算"""
-    global _resolution_warning_shown
-    device_w, device_h = _screen_info.get_resolution()
-
-    if device_w == 0 or device_h == 0:
-        # 只在第一次警告，避免日志洪水
-        if not _resolution_warning_shown:
-            logger.warning("Device resolution not set, using client resolution. Coordinates may be incorrect.")
-            _resolution_warning_shown = True
+def scale_coordinates(
+    client_x: int,
+    client_y: int,
+    client_w: int,
+    client_h: int,
+    device_resolution: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    """Scale client-space coordinates using the message's explicit resolution."""
+    device_w, device_h = device_resolution
+    if device_w <= 0 or device_h <= 0:
         device_w, device_h = client_w, client_h
 
     # 使用整数除法优化
@@ -75,11 +42,15 @@ class ControlMsgType(IntEnum):
     COLLAPSE_PANELS = 7
     GET_CLIPBOARD = 8
     SET_CLIPBOARD = 9
-    SET_SCREEN_POWER_MODE = 10
+    SET_DISPLAY_POWER = 10
+    SET_SCREEN_POWER_MODE = SET_DISPLAY_POWER
     ROTATE_DEVICE = 11
     UHID_CREATE = 12
     UHID_INPUT = 13
-    OPEN_HARD_KEYBOARD_SETTINGS = 14
+    UHID_DESTROY = 14
+    OPEN_HARD_KEYBOARD_SETTINGS = 15
+    START_APP = 16
+    RESET_VIDEO = 17
 
 def to_fixed_point_u16(f_val: float) -> int:
     """优化版本：将浮点数转换为 Q16 格式的定点数，移除分支预测"""
@@ -148,6 +119,7 @@ class InjectTouchEventMsg(ControlMsg):
     action: AMotionEventAction
     pointer_id: int
     position: tuple[int, int, int, int] # x, y, screen_width, screen_height
+    device_resolution: tuple[int, int]
     pressure: float
     action_button: AMotionEventButtons | int
     buttons: AMotionEventButtons | int
@@ -159,7 +131,13 @@ class InjectTouchEventMsg(ControlMsg):
     def pack(self) -> bytes:
         """优化版本：使用共享的坐标缩放函数和预计算的压力值"""
         client_x, client_y, client_w, client_h = self.position
-        scaled_x, scaled_y, device_w, device_h = scale_coordinates(client_x, client_y, client_w, client_h)
+        scaled_x, scaled_y, device_w, device_h = scale_coordinates(
+            client_x,
+            client_y,
+            client_w,
+            client_h,
+            self.device_resolution,
+        )
 
         # 预计算压力值以避免重复调用
         pressure_fixed = to_fixed_point_u16(self.pressure)
@@ -182,6 +160,7 @@ class InjectTouchEventMsg(ControlMsg):
 @dataclass
 class InjectScrollEventMsg(ControlMsg):
     position: tuple[int, int, int, int] # x, y, screen_width, screen_height
+    device_resolution: tuple[int, int]
     hscroll: float
     vscroll: float
     buttons: AMotionEventButtons | int
@@ -193,7 +172,13 @@ class InjectScrollEventMsg(ControlMsg):
     def pack(self) -> bytes:
         """优化版本：使用共享的坐标缩放函数和预计算的滚动值"""
         client_x, client_y, client_w, client_h = self.position
-        scaled_x, scaled_y, device_w, device_h = scale_coordinates(client_x, client_y, client_w, client_h)
+        scaled_x, scaled_y, device_w, device_h = scale_coordinates(
+            client_x,
+            client_y,
+            client_w,
+            client_h,
+            self.device_resolution,
+        )
 
         hscroll_fixed = to_fixed_point_i16(self.hscroll)
         vscroll_fixed = to_fixed_point_i16(self.vscroll)

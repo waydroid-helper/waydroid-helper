@@ -8,7 +8,8 @@ if TYPE_CHECKING:
 
 import cairo
 
-from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
+from waydroid_helper.controller.core import (ControllerRuntimeContext, Event,
+                                             EventType, KeyCombination,
                                              EventBus, PointerIdManager)
 from waydroid_helper.controller.core.key_system import KeyRegistry
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
@@ -63,6 +64,7 @@ class CancelCasting(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: "set[KeyCombination] | None" = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -78,6 +80,7 @@ class CancelCasting(BaseWidget):
             default_keys,
             min_width=25,
             min_height=25,
+            runtime_context=runtime_context,
             event_bus = event_bus,
             pointer_id_manager = pointer_id_manager,
             key_registry = key_registry,

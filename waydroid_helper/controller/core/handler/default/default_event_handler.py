@@ -5,7 +5,6 @@
 处理未被其他处理器处理的事件，提供兜底的默认行为
 """
 
-from waydroid_helper.controller.core.event_bus import EventBus
 from waydroid_helper.util.log import logger
 from typing import Callable
 
@@ -14,29 +13,35 @@ from waydroid_helper.controller.core.handler.default.default_key_handler import 
 from waydroid_helper.controller.core.handler.default.default_mouse_handler import \
     MouseDefault
 from waydroid_helper.controller.core.handler.event_handlers import (
-    EventHandlerPriority, InputEvent, InputEventHandler)
+    EventHandlerPriority, InputEvent, InputEventHandler, InputEventType)
+from waydroid_helper.controller.core.runtime import ControllerRuntimeContext
 
 
 class DefaultEventHandler(InputEventHandler):
     """默认事件处理器 - 处理未被widget处理的事件"""
 
-    def __init__(self, event_bus: EventBus):
+    def __init__(self, runtime_context: ControllerRuntimeContext):
         super().__init__(EventHandlerPriority.LOWEST)
         self.name = "DefaultEventHandler"
 
         # 可配置的默认行为
         self.key_mappings: dict[str, Callable[[InputEvent], None]] = {}
         self.mouse_mappings: dict[int, Callable[[InputEvent], None]] = {}
-        self.keyboard_handler: KeyboardDefault = KeyboardDefault(event_bus)
-        self.mouse_handler: MouseDefault = MouseDefault(event_bus)
-        self.handler_map:dict[str,Callable[[InputEvent], bool]] = {
-            "key_press": self._handle_default_key_press,
-            "key_release": self._handle_default_key_release,
-            "mouse_press": self._handle_default_mouse_press,
-            "mouse_release": self._handle_default_mouse_release,
-            "mouse_motion": self._handle_default_mouse_motion,
-            "mouse_scroll": self._handle_default_mouse_scroll,
-            "mouse_zoom": self._handle_default_mouse_zoom,
+        self.keyboard_handler: KeyboardDefault = KeyboardDefault(
+            runtime_context.event_bus
+        )
+        self.mouse_handler: MouseDefault = MouseDefault(
+            runtime_context.event_bus,
+            runtime_context.screen_geometry,
+        )
+        self.handler_map: dict[InputEventType | str, Callable[[InputEvent], bool]] = {
+            InputEventType.KEY_PRESS: self._handle_default_key_press,
+            InputEventType.KEY_RELEASE: self._handle_default_key_release,
+            InputEventType.MOUSE_PRESS: self._handle_default_mouse_press,
+            InputEventType.MOUSE_RELEASE: self._handle_default_mouse_release,
+            InputEventType.MOUSE_MOTION: self._handle_default_mouse_motion,
+            InputEventType.MOUSE_SCROLL: self._handle_default_mouse_scroll,
+            InputEventType.MOUSE_ZOOM: self._handle_default_mouse_zoom,
         }
 
     def can_handle(self, event: InputEvent) -> bool:
@@ -56,12 +61,10 @@ class DefaultEventHandler(InputEventHandler):
 
     def _handle_default_mouse_motion(self, event: InputEvent) -> bool:
         """处理默认鼠标移动"""
-        if not event.position or not event.raw_data:
+        if not event.position:
             return False
 
-        self.mouse_handler.motion_processor(
-            event.raw_data["controller"], event.raw_data["x"], event.raw_data["y"]
-        )
+        self.mouse_handler.motion_processor(event)
         return True
 
     def _handle_default_key_press(self, event: InputEvent) -> bool:
@@ -78,15 +81,10 @@ class DefaultEventHandler(InputEventHandler):
             except Exception as e:
                 logger.error(f"Failed to execute custom key mapping: {e}")
 
-        if not event.raw_data:
+        if event.keyval is None:
             return False
 
-        self.keyboard_handler.key_processor(
-            event.raw_data["controller"],
-            event.raw_data["keyval"],
-            event.raw_data["keycode"],
-            event.raw_data["state"],
-        )
+        self.keyboard_handler.key_processor(event)
         return True
 
     def _handle_default_key_release(self, event: InputEvent) -> bool:
@@ -94,15 +92,10 @@ class DefaultEventHandler(InputEventHandler):
         if not event.key:
             return False
 
-        if not event.raw_data:
+        if event.keyval is None:
             return False
 
-        self.keyboard_handler.key_processor(
-            event.raw_data["controller"],
-            event.raw_data["keyval"],
-            event.raw_data["keycode"],
-            event.raw_data["state"],
-        )
+        self.keyboard_handler.key_processor(event)
         return True
 
     def _handle_default_mouse_press(self, event: InputEvent) -> bool:
@@ -118,15 +111,10 @@ class DefaultEventHandler(InputEventHandler):
             except Exception as e:
                 logger.error(f"Failed to execute custom mouse mapping: {e}")
 
-        if not event.raw_data:
+        if not event.position:
             return False
 
-        self.mouse_handler.click_processor(
-            event.raw_data["controller"],
-            event.raw_data["n_press"],
-            event.raw_data["x"],
-            event.raw_data["y"],
-        )
+        self.mouse_handler.click_processor(event)
         return True
 
     def _handle_default_mouse_release(self, event: InputEvent) -> bool:
@@ -134,15 +122,10 @@ class DefaultEventHandler(InputEventHandler):
         if not event.button:
             return False
 
-        if not event.raw_data:
+        if not event.position:
             return False
 
-        self.mouse_handler.click_processor(
-            event.raw_data["controller"],
-            event.raw_data["n_press"],
-            event.raw_data["x"],
-            event.raw_data["y"],
-        )
+        self.mouse_handler.click_processor(event)
         return True
 
     def add_key_mapping(self, key_name: str, callback: Callable[[InputEvent], None]):
@@ -155,18 +138,14 @@ class DefaultEventHandler(InputEventHandler):
 
     def _handle_default_mouse_scroll(self, event: InputEvent) -> bool:
         """处理默认鼠标滚动"""
-        if not event.raw_data:
+        if event.scroll_delta is None:
             return False
-        self.mouse_handler.scroll_processor(
-            event.raw_data["controller"], event.raw_data["dx"], event.raw_data["dy"]
-        )
+        self.mouse_handler.scroll_processor(event)
         return True
 
     def _handle_default_mouse_zoom(self, event: InputEvent) -> bool:
         """处理默认鼠标缩放"""
-        if not event.raw_data:
+        if event.zoom is None:
             return False
-        self.mouse_handler.zoom_processor(
-            event.raw_data["controller"], event.raw_data["zoom"], status=event.raw_data["status"]
-        )
+        self.mouse_handler.zoom_processor(event)
         return True

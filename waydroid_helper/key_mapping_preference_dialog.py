@@ -487,13 +487,13 @@ class KeyMappingPreferenceDialog(Dialog):
         file_dialog.open_file(on_file_selected)
 
     def _on_dialog_closed(self, *args):
-        self.config.load_from_file()
+        self.config.load_from_settings()
 
     def _on_cancel_clicked(self, button):
         self.close()
 
     def _on_confirm_clicked(self, button):
-        if self.config.save_to_file():
+        if self.config.save_to_settings():
             pass
         else:
             logger.error("Config save failed!")

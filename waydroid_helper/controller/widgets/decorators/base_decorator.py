@@ -9,10 +9,15 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
+    from waydroid_helper.controller.widgets.base.decorator_contracts import (
+        WidgetDecoratorBehavior,
+    )
 
 
 class WidgetDecorator: 
     """组件装饰器基类"""
+
+    BEHAVIOR_CONTRACTS: tuple[type["WidgetDecoratorBehavior"], ...] = ()
 
     def __init__(self, widget: "BaseWidget", **kwargs):
         """初始化装饰器，包装原始组件"""
@@ -23,13 +28,17 @@ class WidgetDecorator:
     def _setup_decorator(self):
         """设置装饰器的具体功能 - 子类重写"""
 
-    def __getattr__(self, name):
-        """代理所有未定义的属性和方法到被包装的组件"""
-        return getattr(self._wrapped_widget, name)
-
     def get_wrapped_widget(self):
         """获取被包装的组件"""
         return self._wrapped_widget
+
+    def iter_behavior_contracts(self):
+        return self.BEHAVIOR_CONTRACTS
+
+
+def _apply_widget_decorator(widget, decorator: WidgetDecorator) -> None:
+    for contract in decorator.iter_behavior_contracts():
+        widget.register_widget_behavior(contract, decorator)
 
 
 def widget_decorator(decorator_class):
@@ -44,27 +53,10 @@ def widget_decorator(decorator_class):
             # 先调用原始的初始化
             original_init(self, *args, **kwargs)
 
-            # 创建装饰器实例并应用
             decorator_instance = decorator_class(self)
-
-            # 将装饰器的方法和属性添加到实例中
-            self._apply_decorator(decorator_instance)
-
-        def _apply_decorator(self, decorator):
-            """将装饰器的功能应用到当前实例"""
-            # 获取装饰器的所有方法和属性
-            for attr_name in dir(decorator):
-                if not attr_name.startswith("_") and attr_name != "get_wrapped_widget":
-                    attr_value = getattr(decorator, attr_name)
-                    if callable(attr_value):
-                        # 绑定方法到当前实例
-                        setattr(self, attr_name, attr_value)
-                    else:
-                        # 复制属性
-                        setattr(self, attr_name, attr_value)
+            _apply_widget_decorator(self, decorator_instance)
 
         widget_class.__init__ = new_init
-        widget_class._apply_decorator = _apply_decorator
         return widget_class
 
     return class_decorator
@@ -105,27 +97,10 @@ def _create_parameterized_decorator(decorator_class, decorator_kwargs):
             # 先调用原始的初始化
             original_init(self, *args, **kwargs)
 
-            # 创建装饰器实例并应用，传入参数
             decorator_instance = decorator_class(self, **decorator_kwargs)
-
-            # 将装饰器的方法和属性添加到实例中
-            self._apply_decorator(decorator_instance)
-
-        def _apply_decorator(self, decorator):
-            """将装饰器的功能应用到当前实例"""
-            # 获取装饰器的所有方法和属性
-            for attr_name in dir(decorator):
-                if not attr_name.startswith("_") and attr_name != "get_wrapped_widget":
-                    attr_value = getattr(decorator, attr_name)
-                    if callable(attr_value):
-                        # 绑定方法到当前实例
-                        setattr(self, attr_name, attr_value)
-                    else:
-                        # 复制属性
-                        setattr(self, attr_name, attr_value)
+            _apply_widget_decorator(self, decorator_instance)
 
         widget_class.__init__ = new_init
-        widget_class._apply_decorator = _apply_decorator
         return widget_class
 
     return class_decorator

@@ -54,6 +54,9 @@ class ConfigItem(ABC):
     @abstractmethod
     def validate(self, value: Any) -> bool:
         """验证值是否合法"""
+
+    def bind_event_bus(self, event_bus: EventBus) -> None:
+        """Bind shared services needed by advanced config widgets."""
     
     def serialize(self) -> dict[str, Any]:
         """序列化配置项"""
@@ -290,7 +293,8 @@ class TextConfig(ConfigItem):
         try:
             text = str(value)
             return len(text) <= self.max_length if self.max_length > 0 else True
-        except:
+        except Exception:
+            logger.exception("Failed to validate text config %s", self.key)
             return False
     
     def serialize(self) -> dict[str, Any]:
@@ -369,8 +373,17 @@ class TextAreaConfig(ConfigItem):
     """多行文本输入配置项"""
     max_length: int = 0
     event_bus: EventBus | None = None
+
+    def bind_event_bus(self, event_bus: EventBus) -> None:
+        if self.event_bus is None:
+            self.event_bus = event_bus
     
     def insert_point(self, widget:Gtk.TextView, event):
+        if not isinstance(event.data, dict):
+            return
+        if "x" not in event.data or "y" not in event.data:
+            return
+
         buffer = widget.get_buffer()
         data = event.data
         buffer.insert_at_cursor(f" {data['x']},{data['y']}")
@@ -413,7 +426,12 @@ class TextAreaConfig(ConfigItem):
         box.append(scrolled)
         box.set_visible(self.visible)
 
-        self.event_bus.subscribe(event_type=EventType.MASK_CLICKED, handler= lambda event: self.insert_point(text_view, event), subscriber=box)
+        if self.event_bus is not None:
+            self.event_bus.subscribe(
+                event_type=EventType.MASK_CLICKED,
+                handler=lambda event: self.insert_point(text_view, event),
+                subscriber=box,
+            )
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> str:
@@ -449,7 +467,8 @@ class TextAreaConfig(ConfigItem):
         try:
             text = str(value)
             return len(text) <= self.max_length if self.max_length > 0 else True
-        except:
+        except Exception:
+            logger.exception("Failed to validate textarea config %s", self.key)
             return False
     
     def serialize(self) -> dict[str, Any]:
@@ -459,6 +478,60 @@ class TextAreaConfig(ConfigItem):
             "max_length": self.max_length,
         })
         return data
+
+
+class ConfigWidgetRegistry:
+    """Own UI widget references and their event-bus cleanup lifecycle."""
+
+    def __init__(self, event_bus: EventBus):
+        self.widgets: dict[str, Gtk.Widget] = {}
+        self._event_bus = event_bus
+
+    def bind(self, key: str, widget: Gtk.Widget) -> None:
+        self.widgets[key] = widget
+
+    def get(self, key: str) -> Gtk.Widget | None:
+        return self.widgets.get(key)
+
+    def clear(self) -> None:
+        for widget in self.widgets.values():
+            self._event_bus.unsubscribe_by_subscriber(widget)
+            widget.unparent()
+        self.widgets.clear()
+
+
+class ConfigPanelBuilder:
+    """Build config panels without making ConfigManager own GTK layout code."""
+
+    def __init__(
+        self,
+        configs: dict[str, ConfigItem],
+        widget_registry: ConfigWidgetRegistry,
+        on_value_changed: Callable[[str, Any], None],
+    ):
+        self._configs = configs
+        self._widget_registry = widget_registry
+        self._on_value_changed = on_value_changed
+
+    def create_panel(self, parent: Gtk.Widget | None = None) -> Gtk.Widget:
+        if not self._configs:
+            return Gtk.Label(label="No configuration available")
+
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
+        main_box.set_margin_top(10)
+        main_box.set_margin_bottom(10)
+        main_box.set_margin_start(10)
+        main_box.set_margin_end(10)
+
+        for key, config in self._configs.items():
+            try:
+                widget = config.create_ui_widget(self._on_value_changed)
+                self._widget_registry.bind(key, widget)
+                main_box.append(widget)
+            except Exception as e:
+                logger.error(f"Failed to create UI for config {key}: {e}")
+
+        return main_box
 
 
 class ConfigManager(GObject.Object):
@@ -473,13 +546,20 @@ class ConfigManager(GObject.Object):
     def __init__(self, event_bus: EventBus):
         super().__init__()
         self.configs: dict[str, ConfigItem] = {}
-        self.ui_widgets: dict[str, Gtk.Widget] = {}
+        self._widget_registry = ConfigWidgetRegistry(event_bus)
+        self.ui_widgets = self._widget_registry.widgets
+        self._panel_builder = ConfigPanelBuilder(
+            self.configs,
+            self._widget_registry,
+            self._on_ui_value_changed,
+        )
         self._updating_ui = False  # 标记是否正在更新UI，防止循环
         self.restoring = False
         self.event_bus = event_bus
     
     def add_config(self, config: ConfigItem) -> None:
         """添加配置项"""
+        config.bind_event_bus(self.event_bus)
         self.configs[config.key] = config
     
     def get_config(self, key: str) -> ConfigItem|None:
@@ -496,14 +576,14 @@ class ConfigManager(GObject.Object):
             self.emit('config-validated', key, False)
             return False
         
-        old_value = config.value
         config.value = value
         
         # 更新UI（如果需要且不在UI更新过程中）
-        if update_ui and not self._updating_ui and key in self.ui_widgets:
+        widget = self._widget_registry.get(key)
+        if update_ui and not self._updating_ui and widget is not None:
             self._updating_ui = True
             try:
-                config.set_value_to_ui(self.ui_widgets[key], value)
+                config.set_value_to_ui(widget, value)
             finally:
                 self._updating_ui = False
         
@@ -535,27 +615,11 @@ class ConfigManager(GObject.Object):
     
     def create_ui_panel(self, parent: Gtk.Widget|None = None) -> Gtk.Widget:
         """创建配置面板UI"""
-        if not self.configs:
-            label = Gtk.Label(label="No configuration available")
-            return label
-        
-        # 主容器
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
-        main_box.set_margin_top(10)
-        main_box.set_margin_bottom(10)
-        main_box.set_margin_start(10)
-        main_box.set_margin_end(10)
-        
-        # 为每个配置项创建UI
-        for key, config in self.configs.items():
-            try:
-                widget = config.create_ui_widget(self._on_ui_value_changed)
-                self.ui_widgets[key] = widget
-                main_box.append(widget)
-            except Exception as e:
-                logger.error(f"Failed to create UI for config {key}: {e}")
-        
-        return main_box
+        return self._panel_builder.create_panel(parent)
+
+    def create_ui(self, parent: Gtk.Widget | None = None) -> Gtk.Widget:
+        """Backward-compatible alias for widgets that override config UI."""
+        return self.create_ui_panel(parent)
     
     def collect_values_from_ui(self) -> dict[str, Any]:
         """从UI收集所有配置值"""
@@ -591,17 +655,12 @@ class ConfigManager(GObject.Object):
     
     def clear_ui_references(self) -> None:
         """清空UI控件引用，防止内存泄漏"""
-        for _, w in self.ui_widgets.items():
-            self.event_bus.unsubscribe_by_subscriber(w)
-            w.unparent()
-        self.ui_widgets.clear()
+        self._widget_registry.clear()
 
     def clear(self) -> None:
         """清空所有配置"""
-        for _, w in self.ui_widgets.items():
-            w.unparent()
+        self._widget_registry.clear()
         self.configs.clear()
-        self.ui_widgets.clear()
     
     def set_visible(self, key: str, visible: bool) -> None:
         """设置配置项的可见性"""
@@ -648,7 +707,7 @@ def create_switch_config(key: str, label: str, value: bool = False,
     """创建开关配置项"""
     return SwitchConfig(
         key=key, label=label, value=value, description=description, visible=visible
-    ) 
+    )
 
 
 def create_textarea_config(
@@ -668,4 +727,5 @@ def create_textarea_config(
         description=description,
         max_length=max_length,
         event_bus=event_bus,
-    ) 
+        visible=visible,
+    )

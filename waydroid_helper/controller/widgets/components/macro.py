@@ -11,7 +11,7 @@ from gettext import pgettext
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 from waydroid_helper.controller.android import AMotionEventAction, AMotionEventButtons
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.util.log import logger
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ from waydroid_helper.controller.core.utils import PointerIdManager
 
 from cairo import FontSlant, FontWeight
 from waydroid_helper.controller.core import (
+    ControllerRuntimeContext,
     Event,
     EventType,
     KeyCombination,
@@ -192,7 +193,8 @@ class PressCommand(Command):
         coordinates = self._parse_coordinates(context)
 
         # Get window dimensions once
-        w, h = context.screen_info.get_host_resolution()
+        w, h = context.screen_geometry.get_host_resolution()
+        device_resolution = context.screen_geometry.get_device_resolution_for_client(w, h)
 
         # Send DOWN events for all points
         for idx, (x, y) in enumerate(coordinates):
@@ -205,6 +207,7 @@ class PressCommand(Command):
                 action=AMotionEventAction.DOWN,
                 pointer_id=pointer_id,
                 position=(x, y, w, h),
+                device_resolution=device_resolution,
                 pressure=1.0,
                 action_button=AMotionEventButtons.PRIMARY,
                 buttons=AMotionEventButtons.PRIMARY,
@@ -214,7 +217,8 @@ class PressCommand(Command):
     async def cancel(self, context: "Macro") -> None:
         """取消按下命令 - 释放所有已分配的触摸指针"""
         # Get window dimensions
-        w, h = context.screen_info.get_host_resolution()
+        w, h = context.screen_geometry.get_host_resolution()
+        device_resolution = context.screen_geometry.get_device_resolution_for_client(w, h)
 
         # Parse coordinates for UP events
         coordinates = self._parse_coordinates(context)
@@ -228,6 +232,7 @@ class PressCommand(Command):
                     action=AMotionEventAction.UP,
                     pointer_id=pointer_id,
                     position=(x, y, w, h),
+                    device_resolution=device_resolution,
                     pressure=0.0,
                     action_button=AMotionEventButtons.PRIMARY,
                     buttons=0,
@@ -306,7 +311,8 @@ class ReleaseCommand(Command):
         coordinates = self._parse_coordinates(context)
 
         # Get window dimensions once
-        w, h = context.screen_info.get_host_resolution()
+        w, h = context.screen_geometry.get_host_resolution()
+        device_resolution = context.screen_geometry.get_device_resolution_for_client(w, h)
 
         # Send UP events for all points
         for idx, (x, y) in enumerate(coordinates):
@@ -320,6 +326,7 @@ class ReleaseCommand(Command):
                 action=AMotionEventAction.UP,
                 pointer_id=pointer_id,
                 position=(x, y, w, h),
+                device_resolution=device_resolution,
                 pressure=0.0,
                 action_button=AMotionEventButtons.PRIMARY,
                 buttons=0,
@@ -697,6 +704,7 @@ class Macro(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -712,6 +720,7 @@ class Macro(BaseWidget):
             default_keys,
             min_width=50,  # 固定大小
             min_height=50,  # 固定大小
+            runtime_context=runtime_context,
             event_bus=event_bus,
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
@@ -733,7 +742,6 @@ class Macro(BaseWidget):
         self._cursor_position: tuple[int, int] = (0, 0)
 
         self.event_bus.subscribe(EventType.MACRO_RELEASE_ALL, self.trigger_release_all)
-        self.screen_info = ScreenInfo()
 
     def get_cursor_position(self) -> tuple[int, int]:
         return self._cursor_position
@@ -908,8 +916,8 @@ class Macro(BaseWidget):
         except asyncio.CancelledError:
             logger.debug(f"Macro command task cancelled: {task_type}")
             raise
-        except Exception as e:
-            logger.error(f"Macro command execution exception: {e}")
+        except Exception:
+            logger.exception("Macro command execution failed")
         finally:
             logger.debug(f"Macro command task completed: {task_type}")
 
@@ -934,12 +942,16 @@ class Macro(BaseWidget):
             for command in all_commands:
                 try:
                     await command.cancel(self)
+                except asyncio.CancelledError:
+                    raise
                 except Exception:
-                    pass
+                    logger.exception("Failed to cancel macro command")
 
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Failed to release all macro commands")
 
     def get_editable_regions(self) -> list["EditableRegion"]:
         return [

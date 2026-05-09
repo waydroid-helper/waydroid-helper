@@ -15,8 +15,12 @@ if TYPE_CHECKING:
 
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
-from waydroid_helper.controller.core import KeyCombination, KeyRegistry
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core import (
+    ControllerRuntimeContext,
+    KeyCombination,
+    KeyRegistry,
+)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
                                                        EventBus)
 from waydroid_helper.controller.core.utils import PointerIdManager
@@ -24,6 +28,7 @@ from waydroid_helper.controller.widgets import BaseWidget
 from waydroid_helper.controller.widgets.config import create_dropdown_config
 from waydroid_helper.controller.widgets.decorators import (Editable, Resizable,
                                                            ResizableDecorator)
+from waydroid_helper.util.log import logger
 
 class MovementMode(Enum):
     SMOOTH = "smooth"
@@ -70,6 +75,7 @@ class DirectionalPad(BaseWidget):
         height: int = 150,
         text: str = "",
         direction_keys: dict[str, KeyCombination | None] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -83,6 +89,7 @@ class DirectionalPad(BaseWidget):
             text,
             min_width=60,
             min_height=60,
+            runtime_context=runtime_context,
             event_bus = event_bus,
             pointer_id_manager = pointer_id_manager,
             key_registry = key_registry,
@@ -171,7 +178,6 @@ class DirectionalPad(BaseWidget):
         self.swipehold_radius_factor = 1
 
         self.event_bus.subscribe(EventType.SWIPEHOLD_RADIUS, self.on_swipehold_radius_changed, subscriber=self)
-        self.screen_info = ScreenInfo()
     
     def on_swipehold_radius_changed(self, event: Event[float]):
         """滑动半径系数设置"""
@@ -250,8 +256,10 @@ class DirectionalPad(BaseWidget):
             self.queue_draw()
             if self._joystick_active:
                 self._emit_touch_event(AMotionEventAction.MOVE)
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("DirectionalPad instant movement failed")
         finally:
             await self._set_movement_state(MovementState.IDLE)
 
@@ -293,8 +301,10 @@ class DirectionalPad(BaseWidget):
             self._current_position = target
             self.queue_draw()
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("DirectionalPad smooth movement failed")
         finally:
             await self._set_movement_state(MovementState.IDLE)
 
@@ -413,6 +423,9 @@ class DirectionalPad(BaseWidget):
             if key_combo:
                 mappings[key_combo] = direction
         return mappings
+
+    def get_layout_direction_keys(self) -> dict[str, KeyCombination | None]:
+        return dict(self.direction_keys)
 
     def draw_direction_buttons(
         self,
@@ -561,7 +574,8 @@ class DirectionalPad(BaseWidget):
         self, action: AMotionEventAction, position: tuple[float, float] | None = None
     ):
         pos = position if position is not None else self._current_position
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         pressure = 1.0 if action != AMotionEventAction.UP else 0.0
         buttons = AMotionEventButtons.PRIMARY if action != AMotionEventAction.UP else 0
         pointer_id = self.pointer_id_manager.get_allocated_id(self)
@@ -572,6 +586,7 @@ class DirectionalPad(BaseWidget):
             action=action,
             pointer_id=pointer_id,
             position=(int(pos[0]), int(pos[1]), w, h),
+            device_resolution=device_resolution,
             pressure=pressure,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=buttons,

@@ -25,10 +25,14 @@ from cairo import FONT_SLANT_NORMAL, FONT_WEIGHT_BOLD
 
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
-from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
+from waydroid_helper.controller.core import (ControllerRuntimeContext, Event,
+                                             EventType, KeyCombination,
                                              EventBus, PointerIdManager, KeyRegistry)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
-from waydroid_helper.controller.core.handler.event_handlers import InputEvent
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
+from waydroid_helper.controller.core.handler.event_handlers import (
+    InputEvent,
+    InputEventType,
+)
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.config import (create_dropdown_config,
                                                        create_slider_config,
@@ -123,6 +127,7 @@ class SkillCasting(BaseWidget):
         height: int = 150,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -138,6 +143,7 @@ class SkillCasting(BaseWidget):
             default_keys,
             min_width=25,
             min_height=25,
+            runtime_context=runtime_context,
             event_bus=event_bus,
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
@@ -198,7 +204,6 @@ class SkillCasting(BaseWidget):
         #     and self._cancel_button_widget["widget"] is not None,
         #     subscriber=self,
         # )
-        self.screen_info = ScreenInfo()
 
     def _start_event_processor(self):
         """启动异步事件处理器"""
@@ -213,8 +218,11 @@ class SkillCasting(BaseWidget):
                 event = await self._event_queue.get()
                 await self._handle_event(event)
                 self._event_queue.task_done()
-        except:
-            pass
+        except asyncio.CancelledError:
+            logger.debug("SkillCasting event processor cancelled")
+            raise
+        except Exception:
+            logger.exception("SkillCasting event processor failed")
 
     async def _handle_event(self, event: SkillEvent):
         """处理单个事件"""
@@ -227,8 +235,12 @@ class SkillCasting(BaseWidget):
                 await self._handle_mouse_motion_async(event)
             elif event.type == "cancel_casting":
                 await self._handle_cancel_casting_async(event)
-        except:
-            pass
+            else:
+                logger.warning("Unknown SkillCasting event type: %s", event.type)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Failed to handle SkillCasting event: %s", event.type)
 
     def _on_mouse_motion(self, event):
         """鼠标移动事件回调 - 将事件放入队列"""
@@ -253,8 +265,8 @@ class SkillCasting(BaseWidget):
         # 非阻塞方式放入队列
         try:
             self._event_queue.put_nowait(skill_event)
-        except:
-            pass
+        except asyncio.QueueFull:
+            logger.warning("SkillCasting event queue is full; dropping mouse motion")
 
     def _on_cancel_casting(self, event):
         """取消施法事件回调 - 将事件放入队列"""
@@ -265,8 +277,8 @@ class SkillCasting(BaseWidget):
         # 非阻塞方式放入队列
         try:
             self._event_queue.put_nowait(skill_event)
-        except:
-            pass
+        except asyncio.QueueFull:
+            logger.warning("SkillCasting event queue is full; dropping cancel event")
 
     async def _handle_key_press(self, event: SkillEvent):
         """异步处理按键按下事件"""
@@ -402,6 +414,7 @@ class SkillCasting(BaseWidget):
             # 被取消时的处理
             await self._release_skill()
         except Exception as e:
+            logger.exception("Failed to activate SkillCasting")
             await self._release_skill()
 
     async def _cancel_casting_move(self):
@@ -424,6 +437,7 @@ class SkillCasting(BaseWidget):
         except asyncio.CancelledError:
             await self._release_skill()
         except Exception:
+            logger.exception("Failed to cancel SkillCasting move")
             await self._release_skill()
 
     async def _smooth_move_to_target(self, target: tuple[float, float]):
@@ -670,10 +684,10 @@ class SkillCasting(BaseWidget):
         if self.cancel_button_widget["widget"] is not None:
             return
 
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
         # 发送事件通知window创建取消按钮
         create_data = {
-            "widget": CancelCasting(event_bus=self.event_bus, pointer_id_manager=self.pointer_id_manager, key_registry=self.key_registry),
+            "widget": CancelCasting(runtime_context=self.runtime_context),
             "x": 0.8 * w,
             "y": h / 2,
         }
@@ -974,12 +988,12 @@ class SkillCasting(BaseWidget):
 
     def _get_window_center(self) -> tuple[float, float]:
         """获取窗口中心坐标"""
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
         return (w / 2, h / 2)
 
     def _get_window_size(self) -> tuple[int, int]:
         """获取窗口大小"""
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
         return w, h
 
     def _map_circle_to_circle(
@@ -1067,7 +1081,8 @@ class SkillCasting(BaseWidget):
     ):
         """发送触摸事件"""
         pos = position if position is not None else self._current_position
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         pressure = 1.0 if action != AMotionEventAction.UP else 0.0
         buttons = AMotionEventButtons.PRIMARY if action != AMotionEventAction.UP else 0
         pointer_id = self.pointer_id_manager.get_allocated_id(self)
@@ -1078,6 +1093,7 @@ class SkillCasting(BaseWidget):
             action=action,
             pointer_id=pointer_id,
             position=(int(pos[0]), int(pos[1]), w, h),
+            device_resolution=device_resolution,
             pressure=pressure,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=buttons,
@@ -1098,8 +1114,8 @@ class SkillCasting(BaseWidget):
             return True
 
         # 判断事件类型
-        is_key_press = event.event_type == "key_press"
-        is_mouse_motion = event.event_type == "mouse_motion"
+        is_key_press = event.event_type == InputEventType.KEY_PRESS
+        is_mouse_motion = event.event_type == InputEventType.MOUSE_MOTION
 
         if not (is_key_press or is_mouse_motion):
             return False

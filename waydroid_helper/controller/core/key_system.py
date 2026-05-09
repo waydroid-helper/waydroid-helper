@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-"""
-按键系统模块
-提供类型安全、可维护的按键表示和操作
-"""
+"""Source-neutral key model and registry."""
 
-import threading
 from dataclasses import dataclass
 from enum import Enum
-
-import gi
-
-gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk
+from typing import Protocol
 
 
 class KeyType(Enum):
@@ -29,7 +21,7 @@ class Key:
     """按键数据类 - 不可变、可哈希"""
 
     name: str  # 显示名称，如 "Ctrl", "A", "F1"
-    keyval: int  # GTK keyval
+    keyval: int  # Source-neutral code; GTK adapters currently use keysyms.
     key_type: KeyType  # 按键类型
 
     def __str__(self) -> str:
@@ -39,50 +31,86 @@ class Key:
         return f"Key({self.name})"
 
 
+class KeySymbolResolver(Protocol):
+    """Optional adapter for source-specific key symbol lookup."""
+
+    def name_from_code(self, code: int) -> str | None:
+        ...
+
+    def code_from_name(self, name: str) -> int | None:
+        ...
+
+
+STANDARD_KEY_SYMBOLS: dict[str, int] = {
+    "Ctrl_L": 0xFFE3,
+    "Ctrl_R": 0xFFE4,
+    "Alt_L": 0xFFE9,
+    "Alt_R": 0xFFEA,
+    "Shift_L": 0xFFE1,
+    "Shift_R": 0xFFE2,
+    "Super_L": 0xFFEB,
+    "Super_R": 0xFFEC,
+    "Enter": 0xFF0D,
+    "Escape": 0xFF1B,
+    "Backspace": 0xFF08,
+    "Delete": 0xFFFF,
+    "Tab": 0xFF09,
+    "Home": 0xFF50,
+    "End": 0xFF57,
+    "PageUp": 0xFF55,
+    "PageDown": 0xFF56,
+    "Insert": 0xFF63,
+    "Left": 0xFF51,
+    "Right": 0xFF53,
+    "Up": 0xFF52,
+    "Down": 0xFF54,
+    "Space": 0x20,
+}
+
+
 class KeyRegistry:
-    """按键注册表 - 管理所有标准按键 (严格单例模式)"""
+    """按键注册表 - 管理所有标准按键"""
 
-
-    def __init__(self):
+    def __init__(self, symbol_resolver: KeySymbolResolver | None = None):
+        self._symbol_resolver = symbol_resolver
         self._keys: dict[int, Key] = {}  # keyval -> Key
         self._names: dict[str, Key] = {}  # name -> Key
         self._init_standard_keys()
 
-
     def _init_standard_keys(self):
         """初始化标准按键"""
         # 修饰键
-        self.register_key("Ctrl_L", Gdk.KEY_Control_L, KeyType.MODIFIER)
-        self.register_key("Ctrl_R", Gdk.KEY_Control_R, KeyType.MODIFIER)
-        self.register_key("Alt_L", Gdk.KEY_Alt_L, KeyType.MODIFIER)
-        self.register_key("Alt_R", Gdk.KEY_Alt_R, KeyType.MODIFIER)
-        self.register_key("Shift_L", Gdk.KEY_Shift_L, KeyType.MODIFIER)
-        self.register_key("Shift_R", Gdk.KEY_Shift_R, KeyType.MODIFIER)
-        self.register_key("Super_L", Gdk.KEY_Super_L, KeyType.MODIFIER)
-        self.register_key("Super_R", Gdk.KEY_Super_R, KeyType.MODIFIER)
+        self.register_symbol_key("Ctrl_L", KeyType.MODIFIER)
+        self.register_symbol_key("Ctrl_R", KeyType.MODIFIER)
+        self.register_symbol_key("Alt_L", KeyType.MODIFIER)
+        self.register_symbol_key("Alt_R", KeyType.MODIFIER)
+        self.register_symbol_key("Shift_L", KeyType.MODIFIER)
+        self.register_symbol_key("Shift_R", KeyType.MODIFIER)
+        self.register_symbol_key("Super_L", KeyType.MODIFIER)
+        self.register_symbol_key("Super_R", KeyType.MODIFIER)
 
         # 功能键
-        self.register_key("Enter", Gdk.KEY_Return, KeyType.FUNCTION)
-        self.register_key("Escape", Gdk.KEY_Escape, KeyType.FUNCTION)
-        self.register_key("Backspace", Gdk.KEY_BackSpace, KeyType.FUNCTION)
-        self.register_key("Delete", Gdk.KEY_Delete, KeyType.FUNCTION)
-        self.register_key("Tab", Gdk.KEY_Tab, KeyType.FUNCTION)
-        self.register_key("Home", Gdk.KEY_Home, KeyType.FUNCTION)
-        self.register_key("End", Gdk.KEY_End, KeyType.FUNCTION)
-        self.register_key("PageUp", Gdk.KEY_Page_Up, KeyType.FUNCTION)
-        self.register_key("PageDown", Gdk.KEY_Page_Down, KeyType.FUNCTION)
-        self.register_key("Insert", Gdk.KEY_Insert, KeyType.FUNCTION)
-        self.register_key("Left", Gdk.KEY_Left, KeyType.FUNCTION)
-        self.register_key("Right", Gdk.KEY_Right, KeyType.FUNCTION)
-        self.register_key("Up", Gdk.KEY_Up, KeyType.FUNCTION)
-        self.register_key("Down", Gdk.KEY_Down, KeyType.FUNCTION)
+        self.register_symbol_key("Enter", KeyType.FUNCTION)
+        self.register_symbol_key("Escape", KeyType.FUNCTION)
+        self.register_symbol_key("Backspace", KeyType.FUNCTION)
+        self.register_symbol_key("Delete", KeyType.FUNCTION)
+        self.register_symbol_key("Tab", KeyType.FUNCTION)
+        self.register_symbol_key("Home", KeyType.FUNCTION)
+        self.register_symbol_key("End", KeyType.FUNCTION)
+        self.register_symbol_key("PageUp", KeyType.FUNCTION)
+        self.register_symbol_key("PageDown", KeyType.FUNCTION)
+        self.register_symbol_key("Insert", KeyType.FUNCTION)
+        self.register_symbol_key("Left", KeyType.FUNCTION)
+        self.register_symbol_key("Right", KeyType.FUNCTION)
+        self.register_symbol_key("Up", KeyType.FUNCTION)
+        self.register_symbol_key("Down", KeyType.FUNCTION)
 
         # F键
         for i in range(1, 13):
-            self.register_key(f"F{i}", getattr(Gdk, f"KEY_F{i}"), KeyType.FUNCTION)
+            self.register_key(f"F{i}", 0xFFBD + i, KeyType.FUNCTION)
 
         # 特殊键
-        self.register_key("Space", Gdk.KEY_space, KeyType.SPECIAL)
+        self.register_symbol_key("Space", KeyType.SPECIAL)
 
         # 字符键 A-Z - 同时注册大写和小写的keyval
         for i in range(26):
@@ -109,11 +137,19 @@ class KeyRegistry:
         self.register_key("Mouse_Back", -8, KeyType.MOUSE)
         self.register_key("Mouse_Forward", -9, KeyType.MOUSE)
 
-    def register_key(self, name: str, keyval: int, key_type: KeyType):
+    def register_symbol_key(self, name: str, key_type: KeyType) -> None:
+        """Register a well-known symbolic key without importing a toolkit."""
+        keyval = self._resolve_code_from_name(name)
+        if keyval is None:
+            keyval = STANDARD_KEY_SYMBOLS[name]
+        self.register_key(name, keyval, key_type)
+
+    def register_key(self, name: str, keyval: int, key_type: KeyType) -> Key:
         """注册一个按键"""
         key = Key(name, keyval, key_type)
         self._keys[keyval] = key
         self._names[name] = key
+        return key
 
     def get_by_keyval(self, keyval: int) -> Key | None:
         """通过keyval获取按键"""
@@ -125,19 +161,32 @@ class KeyRegistry:
 
     def create_from_keyval(self, keyval: int, state: int = 0) -> Key | None:
         """从keyval和state创建按键（支持动态创建）"""
-        # 先尝试从注册表获取
+        return self.create_from_symbol(self._resolve_name_from_code(keyval), keyval)
+
+    def create_from_symbol(
+        self,
+        key_name: str | None,
+        keyval: int,
+        key_type: KeyType | None = None,
+    ) -> Key | None:
+        """Create or reuse a key from a source-specific symbolic name/code."""
         key = self.get_by_keyval(keyval)
         if key:
             return key
 
+        if key_name:
+            key = self.get_by_name(key_name)
+            if key:
+                return key
+
         # 处理可打印字符
         if 32 <= keyval <= 126:
             char = chr(keyval).upper()
-            return Key(char, keyval, KeyType.CHARACTER)
+            return self.register_key(char, keyval, KeyType.CHARACTER)
 
         # 处理未知按键
-        key_name = Gdk.keyval_name(keyval) or f"Key{keyval}"
-        return Key(key_name, keyval, KeyType.SPECIAL)
+        key_name = key_name or f"Key{keyval}"
+        return self.register_key(key_name, keyval, key_type or KeyType.SPECIAL)
 
     def create_mouse_key(self, button: int) -> Key:
         """创建鼠标按键"""
@@ -163,7 +212,7 @@ class KeyRegistry:
         self._names[name] = key
         return key
 
-    def deserialize_key(self, key_name: str) -> Key|None:
+    def deserialize_key(self, key_name: str) -> Key | None:
         # 首先尝试从注册表获取
         key = self.get_by_name(key_name)
         if key:
@@ -178,25 +227,18 @@ class KeyRegistry:
             key_created = Key(char, keyval, KeyType.CHARACTER)
 
         # 对于鼠标按键
-        elif key_name.startswith("Mouse"):
+        elif key_name.startswith("Mouse_Button"):
             try:
-                button_num = int(key_name.replace("Mouse", ""))
-                key_created = Key(key_name, button_num, KeyType.MOUSE)
+                button_num = int(key_name.removeprefix("Mouse_Button"))
+                key_created = Key(key_name, -button_num, KeyType.MOUSE)
             except ValueError:
                 pass
 
-        # 对于其他按键，尝试通过 Gdk.keyval_from_name 获取 keyval
+        # 对于其他按键，尝试通过 source-specific resolver 获取 code
         else:
-            try:
-                keyval = Gdk.keyval_from_name(key_name)
-                if keyval != Gdk.KEY_VoidSymbol:  # 如果找到有效的 keyval
-                    # 判断按键类型
-                    if 32 <= keyval <= 126:
-                        key_created = Key(key_name, keyval, KeyType.CHARACTER)
-                    else:
-                        key_created = Key(key_name, keyval, KeyType.SPECIAL)
-            except:
-                pass
+            keyval = self._resolve_code_from_name(key_name)
+            if keyval is not None:
+                key_created = self.create_from_symbol(key_name, keyval)
 
         # 如果还是无法创建，创建一个临时按键（用于向后兼容）
         if not key_created:
@@ -208,6 +250,16 @@ class KeyRegistry:
                 key_created.name, key_created.keyval, key_created.key_type
             )
         return key_created
+
+    def _resolve_code_from_name(self, name: str) -> int | None:
+        if self._symbol_resolver is None:
+            return None
+        return self._symbol_resolver.code_from_name(name)
+
+    def _resolve_name_from_code(self, code: int) -> str | None:
+        if self._symbol_resolver is None:
+            return None
+        return self._symbol_resolver.name_from_code(code)
 
 @dataclass(frozen=True)
 class KeyCombination:
@@ -281,4 +333,3 @@ class KeyCombination:
     def is_subset_of(self, other: "KeyCombination") -> bool:
         """检查此组合是否是另一个组合的子集"""
         return self.get_frozen_keys().issubset(other.get_frozen_keys())
-

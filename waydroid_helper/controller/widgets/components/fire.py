@@ -9,8 +9,9 @@ if TYPE_CHECKING:
 from waydroid_helper.controller.android.input import (AMotionEventAction,
                                                       AMotionEventButtons)
 from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             EventBus, PointerIdManager, KeyRegistry)
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+                                             EventBus, PointerIdManager, KeyRegistry,
+                                             ControllerRuntimeContext)
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.config import create_dropdown_config
@@ -33,10 +34,16 @@ class Fire(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: set[KeyCombination]|None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
     ):
+        resolved_key_registry = (
+            runtime_context.key_registry if runtime_context is not None else key_registry
+        )
+        if resolved_key_registry is None:
+            raise ValueError("runtime_context or key_registry is required")
         # 初始化基类，传入默认按键
         super().__init__(
             x,
@@ -46,10 +53,11 @@ class Fire(BaseWidget):
             pgettext("Controller Widgets", "Fire"),
             text,
             set(
-                [KeyCombination([key_registry.get_by_name("Mouse_Left")])]
+                [KeyCombination([resolved_key_registry.get_by_name("Mouse_Left")])]
             ),
             min_width=25,
             min_height=25,
+            runtime_context=runtime_context,
             event_bus = event_bus,
             pointer_id_manager = pointer_id_manager,
             key_registry = key_registry,
@@ -57,7 +65,6 @@ class Fire(BaseWidget):
         self.aim_triggered: bool = False
         self.event_bus.subscribe(EventType.AIM_TRIGGERED, self._on_aim_triggered, subscriber=self)
         self.event_bus.subscribe(EventType.AIM_RELEASED, self._on_aim_released, subscriber=self)
-        self.screen_info = ScreenInfo()
         
         self.setup_config()
 
@@ -241,7 +248,8 @@ class Fire(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
@@ -249,6 +257,7 @@ class Fire(BaseWidget):
             action=AMotionEventAction.DOWN,
             pointer_id=pointer_id,
             position=(int(x), int(y), w, h),
+            device_resolution=device_resolution,
             pressure=1.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
@@ -271,7 +280,8 @@ class Fire(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is None:
             return False
@@ -279,6 +289,7 @@ class Fire(BaseWidget):
             action=AMotionEventAction.UP,
             pointer_id=pointer_id,
             position=(int(x), int(y), w, h),
+            device_resolution=device_resolution,
             pressure=0.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,

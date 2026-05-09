@@ -24,8 +24,9 @@ from waydroid_helper.controller.core import (
     EventBus,
     PointerIdManager,
     KeyRegistry,
+    ControllerRuntimeContext,
 )
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.decorators import Editable
@@ -76,6 +77,7 @@ class SingleClick(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -91,12 +93,11 @@ class SingleClick(BaseWidget):
             default_keys,
             min_width=25,
             min_height=25,
+            runtime_context=runtime_context,
             event_bus=event_bus,
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
         )
-
-        self.screen_info = ScreenInfo()
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -307,11 +308,13 @@ class SingleClick(BaseWidget):
             return False
 
         x, y = self.center_x, self.center_y
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         msg = InjectTouchEventMsg(
             action=AMotionEventAction.DOWN,
             pointer_id=pointer_id,
             position=(int(x), int(y), w, h),
+            device_resolution=device_resolution,
             pressure=1.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
@@ -331,7 +334,8 @@ class SingleClick(BaseWidget):
         else:
             used_key = "未知按键"
         x, y = self.center_x, self.center_y
-        w, h = self.screen_info.get_host_resolution()
+        w, h = self.screen_geometry.get_host_resolution()
+        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         pointer_id = self.pointer_id_manager.allocate(self)
         if pointer_id is None:
             return False
@@ -339,6 +343,7 @@ class SingleClick(BaseWidget):
             action=AMotionEventAction.UP,
             pointer_id=pointer_id,
             position=(int(x), int(y), w, h),
+            device_resolution=device_resolution,
             pressure=0.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,

@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
-import math
-from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, TypedDict, cast
 
 import gi
 
 from waydroid_helper.controller.core.key_system import KeyRegistry
+from waydroid_helper.controller.core.runtime import (
+    ControllerRuntimeContext,
+    ScreenGeometry,
+)
 from waydroid_helper.controller.core.utils import PointerIdManager
 
 gi.require_version("Gtk", "4.0")
@@ -20,14 +23,27 @@ gi.require_version("Gdk", "4.0")
 
 from gi.repository import Gdk, GObject, Gtk
 
-from waydroid_helper.controller.core import (Event, EventType, KeyCombination,
-                                             EventBus)
+from waydroid_helper.controller.core import Event, EventType, KeyCombination, EventBus
+from waydroid_helper.controller.widgets.base.edit_controls import (
+    EditControls,
+)
+from waydroid_helper.controller.widgets.base.edit_interaction import EditControlInteraction
+from waydroid_helper.controller.widgets.base.decorator_contracts import (
+    EditableWidgetBehavior,
+    ResizableWidgetBehavior,
+    WidgetDecoratorBehavior,
+)
+from waydroid_helper.controller.widgets.base.mode_layout import WidgetModeLayout
 from waydroid_helper.controller.widgets.config import ConfigManager
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
+    from waydroid_helper.controller.core.handler import InputEvent
     from waydroid_helper.controller.widgets.config import ConfigItem
 from cairo import FontSlant, FontWeight
+
+WidgetBehaviorT = TypeVar("WidgetBehaviorT", bound=WidgetDecoratorBehavior)
+
 
 class EditableRegion(TypedDict):
     """可编辑区域类型定义"""
@@ -77,6 +93,7 @@ class BaseWidget(Gtk.DrawingArea):
         default_keys:set[KeyCombination]|None=None,
         min_width:int=100,
         min_height:int=100,
+        runtime_context:ControllerRuntimeContext|None=None,
         event_bus:EventBus|None=None,
         pointer_id_manager:PointerIdManager|None=None,
         key_registry:KeyRegistry|None=None,
@@ -107,13 +124,17 @@ class BaseWidget(Gtk.DrawingArea):
         self.is_dragging:bool = False
         self.drag_start_x:int = 0
         self.drag_start_y:int = 0
+        self._skip_delayed_bring_to_front: bool = False
 
         # 设置大小
         self.set_size_request(width, height)
 
-        # 添加删除按钮悬停状态
-        self.delete_button_hovered = False
-        self.settings_button_hovered = False
+        self._edit_controls = EditControls()
+        self._mode_layout = WidgetModeLayout()
+        self._widget_behaviors: dict[
+            type[WidgetDecoratorBehavior],
+            WidgetDecoratorBehavior,
+        ] = {}
 
         # 设置绘制函数
         self.set_draw_func(self.draw_func, None)
@@ -122,8 +143,34 @@ class BaseWidget(Gtk.DrawingArea):
         self.setup_event_controllers()
 
         # 配置管理器
-        if not event_bus or not pointer_id_manager or not key_registry:
-            raise ValueError("event_bus and pointer_id_manager and key_registry are required")
+        if runtime_context is None:
+            if not event_bus or not pointer_id_manager or not key_registry:
+                raise ValueError(
+                    "runtime_context is required unless event_bus, "
+                    "pointer_id_manager, and key_registry are provided"
+                )
+            runtime_context = ControllerRuntimeContext(
+                event_bus=event_bus,
+                screen_geometry=ScreenGeometry(),
+                pointer_id_manager=pointer_id_manager,
+                key_registry=key_registry,
+            )
+
+        self.runtime_context = runtime_context
+        self.screen_geometry = runtime_context.screen_geometry
+        event_bus = runtime_context.event_bus
+        pointer_id_manager = runtime_context.pointer_id_manager
+        key_registry = runtime_context.key_registry
+
+        self._edit_interaction = EditControlInteraction(
+            self._edit_controls,
+            on_delete=lambda host: event_bus.emit(
+                Event(EventType.DELETE_WIDGET, host, host)
+            ),
+            on_settings=lambda host, auto_hide: event_bus.emit(
+                Event(EventType.SETTINGS_WIDGET, host, auto_hide)
+            ),
+        )
         self.config_manager = ConfigManager(event_bus)
         self.event_bus = event_bus
         self.pointer_id_manager = pointer_id_manager
@@ -131,6 +178,102 @@ class BaseWidget(Gtk.DrawingArea):
 
     def set_default_keys(self, default_keys: set[KeyCombination]):
         self.final_keys = (set(default_keys))
+
+    def register_widget_behavior(
+        self,
+        contract: type[WidgetBehaviorT],
+        behavior: WidgetBehaviorT,
+    ) -> None:
+        """Install a decorator behavior behind BaseWidget's stable hooks.
+
+        Decorators used to monkey-patch public methods onto each widget
+        instance. Keeping the behavior in this registry gives app-layer code a
+        single, explicit surface while still allowing decorators to own their
+        feature-specific state.
+        """
+        if not isinstance(behavior, contract):
+            raise TypeError(
+                f"{type(behavior).__name__} does not implement "
+                f"{contract.__name__}"
+            )
+        self._widget_behaviors[contract] = behavior
+
+    def get_widget_behavior(
+        self,
+        contract: type[WidgetBehaviorT],
+    ) -> WidgetBehaviorT | None:
+        behavior = self._widget_behaviors.get(contract)
+        if behavior is None:
+            return None
+        return cast(WidgetBehaviorT, behavior)
+
+    def supports_editing_interaction(self) -> bool:
+        return self.get_widget_behavior(EditableWidgetBehavior) is not None
+
+    def should_keep_editing_on_click(self, x: float, y: float) -> bool:
+        behavior = self.get_widget_behavior(EditableWidgetBehavior)
+        if behavior is None:
+            return False
+        return behavior.should_keep_editing_on_click(x, y)
+
+    def cancel_editing(self) -> None:
+        behavior = self.get_widget_behavior(EditableWidgetBehavior)
+        if behavior is not None:
+            behavior.cancel_editing()
+
+    def get_captured_keys(self) -> set[KeyCombination]:
+        behavior = self.get_widget_behavior(EditableWidgetBehavior)
+        if behavior is None:
+            return set()
+        return behavior.get_captured_keys()
+
+    def supports_resizing(self) -> bool:
+        return self.get_widget_behavior(ResizableWidgetBehavior) is not None
+
+    def check_resize_direction(self, x: float, y: float) -> str | None:
+        behavior = self.get_widget_behavior(ResizableWidgetBehavior)
+        if behavior is None:
+            return None
+        return behavior.check_resize_direction(x, y)
+
+    def start_resize(self, x: float, y: float, resize_direction: str) -> None:
+        behavior = self.get_widget_behavior(ResizableWidgetBehavior)
+        if behavior is not None:
+            behavior.start_resize(x, y, resize_direction)
+
+    def is_resizing(self) -> bool:
+        behavior = self.get_widget_behavior(ResizableWidgetBehavior)
+        if behavior is None:
+            return False
+        return behavior.is_resizing()
+
+    def on_resize_release(self) -> None:
+        behavior = self.get_widget_behavior(ResizableWidgetBehavior)
+        if behavior is not None:
+            behavior.on_resize_release()
+
+    def handle_resize_motion(self, global_x: float, global_y: float) -> None:
+        behavior = self.get_widget_behavior(ResizableWidgetBehavior)
+        if behavior is not None:
+            behavior.handle_resize_motion(global_x, global_y)
+
+    def get_layout_key_mappings(self) -> set[KeyCombination]:
+        return set(self.final_keys)
+
+    def set_text_if_empty(self, text: str) -> bool:
+        if self.text:
+            return False
+        self.text = text
+        return True
+
+    def mark_skip_delayed_bring_to_front(self) -> None:
+        self._skip_delayed_bring_to_front = True
+
+    def should_skip_delayed_bring_to_front(self) -> bool:
+        return self._skip_delayed_bring_to_front
+
+    def clear_skip_delayed_bring_to_front(self) -> None:
+        self._skip_delayed_bring_to_front = False
 
     def add_config_item(self, config_item: "ConfigItem") -> None:
         """添加配置项"""
@@ -178,58 +321,15 @@ class BaseWidget(Gtk.DrawingArea):
 
     def _on_clicked(self, controller, n_press, x, y):
         """处理删除按钮的点击事件"""
-        if not self.is_selected or self.mapping_mode:
-            return False
-            
-        # 直接判断点击位置是否在删除按钮区域内
-        if self.is_point_in_delete_button(x, y):
-            self.event_bus.emit(Event(EventType.DELETE_WIDGET, self, self))
-            return True  # 阻止事件继续传播
-        
-        if self.is_point_in_settings_button(x, y):
-            self.event_bus.emit(Event(EventType.SETTINGS_WIDGET, self, self.SETTINGS_PANEL_AUTO_HIDE))
-            return True
-
-        return False
+        return self._edit_interaction.handle_click(self, x, y)
 
     def _on_motion(self, controller, x, y):
         """处理删除按钮的鼠标移动事件"""
-        if not self.is_selected or self.mapping_mode:
-            return
-
-        # 统一处理悬停状态
-        on_delete = self.is_point_in_delete_button(x, y)
-        if self.delete_button_hovered != on_delete:
-            self.delete_button_hovered = on_delete
-            self.queue_draw()
-
-        on_settings = self.is_point_in_settings_button(x, y)
-        if self.settings_button_hovered != on_settings:
-            self.settings_button_hovered = on_settings
-            self.queue_draw()
-
-        # 更新鼠标指针
-        if on_delete or on_settings:
-            self.set_cursor_from_name("pointer")
-        else:
-            self.set_cursor(None)
+        self._edit_interaction.handle_motion(self, x, y)
 
     def _on_leave(self, controller):
         """处理鼠标离开删除按钮事件"""
-        changed = False
-        if self.delete_button_hovered:
-            self.delete_button_hovered = False
-            changed = True
-        
-        if self.settings_button_hovered:
-            self.settings_button_hovered = False
-            changed = True
-
-        if changed:
-            self.queue_draw()
-
-        # 清除widget级别的指针设置，让窗口级别的指针生效
-        self.set_cursor(None)
+        self._edit_interaction.handle_leave(self)
 
     def draw_func(self, widget:Gtk.DrawingArea, cr:'Context[Surface]', width:int, height:int, user_data:Any):
         """基础绘制函数 - 调用子类的具体绘制方法"""
@@ -267,8 +367,7 @@ class BaseWidget(Gtk.DrawingArea):
         if self.is_selected:
             # 绘制默认的矩形选择边框
             self.draw_selection_border(cr, width, height)
-            self.draw_delete_button(cr)
-            self.draw_settings_button(cr)
+            self._edit_controls.draw(self, cr)
 
     def draw_selection_border(self, cr:'Context[Surface]', width:int, height:int)->None:
         """绘制选择边框 - 子类可以重写此方法来自定义边框样式"""
@@ -300,184 +399,28 @@ class BaseWidget(Gtk.DrawingArea):
 
     def set_mapping_mode(self, mapping_mode: bool)->None:
         """设置映射模式"""
-        if self.mapping_mode != mapping_mode:
-            self.mapping_mode = mapping_mode
-
-            if mapping_mode:
-                parent = self.get_parent()
-                parent = cast('Gtk.Fixed', parent)
-                parent.move(self, self.mapping_start_x, self.mapping_start_y)
-
-                self.set_size_request(self.MAPPING_MODE_WIDTH, self.MAPPING_MODE_HEIGHT)
-
-                if hasattr(self, "set_content_width"):
-                    self.set_content_width(self.MAPPING_MODE_WIDTH)
-                if hasattr(self, "set_content_height"):
-                    self.set_content_height(self.MAPPING_MODE_HEIGHT)
-
-            else:
-                parent = self.get_parent()
-                parent = cast('Gtk.Fixed', parent)
-                parent.move(self, self.x, self.y)
-
-                self.set_size_request(self.width, self.height)
-
-                if hasattr(self, "set_content_width"):
-                    self.set_content_width(self.width)
-                if hasattr(self, "set_content_height"):
-                    self.set_content_height(self.height)
-
-            self.queue_draw()
+        self._mode_layout.set_mapping_mode(self, mapping_mode)
 
     def get_widget_bounds(self):
         """获取widget的边界信息"""
-        parent = self.get_parent()
-        parent = cast('Gtk.Fixed', parent)
-        if parent:
-            x, y = parent.get_child_position(self)
-            width = self.get_allocated_width()
-            height = self.get_allocated_height()
-            return x, y, width, height
-        return 0, 0, self.width, self.height
+        return self._mode_layout.get_widget_bounds(self)
 
     def draw_delete_button(self, cr:'Context[Surface]'):
         """绘制删除按钮"""
-        if self.mapping_mode:
-            return
-
-        bounds = self.get_delete_button_bounds()
-        x, y, w, h = bounds
-
-        # 绘制白色圆形背景
-        cr.set_source_rgba(1, 1, 1, 0.9)
-        cr.arc(x + w / 2, y + h / 2, w / 2, 0, 2 * math.pi)
-        cr.fill()
-        
-        # 如果鼠标悬停，绘制蓝色背景
-        if self.delete_button_hovered:
-            cr.set_source_rgba(1.0, 0.2, 0.2, 0.9)  # 红色
-            cr.arc(x + w / 2, y + h / 2, w / 2, 0, 2 * math.pi)
-            cr.fill()
-        
-        # 绘制黑色或白色 'X'，根据悬停状态决定颜色
-        if self.delete_button_hovered:
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色
-        else:
-            cr.set_source_rgba(0, 0, 0, 0.7)  # 黑色
-        cr.set_line_width(2)
-        padding = 4
-        cr.move_to(x + padding, y + padding)
-        cr.line_to(x + w - padding, y + h - padding)
-        cr.move_to(x + w - padding, y + padding)
-        cr.line_to(x + padding, y + h - padding)
-        cr.stroke()
+        self._edit_controls.draw_delete_button(self, cr)
 
     def draw_settings_button(self, cr:'Context[Surface]'):
         """绘制一个更清晰的齿轮设置按钮"""
-        if self.mapping_mode:
-            return
-
-        bounds = self.get_settings_button_bounds()
-        x, y, w, h = bounds
-        center_x, center_y = x + w / 2, y + h / 2
-
-        # 1. 绘制圆形背景
-        cr.set_source_rgba(1, 1, 1, 0.9)
-        cr.arc(center_x, center_y, w / 2, 0, 2 * math.pi)
-        cr.fill()
-        
-        # 2. 如果鼠标悬停，绘制蓝色背景
-        if self.settings_button_hovered:
-            cr.set_source_rgba(0.2, 0.6, 1.0, 0.9)
-            cr.arc(center_x, center_y, w / 2, 0, 2 * math.pi)
-            cr.fill()
-        
-        # 3. 绘制齿轮图标
-        # 根据悬停状态设置齿轮颜色
-        if self.settings_button_hovered:
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色
-        else:
-            cr.set_source_rgba(0.2, 0.2, 0.2, 0.8)  # 深灰色
-        
-        num_teeth = 6
-        outer_radius = w / 2 - 2  # 齿轮外径
-        inner_radius = outer_radius * 0.6  # 齿轮内径
-        hole_radius = outer_radius * 0.4 # 中心孔径
-
-        cr.set_line_width(1.5)
-        
-        # 绘制齿
-        for i in range(num_teeth):
-            angle = i * (2 * math.pi / num_teeth)
-            
-            # 计算齿的四个角
-            start_angle = angle - math.pi / num_teeth / 2
-            end_angle = angle + math.pi / num_teeth / 2
-            
-            # 外顶点
-            x1 = center_x + outer_radius * math.cos(start_angle)
-            y1 = center_y + outer_radius * math.sin(start_angle)
-            x2 = center_x + outer_radius * math.cos(end_angle)
-            y2 = center_y + outer_radius * math.sin(end_angle)
-            
-            # 内顶点
-            x3 = center_x + inner_radius * math.cos(end_angle)
-            y3 = center_y + inner_radius * math.sin(end_angle)
-            x4 = center_x + inner_radius * math.cos(start_angle)
-            y4 = center_y + inner_radius * math.sin(start_angle)
-            
-            # 绘制一个齿 (梯形)
-            cr.new_path()
-            cr.move_to(x1, y1)
-            cr.line_to(x2, y2)
-            cr.line_to(x3, y3)
-            cr.line_to(x4, y4)
-            cr.close_path()
-            cr.fill()
-            
-        # 绘制齿轮主体（覆盖内侧）
-        cr.new_path()
-        cr.arc(center_x, center_y, inner_radius, 0, 2 * math.pi)
-        cr.fill()
-
-        # 4. 绘制中心孔（用背景色覆盖）
-        cr.save()
-        if self.settings_button_hovered:
-            cr.set_source_rgba(0.2, 0.6, 1.0, 1.0) # 悬停时的背景色
-        else:
-            cr.set_source_rgba(1, 1, 1, 1.0) # 默认背景色
-            
-        cr.new_path()
-        cr.arc(center_x, center_y, hole_radius, 0, 2 * math.pi)
-        cr.fill()
-        cr.restore()
+        self._edit_controls.draw_settings_button(self, cr)
 
 
     def get_delete_button_bounds(self) -> tuple[int, int, int, int]:
         """获取删除按钮的边界 (x, y, w, h) - 子类可以重写"""
-        size = 16
-        center_x = self.width / 2
-        center_y = self.height / 2
-        radius = min(self.width, self.height) / 2   # 留出边距
-        angle = -math.pi / 4
-        button_center_x = center_x + radius * math.cos(angle)
-        button_center_y = center_y + radius * math.sin(angle)
-        x = button_center_x - size / 2
-        y = button_center_y - size / 2
-        return (int(x), int(y), size, size)
+        return self._edit_controls.default_delete_button_bounds(self.width, self.height)
 
     def get_settings_button_bounds(self) -> tuple[int, int, int, int]:
         """获取设置按钮的边界 (x, y, w, h) - 子类可以重写"""
-        size = 16
-        center_x = self.width / 2
-        center_y = self.height / 2
-        radius = min(self.width, self.height) / 2
-        angle = math.pi / 4  # 右下角
-        button_center_x = center_x + radius * math.cos(angle)
-        button_center_y = center_y + radius * math.sin(angle)
-        x = button_center_x - size / 2
-        y = button_center_y - size / 2
-        return (int(x), int(y), size, size)
+        return self._edit_controls.default_settings_button_bounds(self.width, self.height)
 
     def on_widget_clicked(self, x, y):
         """widget被点击时的回调 - 子类可以重写"""
@@ -490,7 +433,9 @@ class BaseWidget(Gtk.DrawingArea):
         return False
 
     def on_key_triggered(
-        self, key_combination: KeyCombination|None = None
+        self,
+        key_combination: KeyCombination|None = None,
+        event: "InputEvent | None" = None,
     ) -> bool:
         """按键触发时调用的方法（按键按下）
 
@@ -499,7 +444,11 @@ class BaseWidget(Gtk.DrawingArea):
         """
         raise NotImplementedError("子类必须实现on_key_triggered方法")
 
-    def on_key_released(self, key_combination: KeyCombination|None = None) -> bool:
+    def on_key_released(
+        self,
+        key_combination: KeyCombination|None = None,
+        event: "InputEvent | None" = None,
+    ) -> bool:
         """按键弹起时调用的方法（按键弹起）
 
         Args:
@@ -558,32 +507,17 @@ class BaseWidget(Gtk.DrawingArea):
 
     def is_point_in_delete_button(self, x:int|float, y:int|float) -> bool:
         """检查点是否在删除按钮区域内"""
-        if not self.is_selected or self.mapping_mode:
+        if not self._edit_controls.is_active(self):
             return False
-            
-        bounds = self.get_delete_button_bounds()
-        bx, by, bw, bh = bounds
-        center_x = bx + bw / 2
-        center_y = by + bh / 2
-        radius = bw / 2  # 按钮是圆形的，所以用半径判断
-        
-        # 计算点到圆心的距离
-        distance = math.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
-        return distance <= radius
+
+        return self._edit_controls.hit_test_delete(self, x, y)
 
     def is_point_in_settings_button(self, x: int | float, y: int | float) -> bool:
         """检查点是否在设置按钮区域内"""
-        if not self.is_selected or self.mapping_mode:
+        if not self._edit_controls.is_active(self):
             return False
-            
-        bounds = self.get_settings_button_bounds()
-        bx, by, bw, bh = bounds
-        center_x = bx + bw / 2
-        center_y = by + bh / 2
-        radius = bw / 2
-        
-        distance = math.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
-        return distance <= radius
+
+        return self._edit_controls.hit_test_settings(self, x, y)
 
     def on_delete(self):
         """Widget被删除时的清理方法"""

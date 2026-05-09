@@ -32,8 +32,9 @@ from waydroid_helper.controller.core import (
     KeyCombination,
     EventBus,
     PointerIdManager,
+    ControllerRuntimeContext,
 )
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
 from waydroid_helper.controller.widgets.config import (
@@ -41,6 +42,7 @@ from waydroid_helper.controller.widgets.config import (
     create_text_config,
 )
 from waydroid_helper.controller.widgets.decorators import Editable
+from waydroid_helper.util.log import logger
 
 
 class OperatingMethod(Enum):
@@ -94,6 +96,7 @@ class RepeatedClick(BaseWidget):
         height: int = 50,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -109,6 +112,7 @@ class RepeatedClick(BaseWidget):
             default_keys,
             min_width=25,
             min_height=25,
+            runtime_context=runtime_context,
             event_bus=event_bus,
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
@@ -121,7 +125,6 @@ class RepeatedClick(BaseWidget):
         self._click_task: asyncio.Task[None] | None = None
         self._click_count = 0
         self._is_clicking = False
-        self.screen_info = ScreenInfo()
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -333,8 +336,10 @@ class RepeatedClick(BaseWidget):
 
                 await asyncio.sleep(interval - 0.001)  # 剩余时间等待
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("RepeatedClick long-press task failed")
         finally:
             if self._is_clicking:  # Only send UP if not cancelled
                 await self._send_click_sequence(w, h, pointer_id)
@@ -363,8 +368,10 @@ class RepeatedClick(BaseWidget):
                 if i < click_count - 1:  # 最后一次点击后不需要等待
                     await asyncio.sleep(interval - 0.001)
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("RepeatedClick click-after-button task failed")
         finally:
             if self._is_clicking:  # Only send UP if not cancelled
                 await self._send_click_sequence(w, h, pointer_id)
@@ -383,6 +390,10 @@ class RepeatedClick(BaseWidget):
             action=action,
             pointer_id=pointer_id,
             position=(int(self.center_x), int(self.center_y), root_width, root_height),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(
+                root_width,
+                root_height,
+            ),
             pressure=pressure,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=(
@@ -405,7 +416,7 @@ class RepeatedClick(BaseWidget):
 
     def _get_root_dimensions(self) -> tuple[int, int] | None:
         """获取根窗口的尺寸"""
-        return self.screen_info.get_host_resolution()
+        return self.screen_geometry.get_host_resolution()
 
     def _allocate_pointer(self) -> int | None:
         """分配 pointer_id，如果失败则记录警告"""

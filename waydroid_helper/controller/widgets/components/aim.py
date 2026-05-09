@@ -16,8 +16,9 @@ from waydroid_helper.controller.core import (
     KeyCombination,
     is_point_in_rect,
     PointerIdManager,
+    ControllerRuntimeContext,
 )
-from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg, ScreenInfo
+from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.event_bus import EventBus
 from waydroid_helper.controller.core.key_system import KeyRegistry
 from waydroid_helper.controller.platform import get_platform
@@ -71,6 +72,7 @@ class Aim(BaseWidget):
         height: int = 150,
         text: str = "",
         default_keys: set[KeyCombination] | None = None,
+        runtime_context: ControllerRuntimeContext | None = None,
         event_bus: EventBus | None = None,
         pointer_id_manager: PointerIdManager | None = None,
         key_registry: KeyRegistry | None = None,
@@ -85,6 +87,7 @@ class Aim(BaseWidget):
             default_keys,
             min_width=200,
             min_height=150,
+            runtime_context=runtime_context,
             event_bus=event_bus,
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
@@ -107,7 +110,6 @@ class Aim(BaseWidget):
             asyncio.Queue()
         )
         self._motion_processor_running = False
-        self.screen_info = ScreenInfo()
 
         # 配置
         self.setup_config()
@@ -221,8 +223,10 @@ class Aim(BaseWidget):
                 # 标记任务完成
                 self._motion_queue.task_done()
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Aim motion processor failed")
         finally:
             self._motion_processor_running = False
 
@@ -237,13 +241,15 @@ class Aim(BaseWidget):
             _dy = dy_unaccel * sensitivity / 50
 
             # 获取根窗口尺寸
-            w, h = self.screen_info.get_host_resolution()
+            w, h = self.screen_geometry.get_host_resolution()
 
             # 处理位置更新
             await self._update_aim_position(_dx, _dy, w, h)
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Aim motion handling failed")
 
     async def _update_aim_position(self, dx: float, dy: float, w: int, h: int) -> None:
         """更新瞄准位置"""
@@ -284,6 +290,10 @@ class Aim(BaseWidget):
             action=AMotionEventAction.DOWN,
             pointer_id=pointer_id,
             position=(int(self._current_pos[0]), int(self._current_pos[1]), w, h),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(
+                w,
+                h,
+            ),
             pressure=1.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=AMotionEventButtons.PRIMARY,
@@ -303,6 +313,10 @@ class Aim(BaseWidget):
             action=AMotionEventAction.MOVE,
             pointer_id=pointer_id,
             position=(int(self._current_pos[0]), int(self._current_pos[1]), w, h),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(
+                w,
+                h,
+            ),
             pressure=1.0,
             action_button=0,
             buttons=AMotionEventButtons.PRIMARY,
@@ -333,6 +347,10 @@ class Aim(BaseWidget):
             action=AMotionEventAction.UP,
             pointer_id=pointer_id,
             position=(int(pos_x), int(pos_y), w, h),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(
+                w,
+                h,
+            ),
             pressure=0.0,
             action_button=AMotionEventButtons.PRIMARY,
             buttons=0,
@@ -518,15 +536,17 @@ class Aim(BaseWidget):
             # 如果有当前位置，发送UP事件
             if self._current_pos is not None:
                 if root:
-                    w, h = self.screen_info.get_host_resolution()
+                    w, h = self.screen_geometry.get_host_resolution()
                     await self._send_touch_up(w, h)
                 self._current_pos = None
 
             # 发送瞄准释放事件
             self.event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
 
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Failed to exit aiming state")
 
     def on_key_triggered(
         self,
@@ -556,8 +576,10 @@ class Aim(BaseWidget):
             else:
                 # 退出瞄准状态
                 await self._exit_aiming_state()
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Failed to handle Aim trigger for %s", used_key)
 
     def on_key_released(
         self,
@@ -581,15 +603,17 @@ class Aim(BaseWidget):
             current_state = await self._get_state()
             if current_state != AimState.IDLE:
                 await self._exit_aiming_state()
+        except asyncio.CancelledError:
+            raise
         except Exception:
-            pass
+            logger.exception("Failed to cleanup Aim widget")
 
     def __del__(self) -> None:
         """析构函数 - 确保资源被清理"""
         try:
             self.cleanup()
         except Exception:
-            pass
+            logger.exception("Failed to schedule Aim cleanup during destruction")
 
     def get_delete_button_bounds(self) -> tuple[int, int, int, int]:
         """获取删除按钮的边界 (x, y, w, h) - 将按钮定位在中心圆的右上角边缘"""
