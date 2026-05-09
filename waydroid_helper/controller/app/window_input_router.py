@@ -5,6 +5,11 @@ from __future__ import annotations
 
 from functools import partial
 
+import gi
+
+gi.require_version("Gdk", "4.0")
+gi.require_version("Gtk", "4.0")
+
 from gi.repository import Gdk, Gtk
 
 from waydroid_helper.controller.app import widget_capabilities as capabilities
@@ -150,6 +155,10 @@ class WindowInputRouter:
             )
             return True
 
+        if self._is_mapping_transparency_toggle_key(keyval):
+            self.window.toggle_all_widgets_transparency()
+            return True
+
         if self.window.current_mode == self.window.MAPPING_MODE:
             input_event = self.window.input_event_factory.create_key_event(
                 InputEventType.KEY_PRESS,
@@ -178,6 +187,9 @@ class WindowInputRouter:
         if self.window.current_mode != self.window.MAPPING_MODE:
             return False
 
+        if self._is_mapping_transparency_toggle_key(keyval):
+            return True
+
         input_event = self.window.input_event_factory.create_key_event(
             InputEventType.KEY_RELEASE,
             controller,
@@ -191,3 +203,9 @@ class WindowInputRouter:
                 return True
 
         return False
+
+    def _is_mapping_transparency_toggle_key(self, keyval: int) -> bool:
+        return (
+            self.window.current_mode == self.window.MAPPING_MODE
+            and keyval == Gdk.KEY_F12
+        )

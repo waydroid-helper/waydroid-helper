@@ -654,6 +654,14 @@ msgstr "这个部件没有设置项"
 msgid "Mapping Mode (F1: Switch Mode)"
 msgstr "映射模式（F1：切换模式）"
 
+#: waydroid_helper/controller/app/window.py:333
+msgid "Widgets Transparent (F12: Toggle Widgets)"
+msgstr "部件已透明（F12：切换部件）"
+
+#: waydroid_helper/controller/app/window.py:335
+msgid "Widgets Normal (F12: Toggle Widgets)"
+msgstr "部件已恢复正常（F12：切换部件）"
+
 #. 如果没有发现任何可创建的组件，显示提示
 #: waydroid_helper/controller/ui/menus.py:156
 msgid "No widgets found"

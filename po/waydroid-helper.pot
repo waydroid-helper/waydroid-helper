@@ -639,6 +639,14 @@ msgstr ""
 msgid "Mapping Mode (F1: Switch Mode)"
 msgstr ""
 
+#: waydroid_helper/controller/app/window.py:333
+msgid "Widgets Transparent (F12: Toggle Widgets)"
+msgstr ""
+
+#: waydroid_helper/controller/app/window.py:335
+msgid "Widgets Normal (F12: Toggle Widgets)"
+msgstr ""
+
 #. 如果没有发现任何可创建的组件，显示提示
 #: waydroid_helper/controller/ui/menus.py:156
 msgid "No widgets found"

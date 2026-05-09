@@ -32,6 +32,9 @@ from waydroid_helper.controller.app.widget_mapping_registrar import (
 from waydroid_helper.controller.app.widget_settings_popover import (
     WidgetSettingsPopoverPresenter,
 )
+from waydroid_helper.controller.app.widget_transparency_controller import (
+    WidgetTransparencyController,
+)
 from waydroid_helper.controller.app.window_input_router import WindowInputRouter
 from waydroid_helper.controller.app.workspace_manager import WorkspaceManager
 from waydroid_helper.controller.core import (
@@ -186,6 +189,9 @@ class TransparentWindow(Adw.Window):
         self.widget_factory = WidgetFactory(self.runtime_context)
         self.style_manager = StyleManager(self.get_display())
         self.workspace_manager = WorkspaceManager(self, self.fixed, self.event_bus)
+        self.widget_transparency_controller = WidgetTransparencyController(
+            self.workspace_manager.iter_widgets
+        )
         self.layout_service = WidgetLayoutService(self.runtime_context)
         self.layout_file_actions = LayoutFileActions(self)
         self.menu_manager = ContextMenuManager(
@@ -236,6 +242,7 @@ class TransparentWindow(Adw.Window):
             event_bus=self.event_bus,
             iter_widgets=self.workspace_manager.iter_widgets,
             clear_selections=self.clear_all_selections,
+            restore_widget_opacity=self.restore_all_widgets_opacity,
             notify=self.show_notification,
         )
         self.connect("notify::current-mode", self._on_mode_changed)
@@ -320,9 +327,21 @@ class TransparentWindow(Adw.Window):
         for child in self.workspace_manager.iter_widgets():
             child.set_mapping_mode(mapping_mode)
 
+    def toggle_all_widgets_transparency(self) -> bool:
+        is_transparent = self.widget_transparency_controller.toggle()
+        if is_transparent:
+            self.show_notification(_("Widgets Transparent (F12: Toggle Widgets)"))
+        else:
+            self.show_notification(_("Widgets Normal (F12: Toggle Widgets)"))
+        return is_transparent
+
+    def restore_all_widgets_opacity(self) -> bool:
+        return self.widget_transparency_controller.restore_normal()
+
     def create_widget_at_position(self, widget: "BaseWidget", x: int, y: int) -> None:
         self.fixed_put(widget, x, y)
         self.widget_mapping_registrar.register_widget(widget)
+        self.widget_transparency_controller.apply_to_widget(widget)
 
     def on_clear_widgets(self, button: Gtk.Button | None) -> None:
         widgets_to_delete = list(self.workspace_manager.iter_widgets())

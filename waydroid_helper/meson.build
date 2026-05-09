@@ -121,6 +121,7 @@ controller_app_sources = [
     'controller/app/widget_layout_key_codec.py',
     'controller/app/widget_mapping_registrar.py',
     'controller/app/widget_settings_popover.py',
+    'controller/app/widget_transparency_controller.py',
     'controller/app/window.py',
     'controller/app/window_input_router.py',
     'controller/app/workspace_manager.py',

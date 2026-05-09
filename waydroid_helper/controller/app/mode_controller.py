@@ -26,12 +26,14 @@ class ModeController:
         event_bus: EventBus,
         iter_widgets: Callable[[], Iterable[object]],
         clear_selections: Callable[[], None],
+        restore_widget_opacity: Callable[[], bool],
         notify: Callable[[str], None],
     ) -> None:
         self.window = window
         self.event_bus = event_bus
         self.iter_widgets = iter_widgets
         self.clear_selections = clear_selections
+        self.restore_widget_opacity = restore_widget_opacity
         self.notify = notify
 
     def apply_mode(self, new_mode: str) -> None:
@@ -46,6 +48,7 @@ class ModeController:
             self.window.set_cursor_from_name("default")
             return
 
+        self.restore_widget_opacity()
         self.notify(_("Edit Mode (F1: Switch Mode)"))
         self.window.set_title(f"{APP_TITLE} - Edit Mode (F1: Switch Mode)")
         self.event_bus.emit(Event(EventType.EXIT_STARING, self.window, None))

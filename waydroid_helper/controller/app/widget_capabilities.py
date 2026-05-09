@@ -29,6 +29,12 @@ class MappingModeWidget(Protocol):
 
 
 @runtime_checkable
+class OpacityWidget(Protocol):
+    def set_opacity(self, opacity: float) -> None:
+        ...
+
+
+@runtime_checkable
 class ContextMenuTarget(Protocol):
     def on_widget_right_clicked(self, x: float, y: float) -> None:
         ...
@@ -143,6 +149,13 @@ def set_mapping_mode(widget: Any, mapping_mode: bool) -> bool:
     if not isinstance(widget, MappingModeWidget):
         return False
     widget.set_mapping_mode(mapping_mode)
+    return True
+
+
+def set_opacity(widget: Any, opacity: float) -> bool:
+    if not isinstance(widget, OpacityWidget):
+        return False
+    widget.set_opacity(opacity)
     return True
 
 

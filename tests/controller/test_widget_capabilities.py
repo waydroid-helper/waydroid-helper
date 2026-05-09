@@ -17,12 +17,16 @@ class CapabilityWidget:
         self.deleted = False
         self.text = ""
         self._skip_delayed_bring_to_front = False
+        self.opacity = 1.0
 
     def set_selected(self, selected: bool):
         self.is_selected = selected
 
     def set_mapping_mode(self, mapping_mode: bool):
         self.mapping_mode = mapping_mode
+
+    def set_opacity(self, opacity: float):
+        self.opacity = opacity
 
     def on_widget_clicked(self, x, y):
         self.clicked.append((x, y))
@@ -85,7 +89,9 @@ def test_widget_capability_adapter_invokes_supported_operations():
     assert capabilities.set_selected(widget, True) is True
     assert capabilities.is_selected(widget) is True
     assert capabilities.set_mapping_mode(widget, True) is True
+    assert capabilities.set_opacity(widget, 0.0) is True
     assert widget.mapping_mode is True
+    assert widget.opacity == 0.0
     assert capabilities.notify_click(widget, 1, 2) is True
     assert capabilities.notify_double_click(widget, 3, 4) is True
     assert capabilities.notify_right_click(widget, 5, 6) is True
@@ -113,6 +119,7 @@ def test_widget_capability_adapter_handles_unsupported_operations():
     assert capabilities.set_selected(widget, True) is False
     assert capabilities.is_selected(widget) is False
     assert capabilities.set_mapping_mode(widget, True) is False
+    assert capabilities.set_opacity(widget, 0.0) is False
     assert capabilities.notify_click(widget, 1, 2) is False
     assert capabilities.notify_double_click(widget, 1, 2) is False
     assert capabilities.notify_right_click(widget, 1, 2) is False
