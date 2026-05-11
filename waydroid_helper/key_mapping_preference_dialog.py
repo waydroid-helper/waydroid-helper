@@ -16,6 +16,7 @@ from waydroid_helper.config.models import RootConfig
 
 
 class KeyMappingPreferenceDialog(Dialog):
+    KEYBOARD_INJECT_MODE_VALUES = ("mixed", "text", "raw")
 
     def __init__(self, title: str, parent: Gtk.Window, config: RootConfig, **kwargs):
         super().__init__(
@@ -39,6 +40,10 @@ class KeyMappingPreferenceDialog(Dialog):
         self.socket_name_entry: Gtk.Entry
         self.hide_titlebar_switch: Gtk.Switch
         self.confine_pointer_switch: Gtk.Switch
+        self.keyboard_inject_mode_row: Adw.ComboRow
+        self.mouse_natural_scroll_switch: Gtk.Switch
+        self.mouse_hover_switch: Gtk.Switch
+        self._updating_keyboard_inject_mode = False
 
         self._setup_ui()
         self._setup_signals()
@@ -86,11 +91,58 @@ class KeyMappingPreferenceDialog(Dialog):
         """创建 AdwPreferencesPage"""
         preferences_page = Adw.PreferencesPage.new()
 
+        # Default handler 设置组
+        default_handler_group = self._create_default_handler_group()
+        preferences_page.add(default_handler_group)
+
         # Cage 设置组
         cage_group = self._create_cage_group()
         preferences_page.add(cage_group)
 
         return preferences_page
+
+    def _create_default_handler_group(self):
+        """创建默认输入处理器设置组"""
+        group = Adw.PreferencesGroup.new()
+        group.set_title(_("Default Input Handler"))
+        group.set_description(_("Configure default keyboard and mouse input behavior"))
+
+        self.keyboard_inject_mode_row = Adw.ComboRow.new()
+        self.keyboard_inject_mode_row.set_title(_("Keyboard Inject Mode"))
+        self.keyboard_inject_mode_row.set_subtitle(_("Keyboard injection mode"))
+        inject_mode_model = Gtk.StringList.new(
+            strings=[
+                _("Mixed"),
+                _("Text"),
+                _("Raw"),
+            ]
+        )
+        self.keyboard_inject_mode_row.set_model(inject_mode_model)
+        group.add(self.keyboard_inject_mode_row)
+
+        natural_scroll_row = Adw.ActionRow.new()
+        natural_scroll_row.set_title(_("Natural Scroll"))
+        natural_scroll_row.set_subtitle(_("Use natural mouse wheel scrolling"))
+
+        self.mouse_natural_scroll_switch = Gtk.Switch.new()
+        self.mouse_natural_scroll_switch.set_valign(Gtk.Align.CENTER)
+        natural_scroll_row.add_suffix(self.mouse_natural_scroll_switch)
+        natural_scroll_row.set_activatable_widget(self.mouse_natural_scroll_switch)
+
+        group.add(natural_scroll_row)
+
+        hover_row = Adw.ActionRow.new()
+        hover_row.set_title(_("Mouse Hover"))
+        hover_row.set_subtitle(_("Enabling hover may affect key mapping"))
+
+        self.mouse_hover_switch = Gtk.Switch.new()
+        self.mouse_hover_switch.set_valign(Gtk.Align.CENTER)
+        hover_row.add_suffix(self.mouse_hover_switch)
+        hover_row.set_activatable_widget(self.mouse_hover_switch)
+
+        group.add(hover_row)
+
+        return group
 
     def _create_cage_group(self):
         """创建 Cage 设置组"""
@@ -307,10 +359,29 @@ class KeyMappingPreferenceDialog(Dialog):
         connect_weakly(
             self.file_chooser_button, "clicked", self._on_file_chooser_clicked
         )
-        # 这里可以添加信号连接，比如保存设置等
-        pass
+        connect_weakly(
+            self.keyboard_inject_mode_row,
+            "notify::selected",
+            self._on_keyboard_inject_mode_selected,
+        )
 
     def _setup_bindings(self):
+        self._sync_keyboard_inject_mode_row()
+
+        self.config.default_handler.bind_property(
+            "mouse_natural_scroll",
+            self.mouse_natural_scroll_switch,
+            "active",
+            GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+        )
+
+        self.config.default_handler.bind_property(
+            "mouse_hover",
+            self.mouse_hover_switch,
+            "active",
+            GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL,
+        )
+
         self.config.cage.bind_property(
             "enabled",
             self.enable_switch,
@@ -491,6 +562,33 @@ class KeyMappingPreferenceDialog(Dialog):
 
     def _on_cancel_clicked(self, button):
         self.close()
+
+    def _sync_keyboard_inject_mode_row(self):
+        inject_mode = self.config.default_handler.keyboard_inject_mode
+        try:
+            selected = self.KEYBOARD_INJECT_MODE_VALUES.index(inject_mode)
+        except ValueError:
+            logger.error(f"Unknown keyboard inject mode in preferences: {inject_mode!r}")
+            selected = 0
+
+        self._updating_keyboard_inject_mode = True
+        try:
+            self.keyboard_inject_mode_row.set_selected(selected)
+        finally:
+            self._updating_keyboard_inject_mode = False
+
+    def _on_keyboard_inject_mode_selected(self, row: Adw.ComboRow, pspec):
+        if self._updating_keyboard_inject_mode:
+            return
+
+        selected = row.get_selected()
+        if selected >= len(self.KEYBOARD_INJECT_MODE_VALUES):
+            logger.error(f"Invalid keyboard inject mode selection: {selected}")
+            return
+
+        self.config.default_handler.keyboard_inject_mode = (
+            self.KEYBOARD_INJECT_MODE_VALUES[selected]
+        )
 
     def _on_confirm_clicked(self, button):
         if self.config.save_to_settings():

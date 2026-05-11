@@ -8,8 +8,10 @@
 from waydroid_helper.util.log import logger
 from typing import Callable
 
-from waydroid_helper.controller.core.handler.default.default_key_handler import \
-    KeyboardDefault
+from waydroid_helper.controller.core.handler.default.default_key_handler import (
+    KeyboardDefault,
+    KeyInjectMode,
+)
 from waydroid_helper.controller.core.handler.default.default_mouse_handler import \
     MouseDefault
 from waydroid_helper.controller.core.handler.event_handlers import (
@@ -27,12 +29,16 @@ class DefaultEventHandler(InputEventHandler):
         # 可配置的默认行为
         self.key_mappings: dict[str, Callable[[InputEvent], None]] = {}
         self.mouse_mappings: dict[int, Callable[[InputEvent], None]] = {}
+        default_config = runtime_context.default_handler_config
         self.keyboard_handler: KeyboardDefault = KeyboardDefault(
-            runtime_context.event_bus
+            runtime_context.event_bus,
+            self._resolve_keyboard_inject_mode(default_config.keyboard_inject_mode),
         )
         self.mouse_handler: MouseDefault = MouseDefault(
             runtime_context.event_bus,
             runtime_context.screen_geometry,
+            natural_scroll=default_config.mouse_natural_scroll,
+            mouse_hover=default_config.mouse_hover,
         )
         self.handler_map: dict[InputEventType | str, Callable[[InputEvent], bool]] = {
             InputEventType.KEY_PRESS: self._handle_default_key_press,
@@ -43,6 +49,16 @@ class DefaultEventHandler(InputEventHandler):
             InputEventType.MOUSE_SCROLL: self._handle_default_mouse_scroll,
             InputEventType.MOUSE_ZOOM: self._handle_default_mouse_zoom,
         }
+
+    def _resolve_keyboard_inject_mode(self, config_value: str) -> KeyInjectMode:
+        inject_mode = KeyInjectMode.from_config_value(config_value)
+        if inject_mode.config_value != config_value:
+            logger.error(
+                "Unknown default keyboard inject mode %r; falling back to %s",
+                config_value,
+                inject_mode.config_value,
+            )
+        return inject_mode
 
     def can_handle(self, event: InputEvent) -> bool:
         """默认处理器可以处理所有事件"""

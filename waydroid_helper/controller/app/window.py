@@ -19,6 +19,7 @@ from gi.events import GLibEventLoopPolicy
 from gi.repository import Adw, Gdk, GLib, GObject, Gtk
 
 from waydroid_helper.compat_widget import PropertyAnimationTarget
+from waydroid_helper.config.models import RootConfig
 from waydroid_helper.controller.app.input_event_factory import (
     GdkKeySymbolResolver,
     GtkInputEventFactory,
@@ -39,6 +40,7 @@ from waydroid_helper.controller.app.window_input_router import WindowInputRouter
 from waydroid_helper.controller.app.workspace_manager import WorkspaceManager
 from waydroid_helper.controller.core import (
     ControllerRuntimeContext,
+    DefaultHandlerRuntimeConfig,
     Event,
     EventBus,
     EventType,
@@ -177,11 +179,20 @@ class TransparentWindow(Adw.Window):
         self.screen_geometry = ScreenGeometry()
         self.pointer_id_manager = PointerIdManager()
         self.key_registry = KeyRegistry(GdkKeySymbolResolver())
+        self.config = RootConfig()
+        # Handlers receive an immutable snapshot so controller input processing
+        # stays independent from the persistence backend and from live UI state.
+        default_handler_config = DefaultHandlerRuntimeConfig(
+            keyboard_inject_mode=self.config.default_handler.keyboard_inject_mode,
+            mouse_natural_scroll=self.config.default_handler.mouse_natural_scroll,
+            mouse_hover=self.config.default_handler.mouse_hover,
+        )
         self.runtime_context = ControllerRuntimeContext(
             event_bus=self.event_bus,
             screen_geometry=self.screen_geometry,
             pointer_id_manager=self.pointer_id_manager,
             key_registry=self.key_registry,
+            default_handler_config=default_handler_config,
         )
 
         self._setup_notification_overlay(overlay)

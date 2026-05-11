@@ -59,10 +59,16 @@ class MouseBase(ABC):
 
 
 class MouseDefault(MouseBase):
-    def __init__(self, event_bus: EventBus, screen_geometry: ScreenGeometry) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus,
+        screen_geometry: ScreenGeometry,
+        natural_scroll: bool = True,
+        mouse_hover: bool = False,
+    ) -> None:
         self.event_bus = event_bus
-        self.natural_scroll: bool = True
-        self.mouse_hover: bool = False
+        self.natural_scroll = natural_scroll
+        self.mouse_hover = mouse_hover
         self._current_x: float = 0
         self._current_y: float = 0
         self.screen_geometry = screen_geometry

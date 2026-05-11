@@ -51,5 +51,19 @@
     <key name="cage-confine-pointer" type="b">
       <default>false</default>
     </key>
+    <key name="default-handler-keyboard-inject-mode" type="s">
+      <default>'mixed'</default>
+      <choices>
+        <choice value="mixed"/>
+        <choice value="text"/>
+        <choice value="raw"/>
+      </choices>
+    </key>
+    <key name="default-handler-mouse-natural-scroll" type="b">
+      <default>true</default>
+    </key>
+    <key name="default-handler-mouse-hover" type="b">
+      <default>false</default>
+    </key>
   </schema>
 </schemalist>

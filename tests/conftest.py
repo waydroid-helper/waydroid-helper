@@ -70,6 +70,7 @@ from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
 from waydroid_helper.controller.core.key_system import KeyCombination, KeyRegistry
 from waydroid_helper.controller.core.runtime import (
     ControllerRuntimeContext,
+    DefaultHandlerRuntimeConfig,
     ScreenGeometry,
 )
 from waydroid_helper.controller.core.utils import PointerIdManager, is_point_in_rect
@@ -93,6 +94,7 @@ setattr(core_pkg, "EventType", EventType)
 setattr(core_pkg, "KeyCombination", KeyCombination)
 setattr(core_pkg, "KeyRegistry", KeyRegistry)
 setattr(core_pkg, "ControllerRuntimeContext", ControllerRuntimeContext)
+setattr(core_pkg, "DefaultHandlerRuntimeConfig", DefaultHandlerRuntimeConfig)
 setattr(core_pkg, "ScreenGeometry", ScreenGeometry)
 setattr(core_pkg, "PointerIdManager", PointerIdManager)
 setattr(core_pkg, "is_point_in_rect", is_point_in_rect)

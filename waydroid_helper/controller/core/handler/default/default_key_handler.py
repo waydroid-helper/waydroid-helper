@@ -27,6 +27,17 @@ class KeyInjectMode(Enum):
     # 所有的都作为 key event
     RAW = 2
 
+    @classmethod
+    def from_config_value(cls, value: str) -> "KeyInjectMode":
+        for mode in cls:
+            if mode.config_value == value:
+                return mode
+        return cls.MIXED
+
+    @property
+    def config_value(self) -> str:
+        return self.name.lower()
+
 
 class KeyboardBase(ABC):
     @abstractmethod
@@ -134,12 +145,15 @@ class KeyboardDefault(KeyboardBase):
         "KP_Right": AKeyCode.AKEYCODE_NUMPAD_RIGHT_PAREN,
     }
 
-    def __init__(self, event_bus: EventBus) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus,
+        inject_mode: KeyInjectMode = KeyInjectMode.MIXED,
+    ) -> None:
         self.event_bus = event_bus
         self.last_key: int | None = None
         self.key_repeat: int = 0
-        # TODO 从配置中读取
-        self.inject_mode: KeyInjectMode = KeyInjectMode.MIXED
+        self.inject_mode = inject_mode
 
     def convert_action(self, event: InputEvent) -> AKeyEventAction:
         if event.event_type == InputEventType.KEY_PRESS:

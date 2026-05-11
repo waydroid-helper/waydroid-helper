@@ -435,6 +435,50 @@ msgstr "清除应用数据失败：{error}"
 msgid "Confirm"
 msgstr "确认"
 
+#: waydroid_helper/key_mapping_preference_dialog.py:102
+msgid "Default Input Handler"
+msgstr "默认输入处理器"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:103
+msgid "Configure default keyboard and mouse input behavior"
+msgstr "配置默认键盘和鼠标输入行为"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:106
+msgid "Keyboard Inject Mode"
+msgstr "键盘注入模式"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:107
+msgid "Keyboard injection mode"
+msgstr "键盘输入注入模式"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:110
+msgid "Mixed"
+msgstr "混合"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:111
+msgid "Text"
+msgstr "文本"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:112
+msgid "Raw"
+msgstr "原始"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:120
+msgid "Natural Scroll"
+msgstr "自然滚动"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:121
+msgid "Use natural mouse wheel scrolling"
+msgstr "使用鼠标自然滚动"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:132
+msgid "Mouse Hover"
+msgstr "鼠标 hover"
+
+#: waydroid_helper/key_mapping_preference_dialog.py:133
+msgid "Enabling hover may affect key mapping"
+msgstr "开启 hover 可能影响按键映射"
+
 #: waydroid_helper/key_mapping_preference_dialog.py:98
 msgid "Cage Settings"
 msgstr "Cage 设置"

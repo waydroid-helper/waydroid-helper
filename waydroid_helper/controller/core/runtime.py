@@ -59,6 +59,15 @@ class ScreenGeometry:
 
 
 @dataclass(frozen=True)
+class DefaultHandlerRuntimeConfig:
+    """Snapshot of persisted defaults used by the fallback input handler."""
+
+    keyboard_inject_mode: str = "mixed"
+    mouse_natural_scroll: bool = True
+    mouse_hover: bool = False
+
+
+@dataclass(frozen=True)
 class ControllerRuntimeContext:
     """Explicit dependencies shared by widgets, handlers, and app services."""
 
@@ -66,3 +75,6 @@ class ControllerRuntimeContext:
     screen_geometry: ScreenGeometry
     pointer_id_manager: PointerIdManager
     key_registry: KeyRegistry
+    default_handler_config: DefaultHandlerRuntimeConfig = field(
+        default_factory=DefaultHandlerRuntimeConfig
+    )

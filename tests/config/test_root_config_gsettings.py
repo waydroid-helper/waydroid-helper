@@ -18,6 +18,9 @@ DEFAULT_SETTINGS = {
     "cage-socket-name": "waydroid-0",
     "cage-hide-titlebar": False,
     "cage-confine-pointer": False,
+    "default-handler-keyboard-inject-mode": "mixed",
+    "default-handler-mouse-natural-scroll": True,
+    "default-handler-mouse-hover": False,
 }
 
 SETTING_TYPES = {
@@ -25,6 +28,10 @@ SETTING_TYPES = {
     **{
         binding.settings_key: binding.variant_type
         for binding in RootConfig.CAGE_SETTINGS
+    },
+    **{
+        binding.settings_key: binding.variant_type
+        for binding in RootConfig.DEFAULT_HANDLER_SETTINGS
     },
 }
 
@@ -66,6 +73,9 @@ def test_root_config_uses_gsettings_defaults_and_marks_empty_migration_complete(
 
     assert config.cage.enabled is False
     assert config.cage.window_width == 1920
+    assert config.default_handler.keyboard_inject_mode == "mixed"
+    assert config.default_handler.mouse_natural_scroll is True
+    assert config.default_handler.mouse_hover is False
     assert settings.values["key-mapping-config-migrated"] is True
     assert legacy.load_calls == 1
     assert legacy.save_calls == 0
@@ -97,7 +107,12 @@ def test_root_config_migrates_legacy_json_to_gsettings_once():
                 "socket_name": "waydroid-test",
                 "hide_titlebar": True,
                 "confine_pointer": True,
-            }
+            },
+            "default_handler": {
+                "keyboard_inject_mode": "raw",
+                "mouse_natural_scroll": False,
+                "mouse_hover": True,
+            },
         }
     )
 
@@ -117,6 +132,12 @@ def test_root_config_migrates_legacy_json_to_gsettings_once():
     assert settings.values["cage-socket-name"] == "waydroid-test"
     assert settings.values["cage-hide-titlebar"] is True
     assert settings.values["cage-confine-pointer"] is True
+    assert config.default_handler.keyboard_inject_mode == "raw"
+    assert config.default_handler.mouse_natural_scroll is False
+    assert config.default_handler.mouse_hover is True
+    assert settings.values["default-handler-keyboard-inject-mode"] == "raw"
+    assert settings.values["default-handler-mouse-natural-scroll"] is False
+    assert settings.values["default-handler-mouse-hover"] is True
     assert settings.values["key-mapping-config-migrated"] is True
     assert legacy.save_calls == 0
 
@@ -128,7 +149,11 @@ def test_root_config_logs_and_skips_invalid_legacy_values():
             "cage": {
                 "enabled": True,
                 "window_width": "wide",
-            }
+            },
+            "default_handler": {
+                "keyboard_inject_mode": "invalid",
+                "mouse_hover": "yes",
+            },
         }
     )
 
@@ -138,6 +163,10 @@ def test_root_config_logs_and_skips_invalid_legacy_values():
     assert settings.values["cage-enabled"] is True
     assert config.cage.window_width == 1920
     assert settings.values["cage-window-width"] == 1920
+    assert config.default_handler.keyboard_inject_mode == "mixed"
+    assert settings.values["default-handler-keyboard-inject-mode"] == "mixed"
+    assert config.default_handler.mouse_hover is False
+    assert settings.values["default-handler-mouse-hover"] is False
     assert settings.values["key-mapping-config-migrated"] is True
 
 
@@ -150,6 +179,9 @@ def test_root_config_save_and_load_round_trip_through_gsettings():
     config.cage.window_width = 2560
     config.cage.window_height = 1440
     config.cage.socket_name = "custom-socket"
+    config.default_handler.keyboard_inject_mode = "text"
+    config.default_handler.mouse_natural_scroll = False
+    config.default_handler.mouse_hover = True
 
     assert config.save_to_settings() is True
 
@@ -160,3 +192,6 @@ def test_root_config_save_and_load_round_trip_through_gsettings():
     assert reloaded.cage.window_width == 2560
     assert reloaded.cage.window_height == 1440
     assert reloaded.cage.socket_name == "custom-socket"
+    assert reloaded.default_handler.keyboard_inject_mode == "text"
+    assert reloaded.default_handler.mouse_natural_scroll is False
+    assert reloaded.default_handler.mouse_hover is True

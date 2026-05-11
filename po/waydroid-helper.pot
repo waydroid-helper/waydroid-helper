@@ -423,6 +423,50 @@ msgstr ""
 msgid "Confirm"
 msgstr ""
 
+#: waydroid_helper/key_mapping_preference_dialog.py:102
+msgid "Default Input Handler"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:103
+msgid "Configure default keyboard and mouse input behavior"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:106
+msgid "Keyboard Inject Mode"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:107
+msgid "Keyboard injection mode"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:110
+msgid "Mixed"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:111
+msgid "Text"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:112
+msgid "Raw"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:120
+msgid "Natural Scroll"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:121
+msgid "Use natural mouse wheel scrolling"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:132
+msgid "Mouse Hover"
+msgstr ""
+
+#: waydroid_helper/key_mapping_preference_dialog.py:133
+msgid "Enabling hover may affect key mapping"
+msgstr ""
+
 #: waydroid_helper/key_mapping_preference_dialog.py:98
 msgid "Cage Settings"
 msgstr ""
