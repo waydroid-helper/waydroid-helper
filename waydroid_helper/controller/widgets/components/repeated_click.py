@@ -8,18 +8,12 @@ import asyncio
 import math
 from enum import Enum
 from gettext import pgettext
-from typing import TYPE_CHECKING, cast
-
-import gi
+from typing import TYPE_CHECKING
 
 from waydroid_helper.controller.core.key_system import KeyRegistry
 
-gi.require_version("GLib", "2.0")
-from gi.repository import GLib
-
 if TYPE_CHECKING:
     from cairo import Context, Surface
-    from gi.repository import Gtk
     from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
 from waydroid_helper.controller.android.input import (
@@ -588,16 +582,6 @@ class RepeatedClick(BaseWidget):
     def _on_operating_method_changed(self, key: str, value: str, from_ui: bool) -> None:
         """操作方式配置变更回调"""
         self._update_config_visibility()
-
-    def create_config_ui(self) -> "Gtk.Widget":
-        """创建配置UI，重写以支持动态可见性"""
-        # 调用父类方法创建UI
-        ui_widget = self.get_config_manager().create_ui()
-
-        # 使用GLib.idle_add延迟设置可见性，确保UI完全初始化后再执行
-        GLib.idle_add(self._update_config_visibility)
-
-        return ui_widget
 
     def _update_config_visibility(self) -> None:
         """根据操作方式更新配置项的可见性"""
