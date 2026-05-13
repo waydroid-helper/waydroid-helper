@@ -46,6 +46,7 @@ class AimState(Enum):
     IDLE = "idle"  # 空闲状态
     AIMING = "aiming"  # 瞄准状态
     MOVING = "moving"  # 移动状态
+    SUSPENDED = "suspended"  # 逻辑仍激活，但指针锁临时让渡给 Fire
 
 
 @Editable
@@ -121,6 +122,16 @@ class Aim(BaseWidget):
         self.event_bus.subscribe(
             EventType.EXIT_STARING, self._handle_exit_staring, subscriber=self
         )
+        self.event_bus.subscribe(
+            EventType.AIM_SUSPEND_REQUEST,
+            self._handle_aim_suspend_request,
+            subscriber=self,
+        )
+        self.event_bus.subscribe(
+            EventType.AIM_RESUME_REQUEST,
+            self._handle_aim_resume_request,
+            subscriber=self,
+        )
 
     def setup_config(self) -> None:
         """设置配置项"""
@@ -151,13 +162,110 @@ class Aim(BaseWidget):
         """安全地设置状态"""
         async with self._state_lock:
             if self._state != new_state:
-                old_state = self._state
                 self._state = new_state
 
     async def _get_state(self) -> AimState:
         """安全地获取状态"""
         async with self._state_lock:
             return self._state
+
+    def _complete_aim_control_request(self, data: Any, success: bool) -> None:
+        """Complete an optional Future carried by a Fire/Aim handoff request."""
+        if not isinstance(data, dict):
+            return
+
+        future = data.get("future")
+        if isinstance(future, asyncio.Future) and not future.done():
+            future.set_result(success)
+
+    def _claim_aim_control_request(
+        self, event: Event[Any], required_state: AimState
+    ) -> dict[str, Any] | None:
+        """Claim a synchronous handoff request before the async state change runs.
+
+        EventBus handlers are synchronous, while the actual pointer unlock/lock
+        sequence has to stay async. Marking the request as handled here lets Fire
+        know that exactly one active Aim widget accepted responsibility for the
+        transition, without blocking the event dispatch loop.
+        """
+        data = event.data
+        if not isinstance(data, dict):
+            logger.warning("Ignoring malformed Aim control request: %r", data)
+            return None
+
+        if data.get("handled"):
+            return None
+
+        target = data.get("target")
+        if target is not None and target is not self:
+            return None
+
+        # This read is intentionally lock-free: GTK dispatch and asyncio state
+        # transitions run on the same main thread, and the async task rechecks
+        # the state under the lock before making any pointer changes.
+        if self._state != required_state:
+            return None
+
+        data["handled"] = True
+        return data
+
+    def _clear_motion_queue(self) -> None:
+        """Drop queued relative motion that belongs to the previous pointer owner."""
+        while not self._motion_queue.empty():
+            try:
+                self._motion_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+    async def _stop_motion_processor(self) -> None:
+        """Stop the Aim motion processor after state changes away from AIMING."""
+        if self._motion_task and not self._motion_task.done():
+            try:
+                await asyncio.wait_for(self._motion_task, timeout=0.1)
+            except asyncio.TimeoutError:
+                self._motion_task.cancel()
+                try:
+                    await self._motion_task
+                except asyncio.CancelledError:
+                    pass
+
+        self._clear_motion_queue()
+
+    def _set_root_cursor(self, cursor_name: str) -> None:
+        root = self.get_root()
+        if root:
+            root = cast("Gtk.Window", root)
+            root.set_cursor_from_name(cursor_name)
+
+    def _lock_pointer_for_aiming(self) -> bool:
+        """Install Aim as the current relative-pointer owner."""
+        root = self.get_root()
+        if root is None:
+            logger.warning("Cannot lock pointer for Aim because root window is missing")
+            return False
+
+        if not self.platform:
+            self.platform = get_platform(root)
+
+        if not self.platform:
+            logger.warning("Cannot lock pointer for Aim because no platform is available")
+            return False
+
+        self.platform.set_relative_pointer_callback(self.on_relative_pointer_motion)
+        if not self.platform.lock_pointer():
+            logger.warning("Platform refused to lock pointer for Aim")
+            return False
+
+        self._set_root_cursor("none")
+        return True
+
+    def _unlock_pointer_for_aiming(self) -> None:
+        """Release Aim's relative-pointer ownership without changing logical aim."""
+        if self.platform:
+            self.platform.set_relative_pointer_callback(None)
+            self.platform.unlock_pointer()
+
+        self._set_root_cursor("default")
 
     def _cancel_tasks(self) -> None:
         """取消所有异步任务"""
@@ -169,12 +277,7 @@ class Aim(BaseWidget):
             self._motion_task.cancel()
             self._motion_task = None
 
-        # 清空移动队列
-        while not self._motion_queue.empty():
-            try:
-                self._motion_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                break
+        self._clear_motion_queue()
 
         # 重置处理器状态
         self._motion_processor_running = False
@@ -461,6 +564,34 @@ class Aim(BaseWidget):
 
         self._aim_task = asyncio.create_task(self._exit_aiming_state())
 
+    def _handle_aim_suspend_request(self, event: Event[Any]) -> None:
+        """处理 Fire drag shot 请求的 Aim 临时让渡"""
+        request = self._claim_aim_control_request(event, AimState.AIMING)
+        if request is None:
+            return
+
+        if self._aim_task and not self._aim_task.done():
+            logger.warning("Ignoring Aim suspend request while a state transition is running")
+            request["handled"] = False
+            self._complete_aim_control_request(request, False)
+            return
+
+        self._aim_task = asyncio.create_task(self._suspend_aim_for_request(request))
+
+    def _handle_aim_resume_request(self, event: Event[Any]) -> None:
+        """处理 Fire drag shot 结束后的 Aim 恢复请求"""
+        request = self._claim_aim_control_request(event, AimState.SUSPENDED)
+        if request is None:
+            return
+
+        if self._aim_task and not self._aim_task.done():
+            logger.warning("Ignoring Aim resume request while a state transition is running")
+            request["handled"] = False
+            self._complete_aim_control_request(request, False)
+            return
+
+        self._aim_task = asyncio.create_task(self._resume_aim_for_request(request))
+
     async def _enter_aiming_state(self) -> None:
         """异步进入瞄准状态"""
         try:
@@ -470,23 +601,9 @@ class Aim(BaseWidget):
 
             await self._set_state(AimState.AIMING)
 
-            # 初始化平台
-            if not self.platform:
-                self.platform = get_platform(self.get_root())
-
-            if not self.platform:
+            if not self._lock_pointer_for_aiming():
                 await self._set_state(AimState.IDLE)
                 return
-
-            # 设置相对指针回调
-            self.platform.set_relative_pointer_callback(self.on_relative_pointer_motion)
-
-            # 锁定指针并隐藏光标
-            self.platform.lock_pointer()
-            root = self.get_root()
-            if root:
-                root = cast("Gtk.Window", root)
-                root.set_cursor_from_name("none")
 
             # 发送瞄准触发事件
             self.event_bus.emit(Event(type=EventType.AIM_TRIGGERED, source=self, data=None))
@@ -494,6 +611,62 @@ class Aim(BaseWidget):
         except Exception as e:
             logger.error(f"Failed to enter aiming state: {e}")
             await self._set_state(AimState.IDLE)
+
+    async def _suspend_aim_for_request(self, request: dict[str, Any]) -> None:
+        """Temporarily release Aim's pointer ownership for Fire drag shot."""
+        try:
+            current_state = await self._get_state()
+            if current_state != AimState.AIMING:
+                self._complete_aim_control_request(request, False)
+                return
+
+            await self._set_state(AimState.SUSPENDED)
+            await self._stop_motion_processor()
+
+            if self._current_pos is not None:
+                w, h = self.screen_geometry.get_host_resolution()
+                await self._send_touch_up(w, h)
+                self._current_pos = None
+
+            self._unlock_pointer_for_aiming()
+            self._complete_aim_control_request(request, True)
+
+        except asyncio.CancelledError:
+            self._complete_aim_control_request(request, False)
+            raise
+        except Exception:
+            logger.exception("Failed to suspend Aim for drag shot")
+            await self._set_state(AimState.IDLE)
+            self.event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
+            self._complete_aim_control_request(request, False)
+
+    async def _resume_aim_for_request(self, request: dict[str, Any]) -> None:
+        """Restore Aim pointer ownership after Fire drag shot ends."""
+        try:
+            current_state = await self._get_state()
+            if current_state != AimState.SUSPENDED:
+                self._complete_aim_control_request(request, False)
+                return
+
+            await self._set_state(AimState.AIMING)
+            if not self._lock_pointer_for_aiming():
+                await self._set_state(AimState.IDLE)
+                self.event_bus.emit(
+                    Event(type=EventType.AIM_RELEASED, source=self, data=None)
+                )
+                self._complete_aim_control_request(request, False)
+                return
+
+            self._complete_aim_control_request(request, True)
+
+        except asyncio.CancelledError:
+            self._complete_aim_control_request(request, False)
+            raise
+        except Exception:
+            logger.exception("Failed to resume Aim after drag shot")
+            await self._set_state(AimState.IDLE)
+            self.event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
+            self._complete_aim_control_request(request, False)
 
     async def _exit_aiming_state(self) -> None:
         """异步退出瞄准状态"""
@@ -505,39 +678,13 @@ class Aim(BaseWidget):
             await self._set_state(AimState.IDLE)
 
             # 停止运动处理器 - 设置状态为IDLE后，处理器会自动退出
-            # 等待处理器完成当前正在处理的事件
-            if self._motion_task and not self._motion_task.done():
-                try:
-                    await asyncio.wait_for(self._motion_task, timeout=0.1)
-                except asyncio.TimeoutError:
-                    # 如果超时，强制取消
-                    self._motion_task.cancel()
-                    try:
-                        await self._motion_task
-                    except asyncio.CancelledError:
-                        pass
-
-            # 清空队列
-            while not self._motion_queue.empty():
-                try:
-                    self._motion_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    break
-
-            # 解锁指针并恢复光标
-            if self.platform:
-                self.platform.unlock_pointer()
-
-            root = self.get_root()
-            if root:
-                root = cast("Gtk.Window", root)
-                root.set_cursor_from_name("default")
+            await self._stop_motion_processor()
+            self._unlock_pointer_for_aiming()
 
             # 如果有当前位置，发送UP事件
             if self._current_pos is not None:
-                if root:
-                    w, h = self.screen_geometry.get_host_resolution()
-                    await self._send_touch_up(w, h)
+                w, h = self.screen_geometry.get_host_resolution()
+                await self._send_touch_up(w, h)
                 self._current_pos = None
 
             # 发送瞄准释放事件

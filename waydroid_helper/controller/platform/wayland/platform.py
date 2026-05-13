@@ -217,6 +217,6 @@ class WaylandPlatform(PlatformBase):
         return self.pointer_constraint is not None
 
     def set_relative_pointer_callback(
-        self, callback: Callable[[float, float, float, float], None]
+        self, callback: Callable[[float, float, float, float], None] | None
     ):
         self._relative_pointer_callback = callback

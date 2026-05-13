@@ -54,6 +54,7 @@ class X11Platform(PlatformBase):
         self._disable_window_controllers()
         self.warp_to_center()
         GLib.idle_add(self.clear_ignore_once)
+        return True
 
     def unlock_pointer(self)->bool:
         """解锁鼠标指针"""
@@ -67,7 +68,9 @@ class X11Platform(PlatformBase):
         """检查鼠标是否被锁定"""
         return self.pointer_locked
 
-    def set_relative_pointer_callback(self, callback:Callable[[float, float, float, float], None]):
+    def set_relative_pointer_callback(
+        self, callback: Callable[[float, float, float, float], None] | None
+    ):
         """设置相对鼠标移动回调"""
         self._relative_pointer_callback = callback
     

@@ -38,6 +38,6 @@ class PlatformBase(ABC):
 
     @abstractmethod
     def set_relative_pointer_callback(
-        self, callback: Callable[[float, float, float, float], None]
+        self, callback: Callable[[float, float, float, float], None] | None
     ):
         """设置相对鼠标移动回调"""

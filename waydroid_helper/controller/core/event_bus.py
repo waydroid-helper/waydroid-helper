@@ -23,6 +23,8 @@ class EventType(str, Enum):
     # aim 事件
     AIM_TRIGGERED = "aim-triggered"  # 瞄准触发
     AIM_RELEASED = "aim-released"  # 瞄准释放
+    AIM_SUSPEND_REQUEST = "aim-suspend-request"  # 临时让渡瞄准指针锁
+    AIM_RESUME_REQUEST = "aim-resume-request"  # 恢复临时让渡的瞄准指针锁
 
     # ControlMsg
     CONTROL_MSG = "control-msg"  # 控制消息
