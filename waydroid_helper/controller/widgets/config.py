@@ -38,6 +38,9 @@ class ConfigItem(ABC):
     description: str = ""
     value: Any = None
     visible: bool = True
+    # Sensitivity disables a config row without removing it from the layout.
+    # This is useful for dependent options that should keep popover geometry stable.
+    sensitive: bool = True
     
     @abstractmethod
     def create_ui_widget(self, on_change_callback: Callable[[str, Any], None]) -> Gtk.Widget:
@@ -67,6 +70,7 @@ class ConfigItem(ABC):
             "value": self.value,
             "type": self.__class__.__name__,
             "visible": self.visible,
+            "sensitive": self.sensitive,
         }
     
     @classmethod
@@ -112,6 +116,7 @@ class SliderConfig(ConfigItem):
         
         box.append(scale)
         box.set_visible(self.visible)
+        box.set_sensitive(self.sensitive)
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> float:
@@ -196,6 +201,7 @@ class DropdownConfig(ConfigItem):
         dropdown.set_hexpand(True)
         box.append(dropdown)
         box.set_visible(self.visible)
+        box.set_sensitive(self.sensitive)
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> str:
@@ -265,6 +271,7 @@ class TextConfig(ConfigItem):
         entry.set_hexpand(True)
         box.append(entry)
         box.set_visible(self.visible)
+        box.set_sensitive(self.sensitive)
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> str:
@@ -332,6 +339,7 @@ class SwitchConfig(ConfigItem):
         
         box.append(switch)
         box.set_visible(self.visible)
+        box.set_sensitive(self.sensitive)
         return box
     
     def get_value_from_ui(self, widget: Gtk.Widget) -> bool:
@@ -425,6 +433,7 @@ class TextAreaConfig(ConfigItem):
         # 添加到容器
         box.append(scrolled)
         box.set_visible(self.visible)
+        box.set_sensitive(self.sensitive)
 
         if self.event_bus is not None:
             self.event_bus.subscribe(
@@ -649,6 +658,10 @@ class ConfigManager(GObject.Object):
                     if value is not None:
                         self.set_value(key, value)
                     self.set_visible(key, config_data.get("visible", True))
+                    self.set_sensitive(
+                        key,
+                        config_data.get("sensitive", self.configs[key].sensitive),
+                    )
             self.emit("confirmed")
         finally:
             self.restoring = False
@@ -669,44 +682,59 @@ class ConfigManager(GObject.Object):
             if key in self.ui_widgets:
                 self.ui_widgets[key].set_visible(visible)
 
+    def set_sensitive(self, key: str, sensitive: bool) -> None:
+        """设置配置项是否可交互"""
+        if key in self.configs:
+            self.configs[key].sensitive = sensitive
+            if key in self.ui_widgets:
+                self.ui_widgets[key].set_sensitive(sensitive)
+
 
 # 配置项工厂函数，方便创建常用配置项
 def create_slider_config(key: str, label: str, value: float = 0.0, 
                         min_value: float = 0.0, max_value: float = 100.0, 
                         step: float = 1.0, description: str = "",
-                        visible: bool = True) -> SliderConfig:
+                        visible: bool = True,
+                        sensitive: bool = True) -> SliderConfig:
     """创建滑动条配置项"""
     return SliderConfig(
         key=key, label=label, value=value, description=description,
-        min_value=min_value, max_value=max_value, step=step, visible=visible
+        min_value=min_value, max_value=max_value, step=step, visible=visible,
+        sensitive=sensitive
     )
 
 
 def create_dropdown_config(key: str, label: str, options: list[str], 
                           value: str|None = None, option_labels: dict[str, str]|None = None,
-                          description: str = "", visible: bool = True) -> DropdownConfig:
+                          description: str = "", visible: bool = True,
+                          sensitive: bool = True) -> DropdownConfig:
     """创建下拉选择配置项"""
     return DropdownConfig(
         key=key, label=label, value=value or (options[0] if options else ""),
-        description=description, options=options, option_labels=option_labels, visible=visible
+        description=description, options=options, option_labels=option_labels,
+        visible=visible, sensitive=sensitive
     )
 
 
 def create_text_config(key: str, label: str, value: str = "", 
                       placeholder: str = "", max_length: int = 0,
-                      description: str = "", visible: bool = True) -> TextConfig:
+                      description: str = "", visible: bool = True,
+                      sensitive: bool = True) -> TextConfig:
     """创建文本输入配置项"""
     return TextConfig(
         key=key, label=label, value=value, description=description,
-        placeholder=placeholder, max_length=max_length, visible=visible
+        placeholder=placeholder, max_length=max_length, visible=visible,
+        sensitive=sensitive
     )
 
 
 def create_switch_config(key: str, label: str, value: bool = False,
-                        description: str = "", visible: bool = True) -> SwitchConfig:
+                        description: str = "", visible: bool = True,
+                        sensitive: bool = True) -> SwitchConfig:
     """创建开关配置项"""
     return SwitchConfig(
-        key=key, label=label, value=value, description=description, visible=visible
+        key=key, label=label, value=value, description=description, visible=visible,
+        sensitive=sensitive
     )
 
 
@@ -717,6 +745,7 @@ def create_textarea_config(
     description: str = "",
     max_length: int = 0,
     visible: bool = True,
+    sensitive: bool = True,
     event_bus: EventBus | None = None,
 ) -> TextAreaConfig:
     """创建多行文本输入配置项"""
@@ -728,4 +757,5 @@ def create_textarea_config(
         max_length=max_length,
         event_bus=event_bus,
         visible=visible,
+        sensitive=sensitive,
     )

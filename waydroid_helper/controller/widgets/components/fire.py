@@ -164,7 +164,7 @@ class Fire(BaseWidget):
             description=pgettext(
                 "Controller Widgets", "Adjusts horizontal drag-shot movement"
             ),
-            visible=False,
+            sensitive=False,
         )
         vertical_sensitivity_config = create_slider_config(
             key="drag_vertical_sensitivity",
@@ -176,7 +176,7 @@ class Fire(BaseWidget):
             description=pgettext(
                 "Controller Widgets", "Adjusts vertical drag-shot movement"
             ),
-            visible=False,
+            sensitive=False,
         )
         
         self.add_config_item(mouse_button_config)
@@ -195,7 +195,7 @@ class Fire(BaseWidget):
             "drag_vertical_sensitivity", self._on_drag_vertical_sensitivity_changed
         )
         self.config_manager.connect(
-            "confirmed", lambda config_manager: self._update_drag_config_visibility()
+            "confirmed", lambda config_manager: self._update_drag_config_sensitivity()
         )
         
     def _on_mouse_button_changed(self, key: str, value: str, restoring: bool) -> None:
@@ -215,7 +215,7 @@ class Fire(BaseWidget):
         self, key: str, value: bool, restoring: bool
     ) -> None:
         self._drag_shot_enabled = bool(value)
-        self._update_drag_config_visibility()
+        self._update_drag_config_sensitivity()
 
     def _on_drag_horizontal_sensitivity_changed(
         self, key: str, value: float, restoring: bool
@@ -238,12 +238,12 @@ class Fire(BaseWidget):
             logger.warning("Invalid Fire %s value %r; keeping %s", key, value, fallback)
             return fallback
 
-    def _update_drag_config_visibility(self) -> None:
+    def _update_drag_config_sensitivity(self) -> None:
         enabled = bool(self.get_config_value("enable_drag_shot"))
         self._drag_shot_enabled = enabled
         config_manager = self.get_config_manager()
-        config_manager.set_visible("drag_horizontal_sensitivity", enabled)
-        config_manager.set_visible("drag_vertical_sensitivity", enabled)
+        config_manager.set_sensitive("drag_horizontal_sensitivity", enabled)
+        config_manager.set_sensitive("drag_vertical_sensitivity", enabled)
 
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
