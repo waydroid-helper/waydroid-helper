@@ -835,6 +835,38 @@ msgctxt "Controller Widgets"
 msgid "Choose which mouse button to simulate for firing"
 msgstr ""
 
+#: waydroid_helper/controller/widgets/components/fire.py:150
+msgctxt "Controller Widgets"
+msgid "Enable Drag Shot"
+msgstr "啟用拖曳開火"
+
+#: waydroid_helper/controller/widgets/components/fire.py:154
+msgctxt "Controller Widgets"
+msgid ""
+"Let Fire own pointer lock while firing, so mouse movement drags the fire "
+"touch point."
+msgstr "開火時讓開火按鍵接管指標鎖定，使滑鼠移動拖曳開火觸點。"
+
+#: waydroid_helper/controller/widgets/components/fire.py:159
+msgctxt "Controller Widgets"
+msgid "Horizontal Sensitivity"
+msgstr "水平靈敏度"
+
+#: waydroid_helper/controller/widgets/components/fire.py:165
+msgctxt "Controller Widgets"
+msgid "Adjusts horizontal drag-shot movement"
+msgstr "調整拖曳開火的水平移動"
+
+#: waydroid_helper/controller/widgets/components/fire.py:171
+msgctxt "Controller Widgets"
+msgid "Vertical Sensitivity"
+msgstr "垂直靈敏度"
+
+#: waydroid_helper/controller/widgets/components/fire.py:177
+msgctxt "Controller Widgets"
+msgid "Adjusts vertical drag-shot movement"
+msgstr "調整拖曳開火的垂直移動"
+
 #. 组件元数据
 #: waydroid_helper/controller/widgets/components/macro.py:681
 #: waydroid_helper/controller/widgets/components/macro.py:710
