@@ -87,6 +87,7 @@ class Fire(BaseWidget):
         self._drag_state_lock = asyncio.Lock()
         self._drag_task: asyncio.Task[None] | None = None
         self._release_requested = False
+        self._suppress_aim_resume = False
         self._drag_pos: tuple[float, float] | None = None
         self._drag_shot_enabled = False
         self._drag_horizontal_sensitivity = 20.0
@@ -99,6 +100,11 @@ class Fire(BaseWidget):
         self.platform: "PlatformBase | None" = None
         self.event_bus.subscribe(EventType.AIM_TRIGGERED, self._on_aim_triggered, subscriber=self)
         self.event_bus.subscribe(EventType.AIM_RELEASED, self._on_aim_released, subscriber=self)
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
         
         self.setup_config()
 
@@ -393,6 +399,7 @@ class Fire(BaseWidget):
             return
 
         self._release_requested = False
+        self._suppress_aim_resume = False
         self._drag_task = asyncio.create_task(self._activate_drag_shot())
 
     async def _wait_for_aim_handoff(self, event_type: EventType) -> bool:
@@ -469,6 +476,19 @@ class Fire(BaseWidget):
                 self._motion_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Drop Fire's independent drag/press state when mapping is paused."""
+        self._suppress_aim_resume = True
+        if self._drag_task and not self._drag_task.done():
+            self._drag_task.cancel()
+        if self._motion_task and not self._motion_task.done():
+            self._motion_task.cancel()
+
+        self._force_release_touch_and_pointer_lock(resume_aim=False)
+        self._clear_motion_queue()
+        self.aim_triggered = False
+        self._active_aim_source = None
 
     async def _stop_motion_processor(self) -> None:
         if self._motion_task and not self._motion_task.done():
@@ -684,7 +704,7 @@ class Fire(BaseWidget):
         if pointer_locked:
             self._unlock_pointer_for_drag()
 
-        if aim_suspended:
+        if aim_suspended and not self._suppress_aim_resume:
             resumed = await self._wait_for_aim_handoff(EventType.AIM_RESUME_REQUEST)
             if not resumed:
                 logger.warning("Fire drag shot ended but Aim did not resume")
@@ -793,7 +813,7 @@ class Fire(BaseWidget):
         self.cleanup()
         super().on_delete()
 
-    def _force_release_touch_and_pointer_lock(self) -> None:
+    def _force_release_touch_and_pointer_lock(self, *, resume_aim: bool = True) -> None:
         pointer_id = self.pointer_id_manager.get_allocated_id(self)
         if pointer_id is not None:
             w, h = self.screen_geometry.get_host_resolution()
@@ -811,7 +831,7 @@ class Fire(BaseWidget):
 
         if self._drag_state != FireDragState.IDLE:
             self._unlock_pointer_for_drag()
-            if self.aim_triggered:
+            if resume_aim and self.aim_triggered:
                 self._request_aim_resume_without_wait()
             self._drag_state = FireDragState.IDLE
             self._drag_pos = None

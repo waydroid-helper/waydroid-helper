@@ -51,7 +51,7 @@ class ModeController:
         self.restore_widget_opacity()
         self.notify(_("Edit Mode (F1: Switch Mode)"))
         self.window.set_title(f"{APP_TITLE} - Edit Mode (F1: Switch Mode)")
-        self.event_bus.emit(Event(EventType.EXIT_STARING, self.window, None))
+        self.event_bus.emit(Event(EventType.COMPONENT_CANCEL_TRIGGER_STATE, self.window, None))
 
     def toggle(self, current_mode: str) -> str:
         return self.MAPPING_MODE if current_mode == self.EDIT_MODE else self.EDIT_MODE

@@ -178,6 +178,11 @@ class DirectionalPad(BaseWidget):
         self.swipehold_radius_factor = 1
 
         self.event_bus.subscribe(EventType.SWIPEHOLD_RADIUS, self.on_swipehold_radius_changed, subscriber=self)
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
     
     def on_swipehold_radius_changed(self, event: Event[float]):
         """滑动半径系数设置"""
@@ -208,6 +213,20 @@ class DirectionalPad(BaseWidget):
         if self._movement_task and not self._movement_task.done():
             self._movement_task.cancel()
             self._movement_task = None
+
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Release the joystick immediately when Android text input takes focus."""
+        if not self._joystick_active and not any(self.pressed_directions.values()):
+            return
+
+        self.pressed_directions = {direction: False for direction in self.DIRECTIONS}
+        self._joystick_active = False
+        self._cancel_movement_task()
+        self._emit_touch_event(AMotionEventAction.UP)
+        self.pointer_id_manager.release(self)
+        self._current_position = self.center
+        self._target_position = self.center
+        self.queue_draw()
 
     async def _get_movement_state(self) -> MovementState:
         """获取当前移动状态"""

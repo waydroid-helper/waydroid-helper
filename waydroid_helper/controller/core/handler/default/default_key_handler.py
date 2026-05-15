@@ -50,7 +50,8 @@ class KeyboardDefault(KeyboardBase):
     special_keys: dict[str, AKeyCode] = {
         "Return": AKeyCode.AKEYCODE_ENTER,
         "KP_Enter": AKeyCode.AKEYCODE_NUMPAD_ENTER,
-        "Escape": AKeyCode.AKEYCODE_ESCAPE,
+        # "Escape": AKeyCode.AKEYCODE_ESCAPE,
+        "Escape": AKeyCode.AKEYCODE_BACK,
         "BackSpace": AKeyCode.AKEYCODE_DEL,
         "Delete": AKeyCode.AKEYCODE_FORWARD_DEL,
         "Tab": AKeyCode.AKEYCODE_TAB,

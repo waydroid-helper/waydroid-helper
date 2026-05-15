@@ -132,6 +132,11 @@ class Aim(BaseWidget):
             self._handle_aim_resume_request,
             subscriber=self,
         )
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
     def setup_config(self) -> None:
         """设置配置项"""
@@ -591,6 +596,56 @@ class Aim(BaseWidget):
             return
 
         self._aim_task = asyncio.create_task(self._resume_aim_for_request(request))
+
+    def _handle_component_cancel_trigger_state(self, event: Event[Any]) -> None:
+        """Force Aim back to idle when key mappings are paused externally."""
+        transition_running = self._aim_task is not None and not self._aim_task.done()
+        pointer_allocated = self.pointer_id_manager.get_allocated_id(self) is not None
+        if (
+            self._state == AimState.IDLE
+            and self._current_pos is None
+            and not transition_running
+            and not pointer_allocated
+        ):
+            return
+
+        if transition_running:
+            self._aim_task.cancel()
+
+        self._aim_task = asyncio.create_task(self._force_cancel_trigger_state())
+
+    async def _force_cancel_trigger_state(self) -> None:
+        """Cancel every Aim-owned side effect, even if state was mid-transition.
+
+        A normal key release is intentionally a no-op for reentrant Aim, so the
+        input-state gate needs a stronger path. This method clears the logical
+        state, releases the relative pointer owner, and sends an Android touch
+        UP whenever Aim still owns a pointer id.
+        """
+        try:
+            current_state = await self._get_state()
+            pointer_allocated = self.pointer_id_manager.get_allocated_id(self) is not None
+            if (
+                current_state == AimState.IDLE
+                and self._current_pos is None
+                and not pointer_allocated
+            ):
+                return
+
+            await self._set_state(AimState.IDLE)
+            await self._stop_motion_processor()
+            self._unlock_pointer_for_aiming()
+
+            if self._current_pos is not None or pointer_allocated:
+                w, h = self.screen_geometry.get_host_resolution()
+                await self._send_touch_up(w, h)
+                self._current_pos = None
+
+            self.event_bus.emit(Event(type=EventType.AIM_RELEASED, source=self, data=None))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Failed to force-cancel Aim trigger state")
 
     async def _enter_aiming_state(self) -> None:
         """异步进入瞄准状态"""

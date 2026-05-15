@@ -5,6 +5,7 @@
 from .constants import *
 from .control_msg import *
 from .event_bus import Event, EventType, EventBus
+from .input_state import AndroidInputState
 from .handler.event_handlers import (
     InputEventHandler,
     InputEventHandlerChain,
@@ -29,6 +30,7 @@ __all__ = [
     "EventBus",
     "Event",
     "EventType",
+    "AndroidInputState",
     # 输入事件处理
     "InputEventHandler",
     "InputEventHandlerChain",

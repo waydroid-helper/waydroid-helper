@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
@@ -14,10 +16,15 @@ from waydroid_helper.controller.core.handler.event_handlers import (
 from waydroid_helper.controller.core.handler.mapping.key_mapping_event_handler import (
     KeyMappingEventHandler,
 )
+from waydroid_helper.controller.core.handler.mapping.key_mapping_input_gate import (
+    KeyMappingInputStateGate,
+)
 from waydroid_helper.controller.core.handler.mapping.key_mapping_manager import (
     KeyMappingManager,
 )
+from waydroid_helper.controller.core.input_state import AndroidInputState
 from waydroid_helper.controller.core.key_system import Key, KeyCombination, KeyType
+from waydroid_helper.controller.widgets.components.aim import Aim, AimState
 
 
 KEY_A = Key("A", 65, KeyType.CHARACTER)
@@ -67,6 +74,23 @@ class SpyDefaultHandler(InputEventHandler):
     def handle_event(self, event: InputEvent) -> bool:
         self.events.append(event)
         return True
+
+
+class FakeTask:
+    def __init__(self, done: bool = False):
+        self._done = done
+        self.cancelled = False
+
+    def done(self) -> bool:
+        return self._done
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+
+class NoPointerManager:
+    def get_allocated_id(self, widget):
+        return None
 
 
 @pytest.fixture
@@ -234,3 +258,88 @@ def test_macro_mapping_events_are_scoped_to_their_event_bus_instance():
     finally:
         bus_a.clear()
         bus_b.clear()
+
+
+def test_android_input_gate_releases_mappings_and_cancels_component_state(
+    event_bus, manager
+):
+    target = MappingTarget()
+    manager.subscribe(target, combo(KEY_A))
+    key_mapping_handler = KeyMappingEventHandler(manager)
+    gate = KeyMappingInputStateGate(event_bus, key_mapping_handler, manager)
+    cancel_events: list[InputEvent] = []
+    event_bus.subscribe(
+        EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+        lambda event: cancel_events.append(event.data),
+    )
+
+    manager.handle_key_press(key_event(InputEventType.KEY_PRESS, KEY_A))
+    event_bus.emit(
+        Event(
+            EventType.ANDROID_INPUT_STATE_CHANGED,
+            object(),
+            AndroidInputState(is_input_active=True, reason="test"),
+        )
+    )
+
+    assert gate.is_input_active is True
+    assert key_mapping_handler.enabled is False
+    assert len(target.released) == 1
+    assert target.released[0][1].source == InputEventSource.ANDROID_ACCESSIBILITY
+    assert len(cancel_events) == 1
+    assert cancel_events[0].source == InputEventSource.ANDROID_ACCESSIBILITY
+
+
+def test_android_input_gate_pauses_only_mapping_handler(event_bus, manager):
+    target = MappingTarget()
+    manager.subscribe(target, combo(KEY_A))
+    key_mapping_handler = KeyMappingEventHandler(manager)
+    default_handler = SpyDefaultHandler()
+    chain = InputEventHandlerChain()
+    chain.add_handler(key_mapping_handler)
+    chain.add_handler(default_handler)
+    KeyMappingInputStateGate(event_bus, key_mapping_handler, manager)
+
+    event_bus.emit(Event(EventType.ANDROID_INPUT_STATE_CHANGED, object(), True))
+    press_a = key_event(InputEventType.KEY_PRESS, KEY_A)
+
+    assert chain.process_event(press_a) is True
+    assert target.triggered == []
+    assert default_handler.events == [press_a]
+
+    event_bus.emit(Event(EventType.ANDROID_INPUT_STATE_CHANGED, object(), False))
+    press_a_after_resume = key_event(InputEventType.KEY_PRESS, KEY_A)
+
+    assert chain.process_event(press_a_after_resume) is True
+    assert target.triggered == [(combo(KEY_A), press_a_after_resume)]
+
+
+def test_aim_cancels_reentrant_state_when_component_cancel_event_arrives(monkeypatch):
+    aim = Aim.__new__(Aim)
+    aim._state = AimState.AIMING
+    aim._current_pos = None
+    aim.pointer_id_manager = NoPointerManager()
+    running_task = FakeTask()
+    created_task = FakeTask()
+    aim._aim_task = running_task
+
+    def fake_create_task(coro):
+        coro.close()
+        return created_task
+
+    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+
+    Aim._handle_component_cancel_trigger_state(
+        aim,
+        Event(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            object(),
+            InputEvent(
+                event_type=InputEventType.KEY_RELEASE,
+                source=InputEventSource.ANDROID_ACCESSIBILITY,
+            ),
+        ),
+    )
+
+    assert running_task.cancelled is True
+    assert aim._aim_task is created_task

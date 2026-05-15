@@ -46,6 +46,7 @@ class InputEventSource(str, Enum):
     UNKNOWN = "unknown"
     GTK = "gtk"
     MACRO = "macro"
+    ANDROID_ACCESSIBILITY = "android_accessibility"
 
 
 class InputModifierState(IntFlag):

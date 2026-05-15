@@ -98,6 +98,11 @@ class SingleClick(BaseWidget):
             pointer_id_manager=pointer_id_manager,
             key_registry=key_registry,
         )
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -352,6 +357,26 @@ class SingleClick(BaseWidget):
         # 释放 pointer_id
         self.pointer_id_manager.release(self)
         return True
+
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Release a held click if text input pauses mapping mid-press."""
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
+        if pointer_id is None:
+            return
+
+        x, y = self.center_x, self.center_y
+        w, h = self.screen_geometry.get_host_resolution()
+        msg = InjectTouchEventMsg(
+            action=AMotionEventAction.UP,
+            pointer_id=pointer_id,
+            position=(int(x), int(y), w, h),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(w, h),
+            pressure=0.0,
+            action_button=AMotionEventButtons.PRIMARY,
+            buttons=0,
+        )
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.pointer_id_manager.release(self)
 
     def get_editable_regions(self) -> list["EditableRegion"]:
         return [

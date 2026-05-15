@@ -28,6 +28,8 @@ class EventType(str, Enum):
 
     # ControlMsg
     CONTROL_MSG = "control-msg"  # 控制消息
+    ANDROID_INPUT_STATE_CHANGED = "android-input-state-changed"
+    COMPONENT_CANCEL_TRIGGER_STATE = "component-cancel-trigger-state"
 
     # 宏命令事件
     MACRO_KEY_PRESSED = "macro-key-pressed"  # 宏命令按键按下

@@ -329,6 +329,26 @@ class KeyMappingManager:
                 del self._triggered_mappings[mapping_key]
         return released_any
 
+    def release_all_triggered_mappings(
+        self, event: InputEvent | None = None
+    ) -> bool:
+        """Release every active mapping before Android text input owns keys.
+
+        Disabling the key-mapping handler alone is not enough: a mapping may
+        already be in a pressed/casting state when an Android editor gains
+        focus. Draining active mappings here keeps keymapping state coherent
+        while still letting the default handler continue to inject normal text.
+        """
+        released_any = False
+        for mapping_key in list(self._triggered_mappings.keys()):
+            if mapping_key in self._key_subscriptions:
+                for subscription in self._key_subscriptions[mapping_key]:
+                    if subscription.release_callback(mapping_key, event):
+                        released_any = True
+            del self._triggered_mappings[mapping_key]
+        self._pressed_keys.clear()
+        return released_any
+
     def print_mappings(self):
         """Print current key mappings (for debugging)"""
 

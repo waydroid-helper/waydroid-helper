@@ -195,6 +195,11 @@ class SkillCasting(BaseWidget):
         # 订阅事件总线
         self.event_bus.subscribe(EventType.MOUSE_MOTION, self._on_mouse_motion, subscriber=self)
         self.event_bus.subscribe(EventType.CANCEL_CASTING, self._on_cancel_casting, subscriber=self)
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._on_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
         # # 测试：监听取消按钮销毁事件
         # event_bus.subscribe(
@@ -279,6 +284,16 @@ class SkillCasting(BaseWidget):
             self._event_queue.put_nowait(skill_event)
         except asyncio.QueueFull:
             logger.warning("SkillCasting event queue is full; dropping cancel event")
+
+    def _on_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Release any active skill touch before key mappings are paused."""
+        pointer_allocated = self.pointer_id_manager.get_allocated_id(self) is not None
+        if self._skill_state == SkillState.INACTIVE and not pointer_allocated:
+            return
+
+        if self._current_task and not self._current_task.done():
+            self._current_task.cancel()
+        asyncio.create_task(self._release_skill())
 
     async def _handle_key_press(self, event: SkillEvent):
         """异步处理按键按下事件"""

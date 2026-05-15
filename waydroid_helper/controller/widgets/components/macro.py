@@ -742,6 +742,11 @@ class Macro(BaseWidget):
         self._cursor_position: tuple[int, int] = (0, 0)
 
         self.event_bus.subscribe(EventType.MACRO_RELEASE_ALL, self.trigger_release_all)
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self.trigger_release_all,
+            subscriber=self,
+        )
 
     def get_cursor_position(self) -> tuple[int, int]:
         return self._cursor_position

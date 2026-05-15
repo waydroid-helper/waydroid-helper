@@ -119,6 +119,11 @@ class RepeatedClick(BaseWidget):
         self._click_task: asyncio.Task[None] | None = None
         self._click_count = 0
         self._is_clicking = False
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -418,6 +423,31 @@ class RepeatedClick(BaseWidget):
         if pointer_id is None:
             return None
         return pointer_id
+
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Cancel pending repeated-click work before key mapping pauses."""
+        self._is_clicking = False
+        if self._click_task and not self._click_task.done():
+            self._click_task.cancel()
+        self._send_touch_up_if_allocated()
+
+    def _send_touch_up_if_allocated(self) -> None:
+        pointer_id = self.pointer_id_manager.get_allocated_id(self)
+        if pointer_id is None:
+            return
+
+        w, h = self.screen_geometry.get_host_resolution()
+        msg = InjectTouchEventMsg(
+            action=AMotionEventAction.UP,
+            pointer_id=pointer_id,
+            position=(int(self.center_x), int(self.center_y), w, h),
+            device_resolution=self.screen_geometry.get_device_resolution_for_client(w, h),
+            pressure=0.0,
+            action_button=AMotionEventButtons.PRIMARY,
+            buttons=0,
+        )
+        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
+        self.pointer_id_manager.release(self)
 
     def on_key_triggered(
         self,

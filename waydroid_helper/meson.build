@@ -114,6 +114,7 @@ controller_android_sources = [
 
 controller_app_sources = [
     'controller/app/input_event_factory.py',
+    'controller/app/input_state_lifecycle.py',
     'controller/app/mode_controller.py',
     'controller/app/scrcpy_lifecycle.py',
     'controller/app/widget_layout_service.py',
@@ -137,6 +138,8 @@ controller_core_sources = [
     'controller/core/control_msg.py',
     'controller/core/event_bus.py',
     'controller/core/__init__.py',
+    'controller/core/input_state.py',
+    'controller/core/input_state_server.py',
     'controller/core/key_system.py',
     'controller/core/runtime.py',
     'controller/core/server.py',
@@ -159,6 +162,7 @@ controller_core_handler_default_sources = [
 controller_core_handler_mapping_sources = [
     'controller/core/handler/mapping/__init__.py',
     'controller/core/handler/mapping/key_mapping_event_handler.py',
+    'controller/core/handler/mapping/key_mapping_input_gate.py',
     'controller/core/handler/mapping/key_mapping_manager.py',
 ]
 

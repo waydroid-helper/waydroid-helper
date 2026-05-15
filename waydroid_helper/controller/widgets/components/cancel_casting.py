@@ -88,6 +88,11 @@ class CancelCasting(BaseWidget):
         from waydroid_helper.controller.widgets.components.skill_casting import SkillCasting
         SkillCasting.cancel_button_widget["widget"] = self
         SkillCasting.cancel_button_config.value = True
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
     def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
         """绘制圆形按钮的具体内容"""
@@ -322,6 +327,10 @@ class CancelCasting(BaseWidget):
     def on_key_released(self, key_combination=None, event=None):
         """按键释放时不做任何操作"""
         return True
+
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Release the temporary pointer id allocated while cancel-casting fires."""
+        self.pointer_id_manager.release(self)
 
     def get_editable_regions(self) -> list["EditableRegion"]:
         return [

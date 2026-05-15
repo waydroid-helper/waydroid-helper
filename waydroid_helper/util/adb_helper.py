@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import shlex
 
 from waydroid_helper.util.log import logger
 from waydroid_helper.util.subprocess_manager import SubprocessManager
@@ -33,7 +34,21 @@ class AdbHelper:
         """Connects to the ADB device using the configured serial."""
         logger.info(f"Connecting to ADB device: {self.serial}")
         try:
-            result = await self.sm.submit(f"adb disconnect {self.serial}; adb connect {self.serial}", shell=True).get()
+            state = await self.sm.submit(
+                f"adb -s {self.serial} get-state",
+                shell=False,
+            ).get()
+            if state["stdout"].strip().lower() == "device":
+                logger.info(f"ADB device already connected: {self.serial}")
+                return True
+        except Exception:
+            pass
+
+        try:
+            result = await self.sm.submit(
+                f"adb connect {self.serial}",
+                shell=False,
+            ).get()
             output = result["stdout"]
             if "connected" in output.lower() or "already connected" in output.lower():
                 logger.info(f"Successfully connected to {self.serial}")
@@ -81,23 +96,106 @@ class AdbHelper:
             return False
 
     async def reverse_tunnel(self, socket_name: str, port: int) -> bool:
-        logger.info("Setting up adb reverse tunnel")
+        remote_spec = f"localabstract:{socket_name}"
+        local_spec = f"tcp:{port}"
+        logger.info("Setting up adb reverse tunnel %s -> %s", remote_spec, local_spec)
         try:
-            await self.sm.submit(f"adb -s {self.serial} reverse --remove-all", shell=False).get()
-            await self.sm.submit(f"adb -s {self.serial} reverse localabstract:{socket_name} tcp:{port}", shell=False).get()
+            await self.remove_reverse_tunnel(remote_spec)
+            await self.sm.submit(
+                f"adb -s {self.serial} reverse {remote_spec} {local_spec}",
+                shell=False,
+            ).get(check=True)
             return True
         except Exception as e:
             logger.error(f"Failed to set up adb reverse tunnel: {e}")
             return False
 
-    async def remove_reverse_tunnel(self) -> bool:
-        logger.info("Removing adb reverse tunnel")
+    async def reverse_tcp_tunnel(
+        self,
+        device_port: int,
+        host_port: int | None = None,
+    ) -> bool:
+        remote_spec = f"tcp:{device_port}"
+        local_spec = f"tcp:{host_port if host_port is not None else device_port}"
+        logger.info("Setting up adb reverse tunnel %s -> %s", remote_spec, local_spec)
         try:
-            await self.sm.submit(f"adb -s {self.serial} reverse --remove-all", shell=False).get()
+            await self.remove_reverse_tunnel(remote_spec)
+            await self.sm.submit(
+                f"adb -s {self.serial} reverse {remote_spec} {local_spec}",
+                shell=False,
+            ).get(check=True)
             return True
         except Exception as e:
+            logger.error(f"Failed to set up adb reverse tcp tunnel: {e}")
+            return False
+
+    async def remove_reverse_tunnel(self, remote_spec: str | None = None) -> bool:
+        logger.info("Removing adb reverse tunnel %s", remote_spec or "--all")
+        try:
+            command = (
+                f"adb -s {self.serial} reverse --remove {remote_spec}"
+                if remote_spec
+                else f"adb -s {self.serial} reverse --remove-all"
+            )
+            await self.sm.submit(command, shell=False).get()
+            return True
+        except Exception as e:
+            if remote_spec and "not found" in str(e).lower():
+                logger.debug("ADB reverse tunnel %s was not present", remote_spec)
+                return True
             logger.error(f"Failed to remove adb reverse tunnel: {e}")
             return False
+
+    async def shell(self, command: str) -> bool:
+        try:
+            await self.sm.submit(f"adb -s {self.serial} shell {command}", shell=False).get()
+            return True
+        except Exception as e:
+            logger.error(f"ADB shell command failed ({command}): {e}")
+            return False
+
+    async def shell_output(self, command: str) -> str | None:
+        try:
+            result = await self.sm.submit(
+                f"adb -s {self.serial} shell {command}",
+                shell=False,
+            ).get()
+            return result["stdout"].strip()
+        except Exception as e:
+            logger.error(f"ADB shell command failed ({command}): {e}")
+            return None
+
+    async def install_apk(self, apk_path: str) -> bool:
+        logger.info("Installing APK: %s", apk_path)
+        try:
+            await self.sm.submit(
+                f"adb -s {self.serial} install -r {shlex.quote(apk_path)}",
+                shell=False,
+            ).get()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to install APK {apk_path}: {e}")
+            return False
+
+    async def enable_accessibility_service(self, component: str) -> bool:
+        current = await self.shell_output(
+            "settings get secure enabled_accessibility_services"
+        )
+        services = [
+            item
+            for item in (current or "").split(":")
+            if item and item.lower() != "null"
+        ]
+        if component not in services:
+            services.append(component)
+
+        enabled_services = ":".join(services)
+        return (
+            await self.shell(
+                f"settings put secure enabled_accessibility_services {enabled_services}"
+            )
+            and await self.shell("settings put secure accessibility_enabled 1")
+        )
 
     async def start_scrcpy_server(self, scid: str) -> bool:
         logger.info("Starting scrcpy-server on device")

@@ -83,6 +83,11 @@ class RightClickToWalk(BaseWidget):
         self.set_default_keys(default_keys)
  
         self.event_bus.subscribe(EventType.MOUSE_MOTION, lambda event: (self.on_key_triggered(None, event.data), None)[1])
+        self.event_bus.subscribe(
+            EventType.COMPONENT_CANCEL_TRIGGER_STATE,
+            self._handle_component_cancel_trigger_state,
+            subscriber=self,
+        )
 
         # 摇杆状态管理
         self._joystick_state: JoystickState = JoystickState.INACTIVE
@@ -495,6 +500,9 @@ class RightClickToWalk(BaseWidget):
         """重置摇杆状态"""
         self._joystick_state = JoystickState.INACTIVE
         self._current_position = (self.center_x, self.center_y)
+        self._target_position = self._current_position
+        self._key_is_currently_pressed = False
+        self._is_long_press = False
         
         # 清理定时器
         if self._move_timer:
@@ -507,6 +515,19 @@ class RightClickToWalk(BaseWidget):
         # 释放指针ID
         self.pointer_id_manager.release(self)
         
+    def _handle_component_cancel_trigger_state(self, event: Event[InputEvent]) -> None:
+        """Stop movement timers and release the touch held by this component."""
+        pointer_allocated = self.pointer_id_manager.get_allocated_id(self) is not None
+        if (
+            self._joystick_state == JoystickState.INACTIVE
+            and not pointer_allocated
+            and self._move_timer is None
+            and self._hold_timer is None
+        ):
+            return
+
+        self._finish_joystick_action()
+
 
     def _get_window_center(self) -> tuple[float, float]:
         """获取窗口中心坐标"""
