@@ -80,6 +80,16 @@ sudo dnf copr enable cuteneko/waydroid-helper
 sudo dnf install waydroid-helper
 ```
 
+#### Additional dependencies required for the Key Mapper
+
+The following packages are not included as dependencies in the DNF package but are required for the Key Mapper to work correctly on Fedora:
+
+- `vte291-gtk4`: GTK4-compatible VTE terminal widget (the package ships with a reference to `Vte 3.91` which requires this)
+- `python3-aiofiles` and `python3-httpx`: Python modules missing from DNF dependencies
+- `android-tools`: Provides ADB, required for the Key Mapper to communicate with Waydroid. Without this, the Key Mapper silently fails.
+
+> Tested on Fedora 43 x86_64, KDE Plasma, waydroid-helper 0.2.9
+
 ### Ubuntu
 
 ```
