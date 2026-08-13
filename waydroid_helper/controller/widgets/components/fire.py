@@ -575,9 +575,13 @@ class Fire(BaseWidget):
 
             aim_suspended = True
             if not self.aim_triggered:
+                # Aim was released during the handoff, so it already exited and
+                # will not accept a resume request. Ownership was still
+                # transferred to Fire, so treat the pointer as locked to make
+                # cleanup release ownership and restore the cursor.
                 await self._cleanup_drag_shot(
                     touch_down_sent=False,
-                    pointer_locked=False,
+                    pointer_locked=True,
                     aim_suspended=False,
                 )
                 await self._set_drag_state(FireDragState.IDLE)
