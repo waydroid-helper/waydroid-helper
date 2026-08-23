@@ -24,6 +24,11 @@ Waydroid Helper is a graphical user interface application written in Python usin
 
 ## Installation
 
+### OpenSUSE Build System (OpenSUSE, Fedora, Mageia, Debian, Ubuntu, Raspbian, Arch)
+[![build result](https://build.opensuse.org/projects/home:juzbun:NekoBox/packages/waydroid-helper/badge.svg?type=percent)](https://build.opensuse.org/package/show/home:juzbun:NekoBox/waydroid-helper)
+
+Visit [download page](https://software.opensuse.org/download/package?project=home:juzbun:NekoBox&package=waydroid-helper) for instructions
+
 ### Arch
 
 For Arch users, Waydroid Helper is available in the AUR:
