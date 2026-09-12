@@ -172,11 +172,6 @@ class AvailableVersionPage(NavigationPage):
     ):
         super().__init__(title=_("Available Versions"))
         self.extension_manager = extension_manager
-        ext_versions = sorted(
-            ext_versions,
-            key=lambda x: x["version"],
-            reverse=True,
-        )
         adw_preferences_group = Adw.PreferencesGroup.new()
         self.page = Adw.PreferencesPage.new()
         self.page.add(group=adw_preferences_group)
