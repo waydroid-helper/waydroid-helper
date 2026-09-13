@@ -73,3 +73,78 @@ def test_mapping_mode_f12_release_is_consumed_without_toggling_again():
 
     assert handled is True
     assert window.toggle_count == 0
+
+
+def test_on_window_mouse_event_passes_event_to_factory_in_mapping_mode():
+    captured = {}
+
+    class TrackingInputEventFactory:
+        def create_mouse_button_event(self, controller, event):
+            captured["controller"] = controller
+            captured["event"] = event
+            return object()
+
+    class FakeChain:
+        def process_event(self, event):
+            captured["processed_event"] = event
+            return True
+
+    window = FakeWindow()
+    window.current_mode = window.MAPPING_MODE
+    router = WindowInputRouter(
+        WindowInputRouterDependencies(
+            host=object(),
+            get_current_mode=lambda: window.current_mode,
+            switch_mode=lambda mode: True,
+            toggle_widget_transparency=window.toggle_all_widgets_transparency,
+            clear_selections=lambda: None,
+            show_widget_creation_menu=lambda x, y: None,
+            mode_controller=window.mode_controller,
+            input_event_factory=TrackingInputEventFactory(),
+            event_handler_chain=FakeChain(),
+            event_bus=object(),
+            workspace_manager=object(),
+        )
+    )
+
+    dummy_controller = object()
+    dummy_event = object()
+    result = router.on_window_mouse_event(dummy_controller, dummy_event)
+
+    assert result is True
+    assert captured["controller"] is dummy_controller
+    assert captured["event"] is dummy_event
+    assert captured["processed_event"] is not None
+
+
+def test_on_window_mouse_event_ignored_when_not_in_mapping_mode():
+    called = False
+
+    class TrackingInputEventFactory:
+        def create_mouse_button_event(self, controller, event):
+            nonlocal called
+            called = True
+            return object()
+
+    window = FakeWindow()
+    window.current_mode = window.EDIT_MODE
+    router = WindowInputRouter(
+        WindowInputRouterDependencies(
+            host=object(),
+            get_current_mode=lambda: window.current_mode,
+            switch_mode=lambda mode: True,
+            toggle_widget_transparency=window.toggle_all_widgets_transparency,
+            clear_selections=lambda: None,
+            show_widget_creation_menu=lambda x, y: None,
+            mode_controller=window.mode_controller,
+            input_event_factory=TrackingInputEventFactory(),
+            event_handler_chain=object(),
+            event_bus=object(),
+            workspace_manager=object(),
+        )
+    )
+
+    result = router.on_window_mouse_event(object(), object())
+    assert result is False
+    assert called is False
+

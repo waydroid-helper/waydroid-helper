@@ -102,7 +102,7 @@ class WindowInputRouter:
 
         input_event = self._dependencies.input_event_factory.create_mouse_button_event(
             controller,
-            controller.get_current_event(),
+            event,
         )
         if input_event is None:
             return False
