@@ -7,3 +7,4 @@ Type=Application
 Categories=Utility;Application;
 Comment=A GUI application for Waydroid configuration and extension installation
 StartupNotify=true
+StartupWMClass=com.jaoushingan.WaydroidHelper
