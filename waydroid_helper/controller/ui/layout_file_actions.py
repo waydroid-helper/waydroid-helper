@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import os
 from gettext import gettext as _
+from pathlib import Path
 from typing import Callable
 
 from gi.repository import GLib, Gtk
 
 from waydroid_helper.compat_widget.file_dialog import FileDialog
+from waydroid_helper.util.log import logger
 
 
 class LayoutFileActions:
@@ -51,6 +53,15 @@ class LayoutFileActions:
     ) -> None:
         if success and file_path:
             callback(file_path)
+
+    def saved_layouts(self) -> list[Path]:
+        try:
+            folder = Path(self._default_layouts_dir())
+            return sorted((p for p in folder.glob("*.json") if p.is_file()),
+                          key=lambda path: path.stem.casefold())
+        except OSError as error:
+            logger.warning("Cannot list saved layouts: %s", error)
+            return []
 
     def _json_filter(self) -> Gtk.FileFilter:
         json_filter = Gtk.FileFilter()

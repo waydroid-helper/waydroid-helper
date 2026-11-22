@@ -142,9 +142,16 @@ class WidgetLayoutService:
                 if widget is None:
                     continue
 
-                x = int(widget_data.get("x", 0) * scale_x)
-                y = int(widget_data.get("y", 0) * scale_y)
-                create_widget_at_position(widget, x, y)
+                x = widget_data.get("x", 0) * scale_x
+                y = widget_data.get("y", 0) * scale_y
+                if scale_x != 1 or scale_y != 1:
+                    # Taps act at the center of each control. Several control
+                    # types have a fixed diameter (others must stay square),
+                    # so scaling only the top-left corner shifts the target
+                    # when importing a layout recorded on another display.
+                    x += (widget_data.get("width", 100) * scale_x - widget.width) / 2
+                    y += (widget_data.get("height", 100) * scale_y - widget.height) / 2
+                create_widget_at_position(widget, round(x), round(y))
 
                 if "config" in widget_data:
                     widget.get_config_manager().deserialize(widget_data["config"])

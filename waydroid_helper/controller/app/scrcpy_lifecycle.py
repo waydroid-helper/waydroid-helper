@@ -22,18 +22,19 @@ class ScrcpyLifecycleService:
         server: Server,
         adb_helper: AdbHelper,
         screen_geometry: ScreenGeometry,
+        autostart: bool = True,
     ) -> None:
         self.server = server
         self.adb_helper = adb_helper
         self.screen_geometry = screen_geometry
-        self.setup_task: asyncio.Task[None] = asyncio.create_task(self.setup())
+        self.setup_task = asyncio.create_task(self.setup()) if autostart else None
 
-    async def setup(self) -> None:
+    async def setup(self) -> bool:
         """Push scrcpy-server and start it on the device, with retry logic."""
         await self.server.wait_started()
 
         if not self.server.server:
-            return
+            return False
 
         for attempt in range(MAX_RETRY_ATTEMPTS):
             try:
@@ -60,18 +61,21 @@ class ScrcpyLifecycleService:
                     await asyncio.sleep(RETRY_DELAY_SECONDS)
                     continue
 
-                return
+                return True
 
             except asyncio.CancelledError:
-                return
+                raise
             except Exception:
                 logger.exception("Failed to set up scrcpy on attempt %s", attempt + 1)
                 await asyncio.sleep(RETRY_DELAY_SECONDS)
+
+        return False
 
     async def close_server(self) -> None:
         await self.server.close()
 
     async def cleanup(self) -> None:
-        if not self.setup_task.done():
+        if self.setup_task and not self.setup_task.done():
             self.setup_task.cancel()
+            await asyncio.gather(self.setup_task, return_exceptions=True)
         await self.adb_helper.remove_reverse_tunnel()

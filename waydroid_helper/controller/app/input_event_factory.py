@@ -42,7 +42,9 @@ class GtkInputEventFactory:
     changing widget behavior or backend handlers.
     """
 
-    def __init__(self, widget: Gtk.Widget, key_registry: KeyRegistry):
+    def __init__(self, widget: Gtk.Widget, key_registry: KeyRegistry,
+                 surface_to_widget: bool = False):
+        self._surface_to_widget = surface_to_widget
         self._widget = widget
         self._key_registry = key_registry
 
@@ -126,6 +128,18 @@ class GtkInputEventFactory:
         ok, x, y = event.get_position()
         if not ok:
             return None
+
+        if self._surface_to_widget:
+            # Legacy events expose surface coordinates, unlike GTK gestures.
+            # Convert through the native widget so CSD shadows, the header and
+            # the viewport transform are all accounted for by GTK itself.
+            from gi.repository import Graphene
+            native = self._widget.get_native()
+            dx, dy = native.get_surface_transform()
+            ok, point = native.compute_point(self._widget, Graphene.Point().init(x - dx, y - dy))
+            if not ok:
+                return None
+            x, y = point.x, point.y
 
         action_button = self._android_button_from_source_button(button)
         buttons = self._android_buttons_from_gdk_state(event.get_modifier_state())

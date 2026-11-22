@@ -35,10 +35,6 @@ class WorkspaceHost(Protocol):
 
     def fixed_move(self, widget: Any, x: int, y: int) -> None: ...
 
-    def get_allocated_width(self) -> int: ...
-
-    def get_allocated_height(self) -> int: ...
-
     def set_cursor(self, cursor: Gdk.Cursor | None) -> None: ...
 
 
@@ -250,8 +246,8 @@ class WorkspaceManager:
         
         widget_bounds = capabilities.get_widget_bounds(self.dragging_widget)
         if widget_bounds:
-            window_width = self.host.get_allocated_width()
-            window_height = self.host.get_allocated_height()
+            window_width = self.fixed.get_allocated_width()
+            window_height = self.fixed.get_allocated_height()
             
             new_x = max(0, min(new_x, window_width - widget_bounds[2]))
             new_y = max(0, min(new_y, window_height - widget_bounds[3]))

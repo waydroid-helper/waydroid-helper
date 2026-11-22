@@ -54,6 +54,14 @@ waydroid_helper/controller/android/__init__.py
 waydroid_helper/controller/android/input.py
 waydroid_helper/controller/android/keycodes.py
 waydroid_helper/controller/app/window.py
+waydroid_helper/controller/app/embedded_session.py
+waydroid_helper/controller/app/emulator_viewport.py
+waydroid_helper/controller/app/emulator_display.py
+waydroid_helper/controller/app/emulator_tools.py
+waydroid_helper/controller/app/emulator_gamepad.py
+waydroid_helper/controller/app/input_recording.py
+waydroid_helper/controller/app/emulator_toolbar.py
+waydroid_helper/controller/app/emulator_window.py
 waydroid_helper/controller/app/workspace_manager.py
 waydroid_helper/controller/core/__init__.py
 waydroid_helper/controller/core/constants.py

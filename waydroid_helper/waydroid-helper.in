@@ -56,8 +56,25 @@ locale.textdomain('waydroid-helper')
 
 gettext.bindtextdomain('waydroid-helper', localedir)
 gettext.textdomain('waydroid-helper')
-def start_gui():
+def start_gui(emulator=False):
+    # Gio resolves schemas when the first Settings object is constructed.
+    # Prefer this installation's compiled schemas in a relocatable prefix.
+    datadir = os.path.dirname(pkgdatadir)
+    if os.path.isfile(os.path.join(datadir, 'glib-2.0', 'schemas', 'gschemas.compiled')):
+        dirs = os.environ.get('XDG_DATA_DIRS') or '/usr/local/share:/usr/share'
+        if datadir not in dirs.split(os.pathsep):
+            os.environ['XDG_DATA_DIRS'] = datadir + os.pathsep + dirs
     import gi
+
+    if @bundle_casilda@:
+        libdir = '@libdir@'
+        if BUILD_APPIMAGE == 'True':
+            libdir = os.path.join(appdir, libdir.lstrip('/'))
+        # In a non-system prefix GI needs both the typelib location and the
+        # directory containing the shared library referenced by that typelib.
+        repo = gi.Repository.get_default()
+        repo.prepend_search_path(os.path.join(libdir, 'girepository-1.0'))
+        repo.prepend_library_path(libdir)
 
     gi.require_version('Adw', '1')
     gi.require_version("Gtk", "4.0")
@@ -65,6 +82,17 @@ def start_gui():
     from gi.repository import Gio, Adw, Gtk, GLib
     resource = Gio.Resource.load(os.path.join(pkgdatadir, 'waydroid-helper.gresource'))
     resource._register()
+    if emulator:
+        # The management application can remain open. Use an ordinary append
+        # logger for this independent GUI process so opening/raising it does
+        # not truncate the shared helper log or create another log listener.
+        os.environ["WAYDROID_HELPER_EMULATOR"] = "1"
+        from gi.repository import Gdk
+        from waydroid_helper.controller.app.window import create_keymapper
+        from waydroid_helper.controller.app.embedded_session import compositor_type
+        compositor_type()
+        create_keymapper(Gdk.Display.get_default().get_name(), embedded=True)
+        return
     from waydroid_helper import main
     sys.exit(main.main(VERSION))
 
@@ -75,6 +103,7 @@ if __name__ == '__main__':
     multiprocessing.freeze_support()
 
     parser = ArgumentParser()
+    parser.add_argument("--emulator", action="store_true", help="Open the embedded Waydroid emulator")
     parser.add_argument("--start-mount", action="store_true", help="Start the mounting service")
     parser.add_argument("--start-monitor", action="store_true", help="Start the monitoring service")
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -95,5 +124,5 @@ if __name__ == '__main__':
         from waydroid_helper.tools import start_monitor, start_mount
         start_monitor()
     else:
-        start_gui()
+        start_gui(emulator=args.emulator)
 

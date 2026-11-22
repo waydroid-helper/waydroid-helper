@@ -145,9 +145,10 @@ class CircleOverlay(Gtk.DrawingArea):
             cr.fill()
 
 
-class TransparentWindow(Adw.Window):
-    """Transparent controller window."""
+class MappingWindow(Adw.Window):
+    """Shared mapping workspace, controllers and Android input transport."""
 
+    embedded = False
     EDIT_MODE = ModeController.EDIT_MODE
     MAPPING_MODE = ModeController.MAPPING_MODE
 
@@ -173,18 +174,21 @@ class TransparentWindow(Adw.Window):
         self.set_title(APP_TITLE)
 
         overlay = Gtk.Overlay.new()
-        self.set_content(overlay)
+        self.canvas = overlay
+        self.input_surface = overlay if self.embedded else self
 
         self.fixed = Gtk.Fixed.new()
         self.fixed.set_name("mapping-widget")
-        overlay.set_child(self.fixed)
+        self.build_canvas(overlay)
 
         self.event_bus = EventBus()
         self.screen_geometry = ScreenGeometry()
         self.pointer_id_manager = PointerIdManager()
         self.pointer_input_ownership = PointerInputOwnership()
         self.key_registry = KeyRegistry(GdkKeySymbolResolver())
-        self.input_event_factory = GtkInputEventFactory(self, self.key_registry)
+        self.input_event_factory = GtkInputEventFactory(
+            self.input_surface, self.key_registry, surface_to_widget=self.embedded
+        )
         self.key_mapping_manager = KeyMappingManager(self.event_bus)
         self.config = RootConfig()
         # Handlers receive an immutable snapshot so controller input processing
@@ -220,6 +224,7 @@ class TransparentWindow(Adw.Window):
             self,
             self.layout_service,
             self.layout_file_actions,
+            self.canvas,
         )
 
         self.circle_overlay = CircleOverlay()
@@ -229,6 +234,8 @@ class TransparentWindow(Adw.Window):
         self.settings_popover_presenter = WidgetSettingsPopoverPresenter(
             self,
             self.event_bus,
+            self.canvas,
+            self.input_surface,
         )
         self.event_bus.subscribe(
             EventType.SETTINGS_WIDGET,
@@ -250,11 +257,12 @@ class TransparentWindow(Adw.Window):
         self.event_handler_chain.add_handler(self.key_mapping_handler)
         self.event_handler_chain.add_handler(self.default_handler)
 
-        self.server = Server("0.0.0.0", 10721, self.event_bus)
+        self.server = Server("127.0.0.1", 0, self.event_bus)
         self.scrcpy_lifecycle = ScrcpyLifecycleService(
             self.server,
             AdbHelper(),
             self.screen_geometry,
+            autostart=not self.embedded,
         )
 
         self.mode_controller = ModeController(
@@ -270,7 +278,7 @@ class TransparentWindow(Adw.Window):
         self.setup_window()
         self.input_router = WindowInputRouter(
             WindowInputRouterDependencies(
-                host=self,
+                host=self.input_surface,
                 get_current_mode=lambda: self.current_mode,
                 switch_mode=self.switch_mode,
                 toggle_widget_transparency=self.toggle_all_widgets_transparency,
@@ -284,7 +292,14 @@ class TransparentWindow(Adw.Window):
             )
         )
         self.input_router.install()
-        GLib.idle_add(self.show_notification, _("Edit Mode (F1: Switch Mode)"))
+        if not self.embedded:
+            GLib.idle_add(self.show_notification, _("Edit Mode (F1: Switch Mode)"))
+
+    def build_canvas(self, overlay: Gtk.Overlay) -> None:
+        raise NotImplementedError
+
+    def setup_window(self) -> None:
+        raise NotImplementedError
 
     def _show_widget_creation_menu(self, x: float, y: float) -> None:
         self.menu_manager.show_widget_creation_menu(x, y, self.widget_factory)
@@ -314,38 +329,27 @@ class TransparentWindow(Adw.Window):
         self.settings_popover_presenter.show(event.source, event.data)
 
     def _on_close_request(self, window):
-        async def close():
-            await self.close_server()
-            await self.cleanup_scrcpy()
+        self.request_shutdown()
+        return True
 
-        asyncio.create_task(close())
-        return False
+    def request_shutdown(self):
+        if not self._is_closing:
+            self._is_closing = True
+            asyncio.create_task(self._shutdown())
+
+    async def _shutdown(self):
+        try:
+            self.on_clear_widgets(None)
+            await self.cleanup_scrcpy()
+            await self.close_server()
+        finally:
+            self.destroy()
 
     async def close_server(self) -> None:
         await self.scrcpy_lifecycle.close_server()
 
     async def cleanup_scrcpy(self) -> None:
         await self.scrcpy_lifecycle.cleanup()
-
-    def setup_window(self) -> None:
-        self.realize()
-        self.set_decorated(False)
-        self.maximize()
-        self.set_name("transparent-window")
-
-    def do_size_allocate(self, width: int, height: int, baseline: int):
-        Adw.Window().do_size_allocate(self, width, height, baseline)
-        host_width, host_height = self.screen_geometry.get_host_resolution()
-        if self.is_maximized() and host_width == 0 and host_height == 0:
-            width = self.get_allocated_width()
-            height = self.get_allocated_height()
-
-            self.set_default_size(width, height)
-            self.set_size_request(width, height)
-            self.screen_geometry.set_host_resolution(width, height)
-            self.fixed.set_size_request(width, height)
-            self.set_resizable(False)
-            logger.info("Window maximized: %s x %s", width, height)
 
     def fixed_put(self, widget, x, y) -> None:
         self.fixed.put(widget, x, y)
@@ -378,6 +382,8 @@ class TransparentWindow(Adw.Window):
     def create_widget_at_position(self, widget: "BaseWidget", x: int, y: int) -> None:
         self.fixed_put(widget, x, y)
         self.widget_mapping_registrar.register_widget(widget)
+        if self.current_mode == self.MAPPING_MODE:
+            widget.set_mapping_mode(True)
         self.widget_transparency_controller.apply_to_widget(widget)
 
     def on_clear_widgets(self, button: Gtk.Button | None) -> None:
@@ -471,40 +477,70 @@ class TransparentWindow(Adw.Window):
         return self._key_mapping_width, self._key_mapping_height
 
 
+class TransparentWindow(MappingWindow):
+    """Legacy maximized overlay for an independently displayed Android surface."""
+
+    def build_canvas(self, overlay):
+        overlay.set_child(self.fixed)
+
+    def setup_window(self) -> None:
+        self.set_content(self.canvas)
+        self.realize()
+        self.set_decorated(False)
+        self.maximize()
+        self.set_name("transparent-window")
+
+    def do_size_allocate(self, width: int, height: int, baseline: int):
+        Adw.Window.do_size_allocate(self, width, height, baseline)
+        host_width, host_height = self.screen_geometry.get_host_resolution()
+        if self.is_maximized() and host_width == 0 and host_height == 0:
+            width = self.get_allocated_width()
+            height = self.get_allocated_height()
+
+            self.set_default_size(width, height)
+            self.set_size_request(width, height)
+            self.screen_geometry.set_host_resolution(width, height)
+            self.fixed.set_size_request(width, height)
+            self.set_resizable(False)
+            logger.info("Window maximized: %s x %s", width, height)
+
+
 class KeyMapper(Adw.Application):
-    def __init__(self, display_name: str):
+    def __init__(self, display_name: str, embedded: bool = False):
         sanitized_display = (
             display_name.replace(":", "_").replace("/", "_").replace("-", "_")
         )
         super().__init__(
             application_id=(
                 "com.jaoushingan.WaydroidHelper.KeyMapper."
-                f"{sanitized_display}"
+                f"{sanitized_display}" + (".Emulator" if embedded else "")
             )
         )
+        self.embedded = embedded
         self.display_name = display_name
         self.window = None
 
     def do_activate(self):
-        self.window = TransparentWindow(self, self.display_name)
+        if self.window:
+            self.window.present()
+            return
+        window_type = TransparentWindow
+        if self.embedded:
+            from waydroid_helper.controller.app.emulator_window import EmulatorWindow
+            window_type = EmulatorWindow
+        self.window = window_type(self, self.display_name)
         self.window.present()
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, self.on_sigterm)
 
-    async def _do_shutdown(self) -> None:
-        if self.window:
-            self.window.on_clear_widgets(None)
-            await self.window.close_server()
-            await self.window.cleanup_scrcpy()
-        self.quit()
-
     def on_sigterm(self):
-        asyncio.create_task(self._do_shutdown())
-        return True
+        if self.window:
+            self.window.request_shutdown()
+        return GLib.SOURCE_REMOVE
 
 
-def create_keymapper(display_name: str):
+def create_keymapper(display_name: str, embedded: bool = False):
     asyncio.set_event_loop_policy(
         GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
     )
-    app = KeyMapper(display_name)
-    app.run()
+    app = KeyMapper(display_name, embedded)
+    app.run([])

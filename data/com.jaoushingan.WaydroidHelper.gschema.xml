@@ -18,6 +18,11 @@
       <summary>Whether the legacy key mapping window configuration was migrated</summary>
       <description>Used internally to migrate the old JSON-backed key mapping preferences to GSettings only once.</description>
     </key>
+    <key name="emulator-display-mode" type="(iii)"><default>(0, 0, 0)</default></key>
+    <key name="emulator-lock-size" type="b"><default>false</default></key>
+    <key name="emulator-remember-size" type="b"><default>true</default></key>
+    <key name="emulator-window-width" type="i"><default>0</default></key>
+    <key name="emulator-confirm-close" type="b"><default>true</default></key>
     <key name="cage-enabled" type="b">
       <default>false</default>
     </key>

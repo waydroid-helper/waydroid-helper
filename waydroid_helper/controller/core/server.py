@@ -19,34 +19,63 @@ class Server:
         self.server: asyncio.Server | None = None
         self.writers: list[asyncio.StreamWriter] = []
         self.started_event = asyncio.Event()
+        self.connected_event = asyncio.Event()
+        self.disconnected_event = asyncio.Event()
         self.server_task: asyncio.Task[None] = asyncio.create_task(self.start_server())
 
         Server._initialized = True
         logger.info(f"Server singleton initialized on {host}:{port}")
 
     async def handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        addr = writer.get_extra_info("peername")
-        logger.info(f"Connected to {addr!r}")
-        info = await reader.read(64)
-        logger.info(f"Connected to {info.decode()}")
-        self.writers.append(writer)
-
-        try:
-            while True:
-                message = await self.message_queue.get()
-                if not message:
-                    break
-                writer.write(message)
-        finally:
-            logger.info(f"Closing the connection to {addr!r}")
-            self.writers.remove(writer)
+        if self.writers:
             writer.close()
-            await writer.wait_closed()
+            return
+        self.writers.append(writer)
+        outgoing = None
+        incoming = None
+        try:
+            info = await asyncio.wait_for(reader.readexactly(64), 10)
+            logger.info("Connected to %s", info.rstrip(b"\0").decode(errors="replace"))
+            self.disconnected_event.clear()
+            self.connected_event.set()
+            # Even when the user is idle the peer can disappear (e.g. Android
+            # stops). Watching its read side prevents stale taps being queued
+            # and replayed on a later connection.
+            outgoing = asyncio.create_task(self._write_messages(writer))
+            incoming = asyncio.create_task(self._read_device_messages(reader))
+            done, _ = await asyncio.wait((incoming, outgoing), return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+        except (ConnectionError, asyncio.IncompleteReadError, TimeoutError) as error:
+            logger.info("Control socket closed: %s", error)
+        finally:
+            self.connected_event.clear()
+            self.disconnected_event.set()
+            tasks = [task for task in (incoming, outgoing) if task is not None]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            while not self.message_queue.empty():
+                self.message_queue.get_nowait()
+            writer.close()
+            self.writers.remove(writer)
+
+    async def _write_messages(self, writer):
+        while (message := await self.message_queue.get()) is not None:
+            writer.write(message)
+            await writer.drain()
+
+    async def _read_device_messages(self, reader):
+        # This controller uses only host-to-device messages. Drain unsolicited
+        # clipboard updates until EOF so the peer's write buffer cannot fill.
+        while await reader.read(4096):
+            pass
 
     async def start_server(self):
         try:
             self.server = await asyncio.start_server(self.handler, self.host, self.port)
 
+            self.port = self.server.sockets[0].getsockname()[1]
             addrs = ", ".join(str(sock.getsockname()) for sock in self.server.sockets)
             logger.info(f"Serving on {addrs}")
             self.started_event.set()
@@ -61,21 +90,13 @@ class Server:
         await self.started_event.wait()
 
     async def close(self):
-        if not self.server:
-            return
-
-        self.server.close_clients()
-        self.server.close()
-        await self.server.wait_closed()
-
-        # Wake up handlers to exit
-        await self.message_queue.put(None)
-
-        # Close all client connections
-        for writer in self.writers:
-            if not writer.is_closing():
+        await self.wait_started()
+        if self.server:
+            self.server.close()
+            for writer in tuple(self.writers):
+                self.message_queue.put_nowait(None)
                 writer.close()
-                await writer.wait_closed()
+            await self.server.wait_closed()
 
         if not self.server_task.done():
             self.server_task.cancel()
@@ -103,6 +124,9 @@ class Server:
         # 只在需要时才调用 debug 日志（检查日志级别）
         if logger.isEnabledFor(10):  # DEBUG level = 10
             logger.debug("Send: %s", msg)
+
+        if not self.connected_event.is_set():
+            return
 
         # 优化后的 pack() 方法总是返回 bytes，无需检查 None
         packed_msg: bytes = msg.pack()

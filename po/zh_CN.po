@@ -1224,3 +1224,348 @@ msgstr "显示快捷键"
 msgctxt "shortcut window"
 msgid "Quit"
 msgstr "退出"
+
+msgid "The emulator window requires Casilda 1.0 and its GTK typelib."
+msgstr "模拟器窗口需要 Casilda 1.0 及其 GTK 类型库。"
+
+msgid "Another Waydroid session is running."
+msgstr "另一个 Waydroid 会话正在运行。"
+
+msgid "Waydroid exited during startup (status %s)."
+msgstr "Waydroid 在启动时退出（状态码 %s）。"
+
+msgid "Waydroid Emulator"
+msgstr "Waydroid 模拟器"
+
+msgid "Play Android in a window with keyboard and mouse mapping"
+msgstr "在窗口中运行 Android，并使用键鼠映射"
+
+msgid "Open emulator"
+msgstr "打开模拟器"
+
+msgid "Opening the emulator will restart the current Waydroid session. Open Android apps will close."
+msgstr "打开模拟器将重启当前 Waydroid 会话，已打开的 Android 应用会关闭。"
+
+msgid "The active Waydroid session changed. Please try again."
+msgstr "当前 Waydroid 会话已更改，请重试。"
+
+msgid "Emulator process exited with status %s."
+msgstr "模拟器已退出，状态码为 %s。"
+
+msgid "Could not open the emulator"
+msgstr "无法打开模拟器"
+
+msgid "More"
+msgstr "更多"
+
+msgid "Android Home"
+msgstr "安卓主屏幕"
+
+msgid "Recent apps"
+msgstr "最近任务"
+
+msgid "Fullscreen"
+msgstr "全屏"
+
+msgid "Restore window size"
+msgstr "恢复默认大小"
+
+msgid "Android Back"
+msgstr "安卓返回"
+
+msgid "Volume"
+msgstr "音量"
+
+msgid "Volume up"
+msgstr "提高音量"
+
+msgid "Volume down"
+msgstr "降低音量"
+
+msgid "Mute"
+msgstr "静音"
+
+msgid "Key mapping"
+msgstr "键位映射"
+
+msgid "Finish editing"
+msgstr "完成编辑"
+
+msgid "Edit controls"
+msgstr "编辑键位"
+
+msgid "Show controls"
+msgstr "显示键位"
+
+msgid "Hide controls"
+msgstr "隐藏键位"
+
+msgid "Add control"
+msgstr "添加键位"
+
+msgid "Starting Waydroid…"
+msgstr "正在启动 Waydroid…"
+
+msgid "Drag to resize"
+msgstr "拖动以等比缩放"
+
+msgid "Connecting input controls…"
+msgstr "正在连接键鼠控制…"
+
+msgid "Could not connect the Android input controls over ADB."
+msgstr "无法通过 ADB 连接 Android 输入控制。"
+
+msgid "Timed out waiting for Waydroid."
+msgstr "等待 Waydroid 响应超时。"
+
+msgid "Android input is not connected."
+msgstr "Android 输入尚未连接。"
+
+msgid "Click to place %s · Esc to cancel"
+msgstr "点击放置%s，按 Esc 取消"
+
+msgid "Android input disconnected."
+msgstr "Android 输入连接已断开。"
+
+msgid "Exit fullscreen (F11)"
+msgstr "退出全屏 (F11)"
+
+msgid "Fullscreen (F11)"
+msgstr "全屏 (F11)"
+
+msgid "Open file…"
+msgstr "从文件打开…"
+
+msgid "Saved layouts"
+msgstr "已保存的方案"
+
+msgid "Separate mapping overlay"
+msgstr "独立按键映射浮层"
+
+msgid "Show controls over a separate Android window"
+msgstr "在单独的 Android 窗口上叠加键位"
+
+msgid "Tablet"
+msgstr "平板"
+
+msgid "Phone"
+msgstr "手机"
+
+msgid "Ultrawide"
+msgstr "超宽屏"
+
+msgid "Android display information is unavailable."
+msgstr "无法读取 Android 显示信息。"
+
+msgid "Android did not accept the selected display mode."
+msgstr "Android 未能应用所选显示模式。"
+
+msgid "Resolution"
+msgstr "分辨率"
+
+msgid "Could not save display settings."
+msgstr "无法保存显示设置。"
+
+msgid "Device settings"
+msgstr "设备设置"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "Custom"
+msgstr "自定义"
+
+msgid "Width"
+msgstr "宽度"
+
+msgid "Height"
+msgstr "高度"
+
+msgid "Fix window size"
+msgstr "固定窗口大小"
+
+msgid "Remember window size"
+msgstr "记住窗口大小"
+
+msgid "Apply display settings"
+msgstr "应用显示设置"
+
+msgid "Display settings saved. Restart Android to use the new output mode."
+msgstr "已保存显示设置。重启 Android 后，新分辨率和 DPI 将生效。"
+
+msgid "Double-click a control and press a gamepad button"
+msgstr "双击要绑定的控件，然后按下手柄按键"
+
+msgid "Connect a gamepad to bind its buttons"
+msgstr "连接手柄后即可绑定按键"
+
+msgid "Gamepad bindings require libmanette 0.2"
+msgstr "绑定手柄按键需要 libmanette 0.2"
+
+msgid "Gamepad mappings"
+msgstr "手柄映射"
+
+msgid "Android navigation"
+msgstr "安卓导航键"
+
+msgid "System window menu (Always on Top)"
+msgstr "系统窗口菜单（窗口置顶）"
+
+msgid "Mini mode"
+msgstr "迷你模式"
+
+msgid "Rotate screen"
+msgstr "旋转屏幕"
+
+msgid "Window management"
+msgstr "窗口管理"
+
+msgid "Start or stop input recording"
+msgstr "开始或停止录制操作"
+
+msgid "Play or stop recording"
+msgstr "回放或停止回放"
+
+msgid "Import recording"
+msgstr "导入操作方案"
+
+msgid "Export recording"
+msgstr "导出操作方案"
+
+msgid "Input recording"
+msgstr "操作录制"
+
+msgid "Virtual location"
+msgstr "虚拟定位"
+
+msgid "Screenshot"
+msgstr "截图"
+
+msgid "Start or stop screen recording"
+msgstr "开始或停止录屏"
+
+msgid "Install APK"
+msgstr "安装 APK"
+
+msgid "Shared folders"
+msgstr "共享文件夹"
+
+msgid "More tools"
+msgstr "更多工具"
+
+msgid "User guide"
+msgstr "使用指南"
+
+msgid "Device diagnostics"
+msgstr "问题诊断"
+
+msgid "Report an issue"
+msgstr "反馈问题"
+
+msgid "Help center"
+msgstr "帮助中心"
+
+msgid "Restart device"
+msgstr "重启设备"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Open computer shared folder"
+msgstr "打开电脑端共享文件夹"
+
+msgid "Open Android shared folder"
+msgstr "打开安卓端共享文件夹"
+
+msgid "Change shared folders"
+msgstr "更改共享文件夹"
+
+msgid "Open the title bar’s system menu to change window stacking."
+msgstr "请在标题栏的系统窗口菜单中设置窗口置顶。"
+
+msgid "Screenshot saved"
+msgstr "已保存截图"
+
+msgid "APK installed"
+msgstr "已安装 APK"
+
+msgid "Android returned an invalid screenshot."
+msgstr "Android 返回的截图无效。"
+
+msgid "Screen recording"
+msgstr "录屏"
+
+msgid "Recording started"
+msgstr "已开始录屏"
+
+msgid "Recording saved"
+msgstr "已保存录屏"
+
+msgid "Latitude"
+msgstr "纬度"
+
+msgid "Longitude"
+msgstr "经度"
+
+msgid "Set location"
+msgstr "设置位置"
+
+msgid "Clear virtual location"
+msgstr "清除虚拟位置"
+
+msgid "APK installation failed."
+msgstr "APK 安装失败。"
+
+msgid "Could not start screen recording."
+msgstr "无法开始录屏。"
+
+msgid "Choose a shared folder"
+msgstr "选择共享文件夹"
+
+msgid "Setting a location uses Android’s mock-location permission for this session."
+msgstr "设置位置会在本次会话中使用 Android 的模拟位置权限。"
+
+msgid "Recording failed."
+msgstr "录屏失败。"
+
+msgid "Android returned an empty recording."
+msgstr "Android 返回的录屏文件为空。"
+
+msgid "No shared folder configured."
+msgstr "尚未配置共享文件夹。"
+
+msgid "This folder is outside Android shared storage."
+msgstr "所选文件夹位于 Android 共享存储空间之外。"
+
+msgid "Later"
+msgstr "稍后"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Open Android apps will close."
+msgstr "已打开的 Android 应用将关闭。"
+
+msgid "Input recording stopped"
+msgstr "已停止录制操作"
+
+msgid "No recorded input"
+msgstr "暂无已录制的操作"
+
+msgid "Unknown recording format"
+msgstr "无法识别操作方案格式"
+
+msgid "Recording loaded"
+msgstr "已载入操作方案"
+
+msgid "Recording Android input"
+msgstr "正在录制 Android 操作"
+
+msgid "Invalid recording timestamp"
+msgstr "操作方案中的时间戳无效"
+
+msgid "Close Waydroid?"
+msgstr "确定要关闭 Waydroid 吗？"
+
+msgid "Do not ask again"
+msgstr "不再提示"

@@ -343,7 +343,7 @@ _log_listener = None
 # 检查是否在主进程中
 _is_main_process = multiprocessing.current_process().name == "MainProcess"
 
-if _is_main_process:
+if _is_main_process and os.environ.get("WAYDROID_HELPER_EMULATOR") != "1":
     # 主进程：使用队列处理器，通过监听器进程写入文件
     logger, _log_queue, _log_listener = setup_main_process_logging(
         os.environ.get('LOG_LEVEL', '')

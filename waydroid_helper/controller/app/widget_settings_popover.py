@@ -14,8 +14,10 @@ from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
 class WidgetSettingsPopoverPresenter:
     """Builds and tears down widget settings popovers."""
 
-    def __init__(self, window, event_bus: EventBus) -> None:
+    def __init__(self, window, event_bus: EventBus, canvas, input_surface) -> None:
         self.window = window
+        self.canvas = canvas
+        self.input_surface = input_surface
         self.event_bus = event_bus
 
     def show(self, widget, autohide: bool) -> None:
@@ -27,13 +29,13 @@ class WidgetSettingsPopoverPresenter:
         else:
             self._install_autohide_workaround(popover, widget)
 
-        popover.set_parent(self.window)
+        popover.set_parent(self.canvas)
         self._populate_content(popover, widget)
         self._point_to_settings_button(popover, widget)
         popover.popup()
 
     def _install_modal_mask(self, popover: Gtk.Popover, widget) -> None:
-        overlay = self.window.get_content()
+        overlay = self.canvas
         if not isinstance(overlay, Gtk.Overlay):
             return
 
@@ -80,7 +82,7 @@ class WidgetSettingsPopoverPresenter:
 
     def _disable_window_controllers(self):
         disabled_controllers = []
-        for controller in self.window.observe_controllers():
+        for controller in self.input_surface.observe_controllers():
             if isinstance(
                 controller,
                 (

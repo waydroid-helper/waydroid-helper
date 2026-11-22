@@ -125,7 +125,9 @@ def test_widget_layout_service_loads_scaled_macro_layout(tmp_path):
 
     assert count == 1
     assert cleared == [True]
-    assert created_positions[0][1:] == (10, 21)
+    # The factory kept a 30x40 control. Its center must coincide with
+    # the scaled center (30, 66) of the original 20x30 macro control.
+    assert created_positions[0][1:] == (15, 46)
     assert factory.created_kwargs[0][1]["width"] == 40
     assert factory.created_kwargs[0][1]["height"] == 90
     assert factory.created_widgets[0].config_manager.deserialized == {

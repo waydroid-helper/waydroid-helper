@@ -11,6 +11,8 @@ conf = configuration_data()
 conf.set('VERSION', meson.project_version())
 conf.set('localedir', get_option('prefix') / get_option('localedir'))
 conf.set('pkgdatadir', pkgdatadir)
+conf.set('bundle_casilda', get_option('bundle_casilda') ? 'True' : 'False')
+conf.set('libdir', get_option('prefix') / get_option('libdir'))
 conf.set('datadir', get_option('prefix') / get_option('datadir'))
 conf.set('bindir', get_option('prefix') / get_option('bindir'))
 conf.set('project_name',  meson.project_name())
@@ -114,6 +116,14 @@ controller_android_sources = [
 ]
 
 controller_app_sources = [
+    'controller/app/embedded_session.py',
+    'controller/app/emulator_viewport.py',
+    'controller/app/emulator_display.py',
+    'controller/app/emulator_toolbar.py',
+    'controller/app/emulator_tools.py',
+    'controller/app/emulator_gamepad.py',
+    'controller/app/input_recording.py',
+    'controller/app/emulator_window.py',
     'controller/app/input_event_factory.py',
     'controller/app/mode_controller.py',
     'controller/app/scrcpy_lifecycle.py',

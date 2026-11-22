@@ -367,6 +367,16 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
             self._wrapped_widget.queue_draw()
         return True
     
+    def capture_external_key(self, key, pressed):
+        if not self._capture_session.is_editing:
+            return False
+        if pressed:
+            self._capture_session.capture_key(self._wrapped_widget, key)
+        else:
+            self._capture_session.release_key(self._wrapped_widget, key)
+        self._wrapped_widget.queue_draw()
+        return True
+
     def finish_editing(self, apply_changes=True):
         """结束按键捕获"""
         result = self._capture_session.finish(self._wrapped_widget, apply_changes)

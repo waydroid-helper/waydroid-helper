@@ -8,6 +8,9 @@ i18n = import('i18n')
 gnome = import('gnome')
 pkgdatadir = get_option('prefix') / get_option('datadir') / meson.project_name()
 
+if get_option('bundle_casilda')
+  subproject('casilda')
+endif
 
 subdir('data')
 subdir('waydroid_helper')

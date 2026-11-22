@@ -94,6 +94,21 @@ sudo apt install waydroid-helper
 3. 安装软件包
 
 
+### 嵌入式模拟器窗口
+
+在实例详情的「按键映射器」区域选择「打开模拟器」，也可以运行 `waydroid-helper --emulator`。Android 画面和键位映射在同一窗口内显示。已有会话运行时，窗口会询问是否重启 Android。关闭模拟器也会结束该窗口启动的会话。
+
+标题栏的键盘按钮可以加载已有 JSON 方案、编辑或添加键位。选择一种键位后，点击游戏画面即可放置。F1 切换编辑和游玩，F12 在游玩时显示或隐藏键位。拖动窗口的任意边或角都可以调整大小，拖动过程中画面始终保持 Android 的宽高比。按 F11 切换全屏。打开「更多 → 设备设置 → 显示」，可以选择平板、手机或超宽屏预设，也可以自定义宽、高和 DPI。重启 Android 后生效。拖动窗口和 F11 全屏只会等比缩放画面和映射层，Android 分辨率与密度保持不变。
+
+[MuMu 菜单对照与全屏实测](docs/EMULATOR_MENUS_zh.md)
+
+嵌入显示使用 Casilda 及其 `Casilda-1.0` 类型库，输入控制使用 ADB。已有系统 Casilda 的环境可以直接使用。也可以使用 Meson 1.8 或更高版本、GTK 4.24 开发文件、wlroots 0.20 和 GObject Introspection 构建项目固定版本的 Casilda。
+
+```sh
+meson setup .build/embedded -Dbundle_casilda=true
+meson compile -C .build/embedded
+```
+
 ### 手动构建和安装
 
 对于手动安装，您需要安装依赖项并使用 Meson 构建项目。

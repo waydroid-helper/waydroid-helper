@@ -63,10 +63,12 @@ class ContextMenuManager:
         parent_window: ContextMenuHost,
         layout_service: WidgetLayoutOperations,
         file_actions: LayoutFileActions,
+        anchor=None,
     ):
         self.parent_window = parent_window
         self.layout_service = layout_service
         self.file_actions = file_actions
+        self.anchor = anchor or parent_window
         self._popover: "Gtk.Popover | None" = None
         self._main_box: "Gtk.Box | None" = None
         self._flow_box: "Gtk.FlowBox | None" = None
@@ -90,7 +92,7 @@ class ContextMenuManager:
 
     def _create_popover(self) -> None:
         self._popover = Gtk.Popover()
-        self._popover.set_parent(self.parent_window)
+        self._popover.set_parent(self.anchor)
         self._popover.set_has_arrow(False)
         self._popover.set_autohide(True)
 
@@ -204,8 +206,8 @@ class ContextMenuManager:
         tool_items = [
             (_("Refresh widgets"), lambda: self._refresh_widgets(widget_factory)),
             (_("Clear all"), self._clear_all_widgets),
-            (_("Save layout"), self._save_layout),
-            (_("Load layout"), lambda: self._load_layout(widget_factory)),
+            (_("Save layout"), self.save_layout),
+            (_("Load layout"), lambda: self.load_layout(widget_factory)),
         ]
 
         for label, callback in tool_items:
@@ -237,7 +239,7 @@ class ContextMenuManager:
     def _clear_all_widgets(self) -> None:
         self.parent_window.on_clear_widgets(None)
 
-    def _save_layout(self) -> None:
+    def save_layout(self) -> None:
         self.file_actions.save_layout(
             lambda path: self.layout_service.save_layout(
                 path,
@@ -245,12 +247,15 @@ class ContextMenuManager:
             )
         )
 
-    def _load_layout(self, widget_factory: WidgetFactoryView) -> None:
+    def load_layout(self, widget_factory: WidgetFactoryView) -> None:
         self.file_actions.load_layout(
-            lambda path: self.layout_service.load_layout(
-                path,
-                widget_factory,
-                lambda: self.parent_window.on_clear_widgets(None),
-                self.parent_window.create_widget_at_position,
-            )
+            lambda path: self.open_layout(path, widget_factory)
+        )
+
+    def open_layout(self, path: str, widget_factory: WidgetFactoryView) -> int:
+        return self.layout_service.load_layout(
+            path,
+            widget_factory,
+            lambda: self.parent_window.on_clear_widgets(None),
+            self.parent_window.create_widget_at_position,
         )

@@ -17,6 +17,9 @@ class WidgetDecoratorBehavior(ABC):
 class EditableWidgetBehavior(WidgetDecoratorBehavior):
     """Behavior contract for widgets that support key-capture editing."""
 
+    def capture_external_key(self, key, pressed: bool) -> bool:
+        return False
+
     @abstractmethod
     def should_keep_editing_on_click(self, x: float, y: float) -> bool:
         ...

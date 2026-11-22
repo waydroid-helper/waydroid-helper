@@ -7,6 +7,8 @@
 import dis
 from gettext import gettext as _
 import multiprocessing
+import sys
+from pathlib import Path
 from typing import cast
 import asyncio
 
@@ -19,6 +21,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GObject, Gtk
 
+from waydroid_helper.controller.app.embedded_session import compositor_type
 from waydroid_helper.controller.app.window import create_keymapper
 from waydroid_helper.infobar import InfoBar
 from waydroid_helper.shared_folder import SharedFoldersWidget
@@ -355,13 +358,22 @@ class InstanceDetailPage(NavigationPage):
         group = Adw.PreferencesGroup.new()
         group.set_title(_("Key Mapper"))
 
+        emulator = Adw.ActionRow(title=_("Waydroid Emulator"),
+                                 subtitle=_("Play Android in a window with keyboard and mouse mapping"))
+        open_emulator = Gtk.Button(label=_("Open emulator"), valign=Gtk.Align.CENTER)
+        open_emulator.add_css_class("suggested-action")
+        open_emulator.connect("clicked", lambda button: asyncio.create_task(self._open_emulator(button)))
+        emulator.add_suffix(open_emulator)
+        emulator.set_activatable_widget(open_emulator)
+        group.add(emulator)
+
         key_mapping_row = Adw.ActionRow.new()
-        key_mapping_row.set_title(_("Key Mapping Window"))
+        key_mapping_row.set_title(_("Separate mapping overlay"))
         key_mapping_row.set_subtitle(
-            _("Manage key mapping overlay window for game control")
+            _("Show controls over a separate Android window")
         )
 
-        button_box = Gtk.Box.new(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, valign=Gtk.Align.CENTER)
 
         self.key_mapping_settings_button = Gtk.Button.new()
         self.key_mapping_settings_button.add_css_class("flat")
@@ -376,8 +388,6 @@ class InstanceDetailPage(NavigationPage):
 
         self.key_mapping_toggle_button = Gtk.Button.new_with_label(_("Open"))
         self.key_mapping_toggle_button.set_sensitive(False)
-        self.key_mapping_toggle_button.add_css_class("suggested-action")
-        self.key_mapping_toggle_button.set_size_request(160, 40)  # 统一宽度
         self.key_mapping_toggle_button.connect(
             "clicked", self.on_key_mapping_toggle_clicked
         )
@@ -427,19 +437,16 @@ class InstanceDetailPage(NavigationPage):
         try:
             if self.keymapper_proc and self.keymapper_proc.is_alive():
                 self.key_mapping_toggle_button.set_label(_("Close"))
-                self.key_mapping_toggle_button.remove_css_class("suggested-action")
                 self.key_mapping_toggle_button.add_css_class("destructive-action")
                 self.key_mapping_toggle_button.set_sensitive(True)
             else:
                 self.key_mapping_toggle_button.set_label(_("Open"))
                 self.key_mapping_toggle_button.remove_css_class("destructive-action")
-                self.key_mapping_toggle_button.add_css_class("suggested-action")
                 self.key_mapping_toggle_button.set_sensitive(True)
         except Exception as e:
             logger.error(f"Update key mapping button status failed: {e}")
             self.key_mapping_toggle_button.set_label(_("Open"))
             self.key_mapping_toggle_button.remove_css_class("destructive-action")
-            self.key_mapping_toggle_button.add_css_class("suggested-action")
             self.key_mapping_toggle_button.set_sensitive(True)
 
     def on_key_mapping_toggle_clicked(self, button: Gtk.Button):
@@ -506,8 +513,28 @@ class InstanceDetailPage(NavigationPage):
             except Exception as e:
                 logger.error(f"Failed to stop Waydroid session: {e}")
 
+    async def _open_emulator(self, button):
+        button.set_sensitive(False)
+        try:
+            compositor_type()
+            # Use the installed entry point so the emulator has its own GTK
+            # application lifetime. A second activation raises its existing
+            # window and closing the management UI leaves Android running.
+            process = await asyncio.create_subprocess_exec(
+                sys.executable, str(Path(sys.argv[0]).resolve()), "--emulator"
+            )
+            button.set_sensitive(True)
+            if await process.wait():
+                raise RuntimeError(_("Emulator process exited with status %s.") % process.returncode)
+        except Exception as error:
+            logger.exception("Could not open the emulator")
+            dialog = MessageDialog(heading=_("Could not open the emulator"), body=str(error), parent=self.get_root())
+            dialog.add_response(Gtk.ResponseType.OK, _("OK"))
+            dialog.present()
+        finally:
+            button.set_sensitive(True)
+
     async def _show_cage_session_warning(self) -> bool:
-        """显示 cage 会话警告对话框"""
         future: asyncio.Future[bool] = asyncio.Future()
 
         def on_response(dialog, response):

@@ -27,15 +27,16 @@ SCRCPY_SERVER_PATH_ON_PC = _get_scrcpy_server_path()
 class AdbHelper:
     def __init__(self):
         self.sm = SubprocessManager()
+        self.tunnel = None
         self.serial = "192.168.240.112:5555"
 
     async def connect(self) -> bool:
         """Connects to the ADB device using the configured serial."""
         logger.info(f"Connecting to ADB device: {self.serial}")
         try:
-            result = await self.sm.submit(f"adb disconnect {self.serial}; adb connect {self.serial}", shell=True).get()
+            result = await self.sm.submit(f"adb connect {self.serial}", shell=False).get()
             output = result["stdout"]
-            if "connected" in output.lower() or "already connected" in output.lower():
+            if output.lower().startswith(("connected to ", "already connected to ")):
                 logger.info(f"Successfully connected to {self.serial}")
                 return True
             else:
@@ -83,8 +84,10 @@ class AdbHelper:
     async def reverse_tunnel(self, socket_name: str, port: int) -> bool:
         logger.info("Setting up adb reverse tunnel")
         try:
-            await self.sm.submit(f"adb -s {self.serial} reverse --remove-all", shell=False).get()
+            if self.tunnel:
+                await self.remove_reverse_tunnel()
             await self.sm.submit(f"adb -s {self.serial} reverse localabstract:{socket_name} tcp:{port}", shell=False).get()
+            self.tunnel = socket_name
             return True
         except Exception as e:
             logger.error(f"Failed to set up adb reverse tunnel: {e}")
@@ -93,7 +96,9 @@ class AdbHelper:
     async def remove_reverse_tunnel(self) -> bool:
         logger.info("Removing adb reverse tunnel")
         try:
-            await self.sm.submit(f"adb -s {self.serial} reverse --remove-all", shell=False).get()
+            if self.tunnel:
+                await self.sm.submit(f"adb -s {self.serial} reverse --remove localabstract:{self.tunnel}", shell=False).get()
+                self.tunnel = None
             return True
         except Exception as e:
             logger.error(f"Failed to remove adb reverse tunnel: {e}")
@@ -106,7 +111,14 @@ class AdbHelper:
                 f"adb -s {self.serial} shell CLASSPATH={SCRCPY_SERVER_PATH_ON_DEVICE} app_process / com.genymobile.scrcpy.Server "
                 f"{SCRCPY_VERSION} scid={scid} log_level=debug video=false audio=false control=true"
             )
-            await self.sm.submit(server_command, flag=True, shell=False).get()
+            # The shell stays attached to scrcpy until the control socket is
+            # closed. Waiting for process completion here would keep a healthy
+            # emulator stuck on its connecting screen for the entire session.
+            job = await self.sm.start(server_command, shell=False)
+            await job.verify_started(timeout=0.25)
+            if job.done():
+                logger.error("scrcpy exited at startup: %s", job.stderr_text())
+                return False
             logger.info("scrcpy-server start command sent.")
             return True
         except Exception as e:
@@ -115,7 +127,7 @@ class AdbHelper:
 
     def generate_scid(self) -> tuple[str, str]:
         scid_int = secrets.randbelow(0x7FFFFFFF)
-        scid = f"{scid_int:x}"
+        scid = f"{scid_int:08x}"
         socket_name = f"scrcpy_{scid}"
         logger.info(f"Generated SCID (hex): {scid}, socket name: {socket_name}")
         return scid, socket_name 

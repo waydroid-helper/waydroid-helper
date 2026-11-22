@@ -54,6 +54,12 @@ class ResizeWidget(FakeWidget):
 
 
 class FakeFixed:
+    def get_allocated_width(self):
+        return 800
+
+    def get_allocated_height(self):
+        return 600
+
     def __init__(self):
         self.children: list[FakeWidget] = []
         self.positions: dict[FakeWidget, tuple[int, int]] = {}
@@ -100,12 +106,6 @@ class FakeWindow:
     def create_widget_at_position(self, widget: FakeWidget, x: int, y: int):
         self.created_widgets.append((widget, x, y))
         self.fixed.add(widget, x, y)
-
-    def get_allocated_width(self):
-        return 800
-
-    def get_allocated_height(self):
-        return 600
 
     def set_cursor(self, cursor):
         return None
