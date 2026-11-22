@@ -1,0 +1,66 @@
+diff --git a/src/casilda-compositor.c b/src/casilda-compositor.c
+index 3b6f06c..7e04c63 100644
+--- a/src/casilda-compositor.c
++++ b/src/casilda-compositor.c
+@@ -557,27 +557,27 @@ snapshot_surfaces (struct wlr_surface *surface, int sx, int sy, void *data)
+ 
+   texture_debug_add_weak (texture);
+ 
+-  gint w = gdk_texture_get_width (texture);
+-  gint h = gdk_texture_get_height (texture);
++  const struct wlr_surface_state *state = &surface->current;
++  const gfloat w = (gfloat) gdk_texture_get_width (texture) / state->scale;
++  const gfloat h = (gfloat) gdk_texture_get_height (texture) / state->scale;
++  const gboolean rotated = state->transform & 1;
++  const struct wlr_fbox full = { 0, 0, rotated ? h : w, rotated ? w : h };
++  const struct wlr_fbox *src = state->viewport.has_src ? &state->viewport.src : &full;
++  if (src->width <= 0 || src->height <= 0 || state->width <= 0 || state->height <= 0)
++    goto frame;
+ 
+   gtk_snapshot_save (sdata->snapshot);
+-
+-  /* Calculate subsurface origin with parent surface coordinates and scroll offset */
+   gfloat x = (sdata->parent_x + sx) - sdata->scroll_offset_x;
+   gfloat y = (sdata->parent_y + sy) - sdata->scroll_offset_y;
+-
+   gtk_snapshot_translate (sdata->snapshot, &GRAPHENE_POINT_INIT (x, y));
+ 
+-  if (surface->current.viewport.has_dst)
+-    {
+-      w = surface->current.viewport.dst_width;
+-      h = surface->current.viewport.dst_height;
+-    }
+-  else if (surface->current.scale > 1)
+-    {
+-      w /= surface->current.scale;
+-      h /= surface->current.scale;
+-    }
++  /* wp_viewporter defines the source in transformed, buffer-scale-adjusted
++   * coordinates. Map that rectangle onto the whole destination surface.
++   * Clipping to the source rectangle in destination coordinates cuts away
++   * wallpaper layers whose Android buffer extends beyond the display. */
++  gtk_snapshot_push_clip (sdata->snapshot, &GRAPHENE_RECT_INIT (0, 0, state->width, state->height));
++  gtk_snapshot_scale (sdata->snapshot, state->width / src->width, state->height / src->height);
++  gtk_snapshot_translate (sdata->snapshot, &GRAPHENE_POINT_INIT (-src->x, -src->y));
+ 
+   switch (surface->current.transform)
+     {
+@@ -606,17 +606,8 @@ snapshot_surfaces (struct wlr_surface *surface, int sx, int sy, void *data)
+       gtk_snapshot_translate (sdata->snapshot, &GRAPHENE_POINT_INIT (-w, 0));
+     }
+ 
+-  if (surface->current.viewport.has_src)
+-    {
+-      struct wlr_fbox *src = &surface->current.viewport.src;
+-      /* FIXME: this was never tested since Gtk clients do no seems to use it */
+-      gtk_snapshot_push_clip (sdata->snapshot, &GRAPHENE_RECT_INIT (src->x, src->y, src->width, src->height));
+-    }
+-
+   gdk_paintable_snapshot (GDK_PAINTABLE (texture), sdata->snapshot, w, h);
+-
+-  if (surface->current.viewport.has_src)
+-    gtk_snapshot_pop (sdata->snapshot);
++  gtk_snapshot_pop (sdata->snapshot);
+ 
+   gtk_snapshot_restore (sdata->snapshot);
+ 

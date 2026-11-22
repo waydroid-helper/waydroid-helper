@@ -24,10 +24,11 @@ from waydroid_helper.controller.app.emulator_display import (
 from waydroid_helper.controller.app.emulator_gamepad import GamepadInput
 from waydroid_helper.controller.app.input_recording import InputRecording
 from waydroid_helper.controller.app.emulator_tools import EmulatorTools
+from waydroid_helper.controller.app.emulator_tasks import AndroidTasks
 from waydroid_helper.controller.app.emulator_toolbar import EmulatorToolbar
 from waydroid_helper.controller.app.emulator_viewport import EmulatorViewport
 from waydroid_helper.controller.app.window import MappingWindow
-from waydroid_helper.compat_widget import MessageDialog
+from waydroid_helper.compat_widget import MessageDialog, ToolbarView
 from waydroid_helper.controller.core.control_msg import InjectKeycodeMsg
 from waydroid_helper.controller.core.event_bus import Event, EventType
 from waydroid_helper.util.log import logger
@@ -59,6 +60,7 @@ class EmulatorWindow(MappingWindow):
         self.gamepad = GamepadInput(self)
         self.mini_width = None
         self._pending_resize = 0
+        self.android_tasks = None
         self.toolbar = EmulatorToolbar(self)
         self.status_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -93,9 +95,9 @@ class EmulatorWindow(MappingWindow):
         motion.connect("motion", self._reveal_fullscreen_control)
         frame.add_controller(motion)
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        box.append(self.toolbar)
-        box.append(frame)
+        box = ToolbarView()
+        box.add_top_bar(self.toolbar.widget)
+        box.set_content(frame)
         decoration = Gtk.Overlay()
         decoration.set_child(box)
         self.resize_handles = self._add_resize_handles(decoration)
@@ -106,7 +108,10 @@ class EmulatorWindow(MappingWindow):
             #emulator-display #mode-notification-box { padding: 5px 12px; border-radius: 14px; }
             #emulator-display #mode-notification-label { font-size: 13px; font-weight: 500; }
             .emulator-header { min-height: 36px; padding: 0 6px; }
-            .emulator-header button { min-width: 28px; min-height: 26px; padding: 2px 4px; }
+            .emulator-header .emulator-tool > button, .emulator-header button.emulator-tool,
+            .emulator-header windowcontrols button { min-width: 28px; min-height: 26px; padding: 2px 4px; }
+            .emulator-header headerbar.compact .emulator-tool > button,
+            .emulator-header headerbar.compact windowcontrols button { padding-left: 0; padding-right: 0; }
             .emulator-header .editing > button { background: alpha(@accent_color, .18); }
             .emulator-status { color: white; background: alpha(black, .75); }
             .emulator-status { padding: 8px 14px; border-radius: 8px; }
@@ -230,6 +235,7 @@ class EmulatorWindow(MappingWindow):
         return True
 
     async def _start(self):
+        observer = None
         self.status.set_label(_("Starting Waydroid…"))
         self.status_box.set_visible(True)
         self.retry.set_visible(False)
@@ -260,6 +266,12 @@ class EmulatorWindow(MappingWindow):
                     _("Could not connect the Android input controls over ADB.")
                 )
             await asyncio.wait_for(self.server.connected_event.wait(), 20)
+            self.android_tasks = AndroidTasks(
+                service.adb_helper.serial,
+                self.toolbar.tabs.update_tasks,
+                self.show_notification,
+            )
+            observer = asyncio.create_task(self.android_tasks.observe())
             self._queue_resolution_refresh()
             self.status_box.set_visible(False)
             self.switch_mode(self.MAPPING_MODE)
@@ -276,6 +288,17 @@ class EmulatorWindow(MappingWindow):
             self.status.set_label(str(error) or _("Timed out waiting for Waydroid."))
             self.status_box.set_visible(True)
             self.retry.set_visible(True)
+        finally:
+            if observer:
+                observer.cancel()
+                await asyncio.gather(observer, return_exceptions=True)
+                self.android_tasks = None
+                self.toolbar.tabs.update_tasks([], 0)
+
+    def task_action(self, action, task_id):
+        if self.android_tasks:
+            self.android_tasks.command(action, task_id)
+        self.canvas.grab_focus()
 
     def send_key(self, keycode):
         if not self.server.connected_event.is_set():
@@ -322,6 +345,8 @@ class EmulatorWindow(MappingWindow):
         self.toolbar.sync_mode()
 
     def _on_shortcut(self, controller, keyval, keycode, state):
+        if hasattr(self, "get_visible_dialog") and self.get_visible_dialog():
+            return False
         if keyval == Gdk.KEY_Escape and self.pending_control:
             self._cancel_placement()
             return True
@@ -356,7 +381,7 @@ class EmulatorWindow(MappingWindow):
 
     def _fullscreen_changed(self, *_):
         fullscreen = self.is_fullscreen()
-        self.toolbar.set_visible(not fullscreen)
+        self.toolbar.widget.set_visible(not fullscreen)
         self.exit_fullscreen.set_visible(fullscreen)
         if not fullscreen:
             self.set_resizable(False)
@@ -503,8 +528,8 @@ class EmulatorWindow(MappingWindow):
         )
         if self.display_dialog is None:
             self.display_dialog = DisplaySettings(self, mode)
-            self.display_dialog.connect(
-                "destroy", lambda *_: setattr(self, "display_dialog", None)
+            self.display_dialog.on_dismissed(
+                lambda *_: setattr(self, "display_dialog", None)
             )
         self.display_dialog.present()
 
@@ -599,7 +624,10 @@ class EmulatorWindow(MappingWindow):
             max_width = min(
                 geometry.width - 24, (geometry.height - 100) * map_w // map_h
             )
-        min_width = max(360, self.toolbar.measure(Gtk.Orientation.HORIZONTAL, -1)[0])
+        self.toolbar.set_compact(min(width, max_width) < 560)
+        min_width = max(
+            360, self.toolbar.widget.measure(Gtk.Orientation.HORIZONTAL, -1)[0]
+        )
         self.windowed_width = max(min_width, min(round(width), max_width))
         height = round(self.windowed_width * map_h / map_w)
         # GTK/Wayland has no aspect-ratio hint for an interactive toplevel

@@ -98,9 +98,11 @@ sudo apt install waydroid-helper
 
 Choose **Open emulator** in the instance's Key Mapper group, or run `waydroid-helper --emulator`. The Android display and mapping controls share one window. Opening it while another session is running asks for confirmation before restarting Android. Closing the emulator stops the session attached to its display.
 
+Android apps open in tabs in the title bar. Select a tab to resume its task, close it to remove that task, or select the pinned Waydroid tab to return to the Android home screen. The embedded session displays freeform Android apps fullscreen and uses the same tabs with either desktop multi-window preference.
+
 Use the keyboard button in the title bar to load a saved JSON layout or edit controls. Select a control and click the game to place it. F1 switches between editing and playing. F12 toggles control visibility while playing. Drag any window edge or corner to resize while preserving the Android aspect ratio throughout the drag. Press F11 for fullscreen. Open **More → Device settings → Display** to choose a tablet, phone or ultrawide preset, or enter a custom width, height and DPI. Restart Android to apply the selection. Window resizing and F11 scale the picture and key mappings together while preserving Android’s resolution, density and aspect ratio.
 
-The embedded window uses Casilda with the `Casilda-1.0` typelib and ADB for input. A system installation of Casilda works directly. To build the pinned compositor alongside the app, use Meson 1.8 or later, GTK 4.24 development files, wlroots 0.20 and GObject Introspection.
+The embedded window uses Casilda with the `Casilda-1.0` typelib and ADB for input. The bundled Casilda includes a viewport cropping fix for Waydroid wallpaper and other layers. A system Casilda needs equivalent cropping support to render these layers correctly. To build the pinned compositor alongside the app, use Meson 1.8 or later, GTK 4.24 development files, wlroots 0.20 and GObject Introspection.
 
 ```sh
 meson setup .build/embedded -Dbundle_casilda=true

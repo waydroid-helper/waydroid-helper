@@ -8,12 +8,13 @@ import tempfile
 from gettext import gettext as _
 from pathlib import Path
 
-from gi.repository import Gio, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from waydroid_helper.compat_widget.file_dialog import FileDialog
-from waydroid_helper.controller.app.emulator_display import (
-    EMULATOR_DIALOG_WIDTH,
-    device_command,
+from waydroid_helper.controller.app.emulator_display import device_command
+from waydroid_helper.controller.app.emulator_preferences import (
+    EmulatorPreferences,
+    add_spin,
 )
 from waydroid_helper.util.log import logger
 
@@ -171,31 +172,16 @@ class EmulatorTools:
 
     def shared_folders(self, side):
         from urllib.parse import quote
-        from gi.repository import Adw
         from waydroid_helper.shared_folder import SharedFoldersWidget
 
-        dialog = Gtk.Window(
-            title=_("Shared folders"),
-            modal=True,
-            transient_for=self.window,
-            default_width=EMULATOR_DIALOG_WIDTH,
-        )
+        dialog = EmulatorPreferences(self.window, _("Shared folders"))
         panel = SharedFoldersWidget()
         panel.connect("updated", lambda *_: panel.restart_service())
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=10,
-            margin_top=12,
-            margin_bottom=12,
-            margin_start=12,
-            margin_end=12,
-        )
-        dialog.set_child(box)
         if side == "settings":
-            box.append(panel)
+            dialog.page.add(panel)
         else:
             choices = Adw.PreferencesGroup(title=_("Choose a shared folder"))
-            box.append(choices)
+            dialog.page.add(choices)
             rows = []
 
             def update(*_args):
@@ -206,11 +192,14 @@ class EmulatorTools:
                     path = Path(
                         folder.source if side == "host" else folder.target
                     ).expanduser()
-                    row = Gtk.Button(label=str(path))
+                    row = Adw.ActionRow(
+                        title=GLib.markup_escape_text(str(path)), activatable=True
+                    )
+                    row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
 
                     def open_folder(_button, selected=path):
                         if side == "host":
-                            Gtk.show_uri(dialog, selected.absolute().as_uri(), 0)
+                            Gtk.show_uri(self.window, selected.absolute().as_uri(), 0)
                         else:
                             media = Path.home() / ".local/share/waydroid/data/media/0"
                             if not selected.is_relative_to(media):
@@ -241,7 +230,7 @@ class EmulatorTools:
                             )
                         dialog.close()
 
-                    row.connect("clicked", open_folder)
+                    row.connect("activated", open_folder)
                     rows.append(row)
                     choices.add(row)
                 choices.set_description(
@@ -253,50 +242,32 @@ class EmulatorTools:
         dialog.present()
 
     def virtual_location(self):
-        dialog = Gtk.Window(
-            title=_("Virtual location"),
-            transient_for=self.window,
-            modal=True,
-            default_width=EMULATOR_DIALOG_WIDTH,
-        )
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=8,
-            margin_top=14,
-            margin_bottom=14,
-            margin_start=16,
-            margin_end=16,
-        )
-        dialog.set_child(box)
-        fields = []
-        for label, limit in ((_("Latitude"), 90), (_("Longitude"), 180)):
-            row = Gtk.Box(spacing=12)
-            row.append(Gtk.Label(label=label, hexpand=True, xalign=0))
-            control = Gtk.SpinButton.new_with_range(-limit, limit, 0.00001)
-            control.set_digits(5)
-            row.append(control)
-            box.append(row)
-            fields.append(control)
-        error = Gtk.Label(wrap=True, max_width_chars=45)
-        box.append(error)
-        box.append(
-            Gtk.Label(
-                label=_(
-                    "Setting a location uses Android’s mock-location permission for this session."
-                ),
-                xalign=0,
-                wrap=True,
-                max_width_chars=43,
+        dialog = EmulatorPreferences(self.window, _("Virtual location"), height=370)
+        location = Adw.PreferencesGroup(
+            description=_(
+                "Setting a location uses Android’s mock-location permission for this session."
             )
         )
+        dialog.page.add(location)
+        fields = [
+            add_spin(location, label, 0, -limit, limit, 0.00001, 5)
+            for label, limit in ((_("Latitude"), 90), (_("Longitude"), 180))
+        ]
+        actions = Adw.PreferencesGroup()
+        dialog.page.add(actions)
+        error = Gtk.Label(wrap=True, visible=False)
+        actions.add(error)
+        buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
         apply = Gtk.Button(label=_("Set location"))
+        apply.add_css_class("suggested-action")
         clear = Gtk.Button(label=_("Clear virtual location"))
         clear.set_sensitive(self.mock_location)
-        box.append(apply)
-        box.append(clear)
+        buttons.append(clear)
+        buttons.append(apply)
+        actions.add(buttons)
 
         async def change(enable):
-            box.set_sensitive(False)
+            dialog.set_busy(True)
             try:
                 if enable:
                     if not self.mock_location:
@@ -329,11 +300,12 @@ class EmulatorTools:
                     await self.clear_location()
             except Exception as exc:
                 error.set_label(str(exc))
-            else:
-                dialog.close()
+                error.set_visible(True)
+                return
             finally:
                 clear.set_sensitive(self.mock_location)
-                box.set_sensitive(True)
+                dialog.set_busy(False)
+            dialog.close()
 
         apply.connect(
             "clicked", lambda *_: self.window.run_device_action(lambda: change(True))
@@ -423,21 +395,8 @@ class EmulatorTools:
             f"Android {release.decode().strip()}\n{mode.width} × {mode.height} · {mode.dpi} DPI"
             f"\nADB {self.serial}\nWayland {self.window.session.socket}"
         )
-        dialog = Gtk.Window(
-            title=_("Device diagnostics"),
-            modal=True,
-            transient_for=self.window,
-            default_width=EMULATOR_DIALOG_WIDTH,
-        )
-        dialog.set_child(
-            Gtk.Label(
-                label=info,
-                selectable=True,
-                xalign=0,
-                margin_top=16,
-                margin_bottom=16,
-                margin_start=16,
-                margin_end=16,
-            )
-        )
+        dialog = EmulatorPreferences(self.window, _("Device diagnostics"), height=240)
+        details = Adw.PreferencesGroup()
+        details.add(Gtk.Label(label=info, selectable=True, wrap=True, xalign=0))
+        dialog.page.add(details)
         dialog.present()

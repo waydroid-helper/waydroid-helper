@@ -1569,3 +1569,15 @@ msgstr "确定要关闭 Waydroid 吗？"
 
 msgid "Do not ask again"
 msgstr "不再提示"
+
+msgid "Application tabs disconnected. Reconnecting…"
+msgstr "应用标签页已断开连接，正在重连…"
+
+msgid "Could not change the Android task."
+msgstr "无法操作此 Android 任务。"
+
+msgid "Close %s"
+msgstr "关闭 %s"
+
+msgid "Open applications"
+msgstr "打开的应用"

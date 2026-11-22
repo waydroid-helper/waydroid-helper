@@ -113,13 +113,17 @@ controller_android_sources = [
     'controller/android/__init__.py',
     'controller/android/input.py',
     'controller/android/keycodes.py',
+    'controller/android/task-monitor.dex',
 ]
 
 controller_app_sources = [
     'controller/app/embedded_session.py',
     'controller/app/emulator_viewport.py',
     'controller/app/emulator_display.py',
+    'controller/app/emulator_preferences.py',
     'controller/app/emulator_toolbar.py',
+    'controller/app/emulator_tabs.py',
+    'controller/app/emulator_tasks.py',
     'controller/app/emulator_tools.py',
     'controller/app/emulator_gamepad.py',
     'controller/app/input_recording.py',

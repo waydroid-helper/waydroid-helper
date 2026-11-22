@@ -5,12 +5,18 @@ import re
 from dataclasses import dataclass
 from gettext import gettext as _
 
-from gi.repository import Gtk
+import gi
+
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk
 
 from waydroid_helper.controller.app.embedded_session import waydroid_output
+from waydroid_helper.controller.app.emulator_preferences import (
+    EmulatorPreferences,
+    add_spin,
+    add_switch,
+)
 from waydroid_helper.util.log import logger
-
-EMULATOR_DIALOG_WIDTH = 480  # GTK logical pixels
 
 
 @dataclass(frozen=True)
@@ -126,92 +132,75 @@ async def apply_android_mode(serial, mode):
         raise RuntimeError(_("Android did not accept the selected display mode."))
 
 
-class DisplaySettings(Gtk.Window):
+class DisplaySettings(EmulatorPreferences):
     def __init__(self, parent, mode):
-        super().__init__(
-            title=_("Device settings"),
-            transient_for=parent,
-            modal=True,
-            resizable=False,
-            default_width=EMULATOR_DIALOG_WIDTH,
-        )
-        self.parent_window = parent
-        self.row_labels = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL)
-        body = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=12,
-            margin_top=16,
-            margin_bottom=16,
-            margin_start=24,
-            margin_end=24,
-        )
-        self.set_child(body)
-        heading = Gtk.Label(label=_("Display"), xalign=0)
-        heading.add_css_class("title-2")
-        body.append(heading)
+        super().__init__(parent, _("Device settings"), height=540)
+        display = Adw.PreferencesGroup(title=_("Display"))
+        self.page.add(display)
         self.modes = [DisplayMode(*values) for _, group in PRESETS for values in group]
         labels = [
             f"{w} × {h}, {dpi} DPI ({name})"
             for name, group in PRESETS
             for w, h, dpi in group
         ]
-        self.combo = Gtk.DropDown.new_from_strings([*labels, _("Custom")])
+        self.combo = Adw.ComboRow(
+            title=_("Resolution"),
+            use_subtitle=True,
+            model=Gtk.StringList.new([*labels, _("Custom")]),
+        )
         self.combo.set_selected(
             self.modes.index(mode) if mode in self.modes else len(labels)
         )
-        self._row(body, _("Resolution"), self.combo)
-        self.custom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        body.append(self.custom)
-        self.fields = []
-        for label, value, low, high in (
-            (_("Width"), mode.width, 200, 8192),
-            (_("Height"), mode.height, 200, 8192),
-            ("DPI", mode.dpi, 72, 1200),
-        ):
-            spin = Gtk.SpinButton.new_with_range(low, high, 1)
-            spin.set_value(value)
-            self.fields.append(spin)
-            self._row(self.custom, label, spin)
+        display.add(self.combo)
+        self.fields = [
+            add_spin(display, title, value, low, high)
+            for title, value, low, high in (
+                (_("Width"), mode.width, 200, 8192),
+                (_("Height"), mode.height, 200, 8192),
+                ("DPI", mode.dpi, 72, 1200),
+            )
+        ]
         self.combo.connect("notify::selected", self._selection)
         self._selection()
-        body.append(Gtk.Separator())
-        for label, key in (
-            (_("Fix window size"), "emulator-lock-size"),
-            (_("Remember window size"), "emulator-remember-size"),
-        ):
-            switch = Gtk.Switch(halign=Gtk.Align.END, valign=Gtk.Align.CENTER)
-            parent.preferences.bind(key, switch, "active", 0)
-            self._row(body, label, switch)
+        window = Adw.PreferencesGroup()
+        self.page.add(window)
+        add_switch(
+            window, _("Fix window size"), parent.preferences, "emulator-lock-size"
+        )
+        add_switch(
+            window,
+            _("Remember window size"),
+            parent.preferences,
+            "emulator-remember-size",
+        )
+        actions = Adw.PreferencesGroup()
+        self.page.add(actions)
         self.message = Gtk.Label(xalign=0, wrap=True, visible=False)
-        body.append(self.message)
+        actions.add(self.message)
         self.apply_button = Gtk.Button(
             label=_("Apply display settings"), halign=Gtk.Align.END
         )
         self.apply_button.add_css_class("suggested-action")
         self.apply_button.connect("clicked", self._apply)
-        body.append(self.apply_button)
-
-    def _row(self, parent, text, control):
-        row = Gtk.Box(spacing=16)
-        label = Gtk.Label(label=text, xalign=0)
-        self.row_labels.add_widget(label)
-        row.append(label)
-        control.set_hexpand(True)
-        row.append(control)
-        parent.append(row)
+        actions.add(self.apply_button)
 
     def _selection(self, *_):
         index = self.combo.get_selected()
-        self.custom.set_visible(index == len(self.modes))
+        for field in self.fields:
+            row = (
+                field
+                if isinstance(field, Adw.PreferencesRow)
+                else field.get_ancestor(Adw.PreferencesRow)
+            )
+            row.set_visible(index == len(self.modes))
         if index < len(self.modes):
             mode = self.modes[index]
             for field, value in zip(self.fields, (mode.width, mode.height, mode.dpi)):
                 field.set_value(value)
 
     def _apply(self, *_):
-        mode = DisplayMode(*(s.get_value_as_int() for s in self.fields))
-        self.apply_button.set_sensitive(False)
-        self.set_deletable(False)
+        mode = DisplayMode(*(round(s.get_value()) for s in self.fields))
+        self.set_busy(True)
         asyncio.create_task(self._save(mode))
 
     async def _save(self, mode):
@@ -221,12 +210,10 @@ class DisplaySettings(Gtk.Window):
             logger.exception("Failed to stage Android display mode %s", mode)
             self.message.set_text(str(error))
             self.message.set_visible(True)
-        else:
-            self.set_deletable(True)
-            self.close()
-            self.parent_window.request_restart(
-                _("Display settings saved. Restart Android to use the new output mode.")
-            )
+            return
         finally:
-            self.set_deletable(True)
-            self.apply_button.set_sensitive(True)
+            self.set_busy(False)
+        self.close()
+        self.parent_window.request_restart(
+            _("Display settings saved. Restart Android to use the new output mode.")
+        )

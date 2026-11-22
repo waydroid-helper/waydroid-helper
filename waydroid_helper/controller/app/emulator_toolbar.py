@@ -3,14 +3,16 @@
 import re
 from gettext import gettext as _
 
-from gi.repository import Gio, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, GObject, Gtk
 
 from waydroid_helper.controller.android.keycodes import AKeyCode
 from waydroid_helper.controller.app.emulator_display import device_command
+from waydroid_helper.controller.app.emulator_tabs import EmulatorTabs
 
 
 def icon_button(icon, label, action):
     button = Gtk.Button(icon_name=icon, tooltip_text=label, focus_on_click=False)
+    button.add_css_class("emulator-tool")
     button.connect("clicked", lambda *_: action())
     return button
 
@@ -31,37 +33,55 @@ class MenuRow(Gtk.Button):
         self.connect("clicked", lambda *_: action())
 
 
-class EmulatorToolbar(Gtk.HeaderBar):
+class EmulatorToolbar:
     def __init__(self, window):
-        super().__init__(show_title_buttons=True)
+        self.header = Adw.HeaderBar(show_start_title_buttons=False)
+        self.widget = Gtk.WindowHandle()
+        row = Gtk.Box()
+        row.add_css_class("emulator-header")
+        self.widget.set_child(row)
+        start_controls = Gtk.WindowControls(side=Gtk.PackType.START)
+        start_controls.bind_property(
+            "empty",
+            start_controls,
+            "visible",
+            GObject.BindingFlags.INVERT_BOOLEAN | GObject.BindingFlags.SYNC_CREATE,
+        )
+        row.append(start_controls)
         self.window = window
-        self.add_css_class("emulator-header")
-        self.set_title_widget(Gtk.Box())
-        brand = Gtk.Box(spacing=7)
-        brand.append(Gtk.Image(icon_name="phone-symbolic"))
-        title = Gtk.Label(label="Waydroid")
-        title.add_css_class("heading")
-        brand.append(title)
-        self.pack_start(brand)
+        self.header.add_css_class("flat")
+        self.tabs = EmulatorTabs(
+            lambda: window.send_key(AKeyCode.AKEYCODE_HOME), window.task_action
+        )
+        if hasattr(self.header, "set_show_title"):
+            self.header.set_show_title(False)
+        else:
+            self.header.set_title_widget(Gtk.Box())
+        # AdwHeaderBar bounds its title and action groups to their natural
+        # width. Give the scrolling tab bar the remaining space directly, and
+        # keep native window dragging and decorations on both sides.
+        row.append(self.tabs.bar)
+        # With only end controls, HeaderBar reserves a matching empty start
+        # group in its natural width. Clamp it to the controls' measured minimum.
+        controls = Adw.Clamp(child=self.header, maximum_size=0, tightening_threshold=0)
+        controls.set_halign(Gtk.Align.END)
+        row.append(controls)
 
         self.more = self._menu("view-more-horizontal-symbolic", _("More"))
-        self.pack_end(
-            icon_button(
-                "view-fullscreen-symbolic",
-                _("Fullscreen (F11)"),
-                window.toggle_fullscreen,
-            )
+        self.fullscreen_button = icon_button(
+            "view-fullscreen-symbolic", _("Fullscreen (F11)"), window.toggle_fullscreen
         )
-        self.pack_end(self.more)
+        self.header.pack_end(self.fullscreen_button)
+        self.header.pack_end(self.more)
         self.back = icon_button(
             "go-previous-symbolic",
             _("Android Back"),
             lambda: window.send_key(AKeyCode.AKEYCODE_BACK),
         )
-        self.pack_end(self.back)
+        self.header.pack_end(self.back)
 
         self.volume = self._menu("audio-volume-high-symbolic", _("Volume"))
-        self.pack_end(self.volume)
+        self.header.pack_end(self.volume)
         self.volume_slider = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL, 0, 15, 1
         )
@@ -88,7 +108,7 @@ class EmulatorToolbar(Gtk.HeaderBar):
             self._row(self.volume, icon, label, lambda key=code: window.send_key(key))
 
         self.mapping = self._menu("input-keyboard-symbolic", _("Key mapping"))
-        self.pack_end(self.mapping)
+        self.header.pack_end(self.mapping)
         self.mode = self._row(
             self.mapping,
             "document-edit-symbolic",
@@ -121,6 +141,19 @@ class EmulatorToolbar(Gtk.HeaderBar):
         self.mapping.get_popover().connect("show", lambda *_: self.sync_mode())
         self._build_more_menu()
         self.sync_mode()
+
+    def set_compact(self, compact):
+        if self.tabs.compact == compact:
+            return
+        # Both actions remain in More. Give their space to the scrolling tab
+        # strip and its picker so resizing never adds a row above Android.
+        self.back.set_visible(not compact)
+        self.fullscreen_button.set_visible(not compact)
+        if compact:
+            self.header.add_css_class("compact")
+        else:
+            self.header.remove_css_class("compact")
+        self.tabs.set_compact(compact)
 
     async def _read_volume(self):
         data = await device_command(
@@ -407,6 +440,7 @@ class EmulatorToolbar(Gtk.HeaderBar):
 
     def _menu(self, icon, label):
         button = Gtk.MenuButton(icon_name=icon, tooltip_text=label)
+        button.add_css_class("emulator-tool")
         popover = Gtk.Popover()
         popover.add_css_class("menu")
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
