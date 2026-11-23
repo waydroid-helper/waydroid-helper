@@ -8,6 +8,7 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk
 from waydroid_helper.controller.android.keycodes import AKeyCode
 from waydroid_helper.controller.app.emulator_display import device_command
 from waydroid_helper.controller.app.emulator_tabs import EmulatorTabs
+from waydroid_helper.controller.app.mapping_panel import MappingPanel, MappingEditorBar
 
 
 def icon_button(icon, label, action):
@@ -39,7 +40,6 @@ class EmulatorToolbar:
         self.widget = Gtk.WindowHandle()
         row = Gtk.Box()
         row.add_css_class("emulator-header")
-        self.widget.set_child(row)
         start_controls = Gtk.WindowControls(side=Gtk.PackType.START)
         start_controls.bind_property(
             "empty",
@@ -109,40 +109,17 @@ class EmulatorToolbar:
 
         self.mapping = self._menu("input-keyboard-symbolic", _("Key mapping"))
         self.header.pack_end(self.mapping)
-        self.mode = self._row(
-            self.mapping,
-            "document-edit-symbolic",
-            _("Edit controls"),
-            window.toggle_mapping,
-            "F1",
-        )
-        self._row(
-            self.mapping,
-            "input-gaming-symbolic",
-            _("Gamepad mappings"),
-            window.gamepad.edit,
-        )
-        mapping_pages = self._build_control_picker()
-        self.visibility = self._row(
-            self.mapping,
-            "view-conceal-symbolic",
-            _("Hide controls"),
-            window.toggle_all_widgets_transparency,
-            "F12",
-        )
-        self.mapping.items.append(Gtk.Separator())
-        self._build_layout_picker(mapping_pages)
-        self._row(
-            self.mapping,
-            "document-save-symbolic",
-            _("Save layout"),
-            window.menu_manager.save_layout,
-        )
-        self.mapping.get_popover().connect("show", lambda *_: self.sync_mode())
+        self.mapping_panel = MappingPanel(window, self.mapping)
+        self.editor = MappingEditorBar(window)
+        self.chrome = Gtk.Stack(vhomogeneous=False, hhomogeneous=False)
+        self.chrome.add_named(row, "normal")
+        self.chrome.add_named(self.editor.widget, "edit")
+        self.widget.set_child(self.chrome)
         self._build_more_menu()
         self.sync_mode()
 
     def set_compact(self, compact):
+        self.editor.compact(compact)
         if self.tabs.compact == compact:
             return
         # Both actions remain in More. Give their space to the scrolling tab
@@ -239,6 +216,7 @@ class EmulatorToolbar:
         action(management, "restore", _("Restore window size"), window.restore_size)
         model.append_submenu(_("Window management"), management)
         action(model, "mapping", _("Key mapping"), self.mapping.popup)
+        action(model, "profiles", _("Manage profiles"), window.open_profiles)
 
         recording = Gio.Menu()
         action(
@@ -332,111 +310,15 @@ class EmulatorToolbar:
             )
         self.menu_event = None
 
-    def _build_control_picker(self):
-        menu = self.mapping
-        popover = menu.get_popover()
-        stack = Gtk.Stack(
-            transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT, vhomogeneous=False
-        )
-        popover.set_child(None)
-        stack.add_named(menu.items, "mapping")
-        picker = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        stack.add_named(picker, "controls")
-        popover.set_child(stack)
-        menu.items.append(
-            MenuRow(
-                "list-add-symbolic",
-                _("Add control"),
-                lambda: stack.set_visible_child_name("controls"),
-            )
-        )
-        picker.append(
-            MenuRow(
-                "go-previous-symbolic",
-                _("Key mapping"),
-                lambda: stack.set_visible_child_name("mapping"),
-            )
-        )
-        picker.append(Gtk.Separator())
-        factory = self.window.widget_factory
-        for kind in sorted(factory.get_available_types()):
-            if not getattr(
-                factory.widget_classes[kind], "ALLOW_CONTEXT_MENU_CREATION", True
-            ):
-                continue
-            metadata = factory.get_widget_metadata(kind)
-            option = Gtk.Button(
-                label=metadata["name"], tooltip_text=metadata["description"]
-            )
-            option.add_css_class("flat")
-            option.get_child().set_xalign(0)
-
-            def choose(_button, control=kind):
-                menu.popdown()
-                self.window.begin_placement(control)
-
-            option.connect("clicked", choose)
-            picker.append(option)
-        popover.connect("closed", lambda *_: stack.set_visible_child_name("mapping"))
-        return stack
-
-    def _build_layout_picker(self, pages):
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        pages.add_named(page, "layouts")
-        page.append(
-            MenuRow(
-                "go-previous-symbolic",
-                _("Saved layouts"),
-                lambda: pages.set_visible_child_name("mapping"),
-            )
-        )
-        page.append(Gtk.Separator())
-        scroller = Gtk.ScrolledWindow(
-            max_content_height=220,
-            propagate_natural_height=True,
-            hscrollbar_policy=Gtk.PolicyType.NEVER,
-        )
-        page.append(scroller)
-
-        def show_files():
-            # Read on demand so a scheme saved in a file picker (or another
-            # helper window) immediately appears on the next visit.
-            choices = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            for path in self.window.layout_file_actions.saved_layouts():
-
-                def select(file=path):
-                    self.mapping.popdown()
-                    self.window.menu_manager.open_layout(
-                        str(file), self.window.widget_factory
-                    )
-
-                choices.append(
-                    MenuRow("document-properties-symbolic", path.stem, select)
-                )
-            scroller.set_child(choices)
-            pages.set_visible_child_name("layouts")
-
-        def browse():
-            self.mapping.popdown()
-            self.window.menu_manager.load_layout(self.window.widget_factory)
-
-        page.append(MenuRow("document-open-symbolic", _("Open file…"), browse))
-        self.mapping.items.append(
-            MenuRow("document-open-recent-symbolic", _("Saved layouts"), show_files)
-        )
-
     def sync_mode(self):
-        edit = self.window.current_mode == self.window.EDIT_MODE
-        self.mode.caption.set_label(_("Finish editing") if edit else _("Edit controls"))
-        self.visibility.set_sensitive(not edit)
-        hidden = self.window.widget_transparency_controller.is_transparent
-        self.visibility.caption.set_label(
-            _("Show controls") if hidden else _("Hide controls")
-        )
-        if edit:
-            self.mapping.add_css_class("editing")
-        else:
-            self.mapping.remove_css_class("editing")
+        editing = self.window.profiles.edit is not None
+        self.widget.set_visible(editing or not self.window.is_fullscreen())
+        self.chrome.set_visible_child_name("edit" if editing else "normal")
+        self.window.edit_shade.set_visible(editing)
+        if editing:
+            self.editor.sync()
+        elif self.mapping.get_popover().get_visible():
+            self.mapping_panel.refresh()
 
     def _menu(self, icon, label):
         button = Gtk.MenuButton(icon_name=icon, tooltip_text=label)
@@ -447,7 +329,17 @@ class EmulatorToolbar:
         box.set_size_request(205, -1)
         # Popovers live outside the game input subtree. Hand focus back when
         # they close so the first mapped key after using a menu reaches Android.
-        popover.connect("closed", lambda *_: self.window.canvas.grab_focus())
+        def restore_canvas_focus():
+            # GtkMenuButton restores its toggle's focus after the closed signal.
+            # Wait until that transfer finishes. A dialog or an editor that
+            # already took focus must retain it.
+            focus = self.window.get_focus()
+            if (not popover.get_mapped() and focus is not None
+                    and (focus is button or focus.is_ancestor(button))):
+                self.window.canvas.grab_focus()
+            return GLib.SOURCE_REMOVE
+
+        popover.connect("closed", lambda *_: GLib.idle_add(restore_canvas_focus))
         popover.set_child(box)
         button.set_popover(popover)
         button.items = box

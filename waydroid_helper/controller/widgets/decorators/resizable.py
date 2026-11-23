@@ -64,36 +64,11 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
         """检查指定位置是否可以调整大小，返回调整方向"""
         return self._geometry.hit_test(x, y, width, height)
     
-    def get_cursor_for_resize_area(self, resize_direction):
-        """根据调整方向返回鼠标指针样式"""
-        cursor_map = {
-            'se': 'se-resize',
-            'sw': 'sw-resize', 
-            'ne': 'ne-resize',
-            'nw': 'nw-resize',
-            'e': 'e-resize',
-            'w': 'w-resize',
-            's': 's-resize',
-            'n': 'n-resize'
-        }
-        return cursor_map.get(resize_direction)
-    
     def check_resize_direction(self, x, y):
         """检查鼠标位置对应的调整方向"""
         width = self._wrapped_widget.get_allocated_width()
         height = self._wrapped_widget.get_allocated_height()
         return self.can_resize_at_position(x, y, width, height)
-    
-    # def update_cursor_for_position(self, x, y):
-    #     """根据鼠标位置更新指针样式"""
-    #     resize_direction = self.check_resize_direction(x, y)
-    #     if resize_direction:
-    #         cursor_name = self.get_cursor_for_resize_area(resize_direction)
-    #         if cursor_name:
-    #             cursor = Gdk.Cursor.new_from_name(cursor_name)
-    #             self._wrapped_widget.set_cursor(cursor)
-    #     else:
-    #         self._wrapped_widget.set_cursor(None)
     
     def start_resize(self, x, y, resize_direction):
         """开始调整大小"""
@@ -160,7 +135,7 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
     def _hook_draw_function(self):
         """Hook绘制函数，在原绘制完成后添加调整大小装饰"""
         def resize_draw(cr, width, height):
-            if self._wrapped_widget.is_selected:
+            if self._wrapped_widget.is_selected and not self._wrapped_widget.mapping_mode:
                 self.draw_resize_decorations(cr, width, height)
 
         add_decorator_draw_overlay(self._wrapped_widget, resize_draw)
@@ -171,49 +146,11 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
     
     def draw_resize_handles(self, cr, width, height):
         """绘制调整大小的手柄"""
-        handle_size = 8
-        handle_color = (0.2, 0.6, 1.0, 1.0)  # 蓝色
-        
-        # 设置手柄样式
-        cr.set_source_rgba(*handle_color)
-        cr.set_line_width(1)
-        
-        # 四个角的位置
-        positions = [
-            (0, 0),                           # 左上角
-            (width - handle_size, 0),         # 右上角
-            (0, height - handle_size),        # 左下角
-            (width - handle_size, height - handle_size)  # 右下角
-        ]
-        
-        # 绘制四个角的小正方形
-        for x, y in positions:
-            cr.rectangle(x, y, handle_size, handle_size)
+        size = self._geometry.HANDLE_SIZE
+        for _, x, y in self._geometry.handles(width, height):
+            cr.rectangle(x-size/2, y-size/2, size, size)
+            cr.set_source_rgba(.82, .86, .9, .88)
             cr.fill()
-            
-            # 绘制边框
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色边框
-            cr.rectangle(x, y, handle_size, handle_size)
-            cr.stroke()
-            cr.set_source_rgba(*handle_color)  # 恢复蓝色
-        
-        # 中间边缘的手柄（上下左右）
-        edge_positions = [
-            (width/2 - handle_size/2, 0),                    # 上边
-            (width/2 - handle_size/2, height - handle_size), # 下边
-            (0, height/2 - handle_size/2),                   # 左边
-            (width - handle_size, height/2 - handle_size/2)  # 右边
-        ]
-        
-        for x, y in edge_positions:
-            cr.rectangle(x, y, handle_size, handle_size)
-            cr.fill()
-            
-            # 绘制边框
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色边框
-            cr.rectangle(x, y, handle_size, handle_size)
-            cr.stroke()
-            cr.set_source_rgba(*handle_color)  # 恢复蓝色
 
 
 # 创建参数化装饰器函数

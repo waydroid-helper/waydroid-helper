@@ -41,8 +41,26 @@ class ResizeGeometryCalculator:
     """Computes resize hit targets and new bounds without GTK state."""
 
     BORDER = 8
+    HANDLE_SIZE = 4
     FALLBACK_MIN_WIDTH = 50
     FALLBACK_MIN_HEIGHT = 30
+
+    @classmethod
+    def handles(cls, width: float, height: float):
+        inset = cls.HANDLE_SIZE / 2
+        return (
+            ("n", width / 2, inset),
+            ("s", width / 2, height - inset),
+            ("w", inset, height / 2),
+            ("e", width - inset, height / 2),
+        )
+
+    @classmethod
+    def handle_at(cls, x: float, y: float, width: float, height: float) -> str | None:
+        for direction, cx, cy in cls.handles(width, height):
+            if abs(x - cx) <= cls.BORDER and abs(y - cy) <= cls.BORDER:
+                return direction
+        return None
 
     def hit_test(
         self,

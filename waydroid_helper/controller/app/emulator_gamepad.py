@@ -1,9 +1,8 @@
 """Route local gamepad buttons and stick directions to saved Android mappings."""
 
-from gettext import gettext as _
-
 import gi
 
+from waydroid_helper.controller.core.event_bus import Event, EventType
 from waydroid_helper.controller.core.handler.event_handlers import (
     InputEvent,
     InputEventType,
@@ -52,6 +51,7 @@ class GamepadInput:
         self.window = window
         self.devices = {}
         self.held = set()
+        self.sticks = {}
         self.monitor = None
         names = set(self.BUTTONS.values())
         names.update(name for pair in self.AXES.values() for name in pair if name)
@@ -86,6 +86,7 @@ class GamepadInput:
             ]
 
     def _disconnect(self, monitor, device):
+        self._release_sticks(device)
         for instance, name in tuple(self.held):
             if instance == device:
                 self._transition(device, name, False)
@@ -94,8 +95,19 @@ class GamepadInput:
 
     def _focus_changed(self, window, _prop):
         if not window.is_active():
-            for device, name in tuple(self.held):
-                self._transition(device, name, False)
+            self.reset()
+
+    def reset(self):
+        for device, _stick in list(self.sticks):
+            self._release_sticks(device)
+        for device, name in tuple(self.held):
+            self._transition(device, name, False)
+
+    def _accept_input(self):
+        window = self.window
+        return window.profiles.kind == "gamepad" and window.is_active() and not (
+            hasattr(window, "get_visible_dialog") and window.get_visible_dialog()
+        )
 
     def _button(self, device, event, pressed):
         ok, code = event.get_button()
@@ -105,14 +117,38 @@ class GamepadInput:
     def _axis(self, device, event):
         ok, code, value = event.get_absolute()
         if ok and code in self.AXES:
+            if code in (0, 1, 3, 4):
+                self._update_stick(device, code, value)
             for name, strength in zip(self.AXES[code], (-value, value)):
                 if name:
                     threshold = 0.35 if (device, name) in self.held else 0.55
                     self._transition(device, name, strength >= threshold)
 
+    def _update_stick(self, device, code, value):
+        window = self.window
+        if (
+            not self._accept_input()
+            or window.current_mode != window.MAPPING_MODE
+            or not window.server.connected_event.is_set()
+        ):
+            return
+        stick = "left" if code < 3 else "right"
+        vector = self.sticks.setdefault((device, stick), [0.0, 0.0])
+        vector[0 if code in (0, 3) else 1] = value
+        window.event_bus.emit(
+            Event(EventType.GAMEPAD_STICK, self, (device, stick, *vector))
+        )
+
+    def _release_sticks(self, device):
+        for stick in ("left", "right"):
+            if self.sticks.pop((device, stick), None) is not None:
+                self.window.event_bus.emit(
+                    Event(EventType.GAMEPAD_STICK, self, (device, stick, 0.0, 0.0))
+                )
+
     def _transition(self, device, name, pressed):
         token = (device, name)
-        if pressed == (token in self.held) or (pressed and not self.window.is_active()):
+        if pressed == (token in self.held) or (pressed and not self._accept_input()):
             return
         # Multiple pads can hold the same logical binding at once. Emit its
         # release only after the last device lets go or disappears.
@@ -131,7 +167,8 @@ class GamepadInput:
             if focus and hasattr(focus, "get_widget_behavior"):
                 editor = focus.get_widget_behavior(EditableWidgetBehavior)
                 if editor:
-                    editor.capture_external_key(key, pressed)
+                    if editor.capture_external_key(key, pressed):
+                        self.window.queue_editor_refresh()
             return
         if self.window.server.connected_event.is_set():
             manager = self.window.key_mapping_manager
@@ -143,17 +180,6 @@ class GamepadInput:
                 manager.handle_key_release(
                     InputEvent(InputEventType.KEY_RELEASE, key=key, source="gamepad")
                 )
-
-    def edit(self):
-        self.window.switch_mode(self.window.EDIT_MODE)
-        if self.devices:
-            self.window.show_notification(
-                _("Double-click a control and press a gamepad button")
-            )
-        elif self.monitor is not None:
-            self.window.show_notification(_("Connect a gamepad to bind its buttons"))
-        else:
-            self.window.show_notification(_("Gamepad bindings require libmanette 0.2"))
 
     def close(self):
         for device in list(self.devices):

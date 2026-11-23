@@ -22,6 +22,7 @@ class WidgetTransparencyController:
 
     def __init__(self, iter_widgets: Callable[[], Iterable[object]]) -> None:
         self._iter_widgets = iter_widgets
+        self.hint_opacity = self.NORMAL_OPACITY
         self._transparent = False
 
     @property
@@ -41,7 +42,12 @@ class WidgetTransparencyController:
         return True
 
     def apply_to_widget(self, widget: object) -> bool:
-        return capabilities.set_opacity(widget, self._current_opacity())
+        opacity = (
+            self._current_opacity()
+            if getattr(widget, "mapping_mode", True)
+            else self.NORMAL_OPACITY
+        )
+        return capabilities.set_opacity(widget, opacity)
 
     def apply_to_all(self) -> int:
         updated_count = 0
@@ -53,4 +59,4 @@ class WidgetTransparencyController:
     def _current_opacity(self) -> float:
         if self._transparent:
             return self.TRANSPARENT_OPACITY
-        return self.NORMAL_OPACITY
+        return self.hint_opacity

@@ -4,7 +4,7 @@
 负责管理和处理所有的按键映射订阅和触发
 """
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Protocol, runtime_checkable
 
 from waydroid_helper.controller.core.event_bus import (Event, EventType,
@@ -349,6 +349,39 @@ class KeyMappingManager:
                         f"Mapping: {key_combo} -> "
                         f"{sub.target_name}#{sub.target_id}{conditions_str}"
                     )
+
+    def pulse_key(self, event):
+        """Dispatch one wheel notch without retriggering unrelated held keys."""
+        if event.key is None:
+            return False
+        pressed = self._pressed_keys | {event.key}
+        matches = [
+            combo
+            for combo in self._key_subscriptions
+            if event.key in combo and pressed.issuperset(combo.keys)
+        ]
+        # A modifier plus a notch takes precedence over the bare wheel. Keep
+        # both contacts of a zoom together in a single press/release pulse.
+        press = replace(event, event_type=InputEventType.KEY_PRESS)
+        release = replace(event, event_type=InputEventType.KEY_RELEASE)
+        handled = False
+        for combo in sorted(matches, key=len, reverse=True):
+            for sub in tuple(self._key_subscriptions[combo]):
+                if self._check_subscription_conditions(sub) and sub.trigger_callback(
+                    combo, press
+                ):
+                    sub.release_callback(combo, release)
+                    handled = True
+            if handled:
+                break
+        return handled
+
+    def release_pressed(self):
+        # A focus or task change may swallow the physical release. Release
+        # each active mapping once, without triggering shorter combinations.
+        for key in tuple(self._pressed_keys):
+            self._check_mapping_release(key)
+        self._pressed_keys.clear()
 
     def clear(self) -> None:
         """清空所有订阅和状态"""

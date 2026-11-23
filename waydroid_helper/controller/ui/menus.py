@@ -28,6 +28,8 @@ class ContextMenuHost(Protocol):
 
     def on_clear_widgets(self, button: Gtk.Button | None) -> None: ...
 
+    def begin_swipe_placement(self, widget: Any) -> None: ...
+
 
 class WidgetFactoryView(Protocol):
     widget_classes: dict[str, type[Any]]
@@ -53,6 +55,24 @@ class WidgetLayoutOperations(Protocol):
         clear_widgets: Callable[[], None],
         create_widget_at_position: Callable[[Any, int, int], None],
     ) -> int: ...
+
+
+EMBEDDED_CONTROL_ICONS = {
+    "singleclick": "mapping-tap-symbolic",
+    "repeatedclick": "mapping-repeat-tap-symbolic",
+    "swipe": "mapping-swipe-symbolic",
+    "directionalpad": "mapping-d-pad-symbolic",
+    "analogstick": "mapping-left-stick-symbolic",
+    "rightstick": "mapping-right-stick-symbolic",
+    "aim": "find-location-symbolic",
+    "fire": "mapping-fire-symbolic",
+    "scroll": "mapping-scroll-symbolic",
+    "pinch": "mapping-pinch-symbolic",
+    "rightclicktowalk": "mapping-right-click-symbolic",
+    "macro": "mapping-macro-symbolic",
+    "recordedaction": "mapping-recorded-action-symbolic",
+    "skillcasting": "mapping-cast-symbolic",
+}
 
 
 class ContextMenuManager:
@@ -120,6 +140,15 @@ class ContextMenuManager:
         self._flow_box.set_max_children_per_line(4)
         scrolled.set_child(self._flow_box)
 
+        if getattr(self.parent_window, "embedded", False):
+            # The emulator's application ID includes the display name, so GTK's
+            # automatic icon lookup does not point at the shared resource bundle.
+            theme = Gtk.IconTheme.get_for_display(self.anchor.get_display())
+            icon_path = "/com/jaoushingan/WaydroidHelper/mapping-icons"
+            if icon_path not in (theme.get_resource_path() or ()):
+                theme.add_resource_path(icon_path)
+            return
+
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         separator.set_margin_top(4)
         separator.set_margin_bottom(4)
@@ -156,11 +185,12 @@ class ContextMenuManager:
         self._clear_flow_box(self._flow_box)
         self._clear_flow_box(self._tool_flow)
 
-        if self._flow_box is None or self._tool_flow is None or self._popover is None:
+        if self._flow_box is None or self._popover is None:
             return
 
         self._populate_widget_buttons(x, y, widget_factory)
-        self._populate_tool_buttons(widget_factory)
+        if not getattr(self.parent_window, "embedded", False):
+            self._populate_tool_buttons(widget_factory)
 
     def _populate_widget_buttons(
         self, x: int, y: int, widget_factory: WidgetFactoryView
@@ -168,6 +198,17 @@ class ContextMenuManager:
         filtered_types = []
         for widget_type in widget_factory.get_available_types():
             widget_class = widget_factory.widget_classes.get(widget_type)
+            if getattr(self.parent_window, "embedded", False):
+                from waydroid_helper.controller.app.mapping_profiles import (
+                    supports_control,
+                )
+
+                if not supports_control(self.parent_window.profiles.kind, widget_type):
+                    continue
+            if getattr(widget_class, "EMBEDDED_ONLY", False) and not getattr(
+                self.parent_window, "embedded", False
+            ):
+                continue
             if widget_class and getattr(
                 widget_class,
                 "ALLOW_CONTEXT_MENU_CREATION",
@@ -189,7 +230,25 @@ class ContextMenuManager:
             metadata = widget_factory.get_widget_metadata(widget_type)
             display_name = metadata.get("name", widget_type.title())
             button = Gtk.Button(label=str(display_name))
-            button.set_size_request(100, 40)
+            if getattr(self.parent_window, "embedded", False):
+                content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                image = Gtk.Image.new_from_icon_name(
+                    EMBEDDED_CONTROL_ICONS.get(widget_type, "input-gaming-symbolic")
+                )
+                image.set_pixel_size(24)
+                content.append(image)
+                content.append(
+                    Gtk.Label(
+                        label=str(display_name),
+                        wrap=True,
+                        justify=Gtk.Justification.CENTER,
+                    )
+                )
+                button.set_child(content)
+                button.add_css_class("flat")
+                button.set_size_request(82, 54)
+            else:
+                button.set_size_request(100, 40)
             button.connect(
                 "clicked",
                 lambda btn, wtype=widget_type: [
@@ -228,7 +287,24 @@ class ContextMenuManager:
         try:
             widget = widget_factory.create_widget(widget_type, x=x, y=y)
             if widget:
+                if widget_type == "swipe":
+                    self.parent_window.begin_swipe_placement(widget)
+                    return
+                if getattr(self.parent_window, "embedded", False):
+                    width, height = (
+                        self.parent_window.screen_geometry.get_host_resolution()
+                    )
+                    x = round(max(0, min(x - widget.width / 2, width - widget.width)))
+                    y = round(
+                        max(0, min(y - widget.height / 2, height - widget.height))
+                    )
                 self.parent_window.create_widget_at_position(widget, x, y)
+                if getattr(self.parent_window, "embedded", False):
+                    from waydroid_helper.controller.app import widget_capabilities
+
+                    self.parent_window.workspace_manager.clear_all_selections()
+                    widget_capabilities.set_selected(widget, True)
+                    widget.grab_focus()
         except Exception:
             logger.exception("Error creating %s widget", widget_type)
 

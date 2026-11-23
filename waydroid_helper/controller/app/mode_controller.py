@@ -43,7 +43,8 @@ class ModeController:
 
         if new_mode == self.MAPPING_MODE:
             self.clear_selections()
-            self.notify(_("Mapping Mode (F1: Switch Mode)"))
+            if self.window.get_mapped():
+                self.notify(_("Mapping Mode (F1: Switch Mode)"))
             self.window.set_title(f"{APP_TITLE} - Mapping Mode (F1: Switch Mode)")
             self.window.set_cursor_from_name("default")
             return

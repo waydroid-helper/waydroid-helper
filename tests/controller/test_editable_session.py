@@ -104,3 +104,41 @@ def test_keep_editing_only_for_current_region():
 
     assert session.should_keep_editing_on_click(widget, 5, 5) is True
     assert session.should_keep_editing_on_click(widget, 20, 20) is False
+
+
+def test_release_commits_each_chord_without_blurring_its_field():
+    widget = FakeEditableWidget()
+    region = dict(id="tap", name="Tap", get_keys=lambda: widget.final_keys,
+                  set_keys=lambda keys: setattr(widget, "final_keys", keys))
+    session = EditableCaptureSession(2)
+    session.begin_region_editing(widget, region)
+    j, k, x = [make_key(name, ord(name)) for name in "JKX"]
+    for key in (j, k):
+        session.capture_key(widget, key)
+        assert session.release_key(widget, key).region is region
+        assert session.is_editing and widget.final_keys == {KeyCombination([key])}
+
+    session.capture_key(widget, j)
+    session.capture_key(widget, k)
+    session.capture_key(widget, x)
+    session.capture_key(widget, j)  # OS repeat must not replace the pending chord.
+    for key in (k, x):
+        assert session.release_key(widget, key) is None
+    assert session.release_key(widget, j).original_keys == {KeyCombination([k])}
+    assert widget.final_keys == {KeyCombination([j, x])}
+    assert session.finish(widget).region is None  # Already registered on release.
+
+
+def test_single_input_region_uses_last_new_press_until_focus_moves():
+    widget = FakeEditableWidget()
+    region = dict(id="up", name="Up", get_keys=lambda: widget.final_keys,
+                  set_keys=lambda keys: setattr(widget, "final_keys", keys))
+    session = EditableCaptureSession(1)
+    session.begin_region_editing(widget, region)
+    ctrl, y = Key("Ctrl_L", 0xffe3, KeyType.MODIFIER), make_key("Y", 89)
+    session.capture_key(widget, ctrl)
+    session.capture_key(widget, y)
+    session.release_key(widget, y)
+    session.capture_key(widget, ctrl)  # Repeat of the held prefix.
+    session.finish(widget)
+    assert widget.final_keys == {KeyCombination([y])}

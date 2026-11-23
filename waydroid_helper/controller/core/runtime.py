@@ -41,6 +41,10 @@ class WidgetInputEventFactory(Protocol):
         state: int,
     ) -> "InputEvent | None": ...
 
+    def create_scroll_event(
+        self, controller: Any, dx: float, dy: float
+    ) -> "InputEvent": ...
+
     def create_mouse_capture_event(
         self,
         event_type: "InputEventType | str",

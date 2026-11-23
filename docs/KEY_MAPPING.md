@@ -36,9 +36,9 @@ The key mapping interface operates in two distinct modes:
 
 ### Configuring Key Bindings
 
-1. **Double-click** on any widget to enter key capture mode
-2. **Press the desired key(s)** you want to map to this widget
-3. The widget will display the assigned key combination
+1. **Click the key label once**. A blinking underline marks the binding you are editing. Each direction on the movement pad has its own label
+2. For a tap, repeated tap, swipe, aim, skill, macro or recorded action, hold one input and press a second to bind a chord. Each direction on a movement pad, scroll or zoom control takes one input.
+3. Release the keys to accept the binding. The label stays focused, so you can press a different key or chord to replace it. Click another label or the canvas to finish.
 
 #### Supported Key Types
 

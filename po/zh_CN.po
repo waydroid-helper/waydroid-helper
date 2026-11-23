@@ -1303,14 +1303,8 @@ msgstr "隐藏键位"
 msgid "Add control"
 msgstr "添加键位"
 
-msgid "Starting Waydroid…"
-msgstr "正在启动 Waydroid…"
-
 msgid "Drag to resize"
 msgstr "拖动以等比缩放"
-
-msgid "Connecting input controls…"
-msgstr "正在连接键鼠控制…"
 
 msgid "Could not connect the Android input controls over ADB."
 msgstr "无法通过 ADB 连接 Android 输入控制。"
@@ -1581,3 +1575,344 @@ msgstr "关闭 %s"
 
 msgid "Open applications"
 msgstr "打开的应用"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+msgid "Invalid mapping layout"
+msgstr "映射布局无效"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+msgid "Enter a profile name"
+msgstr "请输入方案名称"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+msgid "Could not load every control in this profile"
+msgstr "无法载入方案中的全部控件"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Mapping profiles"
+msgstr "映射方案"
+
+#: waydroid_helper/controller/app/mapping_panel.py waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "New profile"
+msgstr "新建方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Save current controls as…"
+msgstr "将当前键位另存为…"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Import layout…"
+msgstr "导入布局…"
+
+#: waydroid_helper/controller/app/mapping_panel.py waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Rename profile"
+msgstr "重命名方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Profile notes"
+msgstr "方案说明"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Duplicate profile"
+msgstr "复制方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Delete"
+msgstr "删除"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Export layout…"
+msgstr "导出布局…"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Connected gamepads"
+msgstr "已连接的手柄"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Hint opacity"
+msgstr "键位提示不透明度"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "No gamepad connected"
+msgstr "未连接手柄"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Saved profiles"
+msgstr "已保存的方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Refresh"
+msgstr "刷新"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Apply"
+msgstr "应用"
+
+#: waydroid_helper/controller/app/mapping_panel.py waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Rename"
+msgstr "重命名"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Duplicate"
+msgstr "复制"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Open file location"
+msgstr "打开文件位置"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Notes"
+msgstr "说明"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+#, python-format
+msgid "%s (copy)"
+msgstr "%s（副本）"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Delete mapping profile?"
+msgstr "删除映射方案？"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Could not update mapping profile"
+msgstr "无法更新映射方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "In use"
+msgstr "使用中"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Unpin"
+msgstr "取消置顶"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Pin"
+msgstr "置顶"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Unknown control in layout"
+msgstr "布局包含未知控件"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Keyboard and mouse"
+msgstr "键鼠"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Gamepad"
+msgstr "手柄"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "No saved profiles"
+msgstr "还没有已保存的方案"
+
+#: waydroid_helper/controller/app/mapping_profiles_dialog.py
+msgid "Profile name"
+msgstr "方案名称"
+
+#: waydroid_helper/controller/widgets/base/timed_gesture.py
+msgid "Gesture duration (ms)"
+msgstr "手势时长（毫秒）"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Left stick"
+msgstr "左摇杆"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Place on a movement wheel or camera area and choose the physical stick."
+msgstr "放在游戏的移动轮盘或视角区域上，然后选择要使用的手柄摇杆。"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Right stick"
+msgstr "右摇杆"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Stick"
+msgstr "摇杆"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Action"
+msgstr "动作"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Dead zone (%)"
+msgstr "死区（%）"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py waydroid_helper/controller/widgets/components/directional_pad.py
+msgid "Camera speed (%)"
+msgstr "视角移动速度（%）"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Resume panning at the edge"
+msgstr "到达边缘后继续移动视角"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py
+msgid "Movement wheel"
+msgstr "移动轮盘"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py waydroid_helper/controller/widgets/components/directional_pad.py
+msgid "Camera pan"
+msgstr "移动视角"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Swipe path"
+msgstr "滑动轨迹"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Drag on the Android screen to record a path. Press the bound key to replay it."
+msgstr "在 Android 画面上按住并拖动鼠标绘制轨迹，按下绑定键即可重放。"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Scroll gesture"
+msgstr "滚动"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Bind a key or wheel notch to scroll within the selected area."
+msgstr "绑定一个按键或滚轮方向，在指定区域内滑动。"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Pinch zoom"
+msgstr "双指缩放"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Move two fingers around this point to zoom. Opposite wheel directions reverse the gesture."
+msgstr "在此处模拟双指缩放，两个滚轮方向分别用于放大和缩小。"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Up"
+msgstr "向上"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Down"
+msgstr "向下"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Left"
+msgstr "向左"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Right"
+msgstr "向右"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Draw the swipe path"
+msgstr "绘制滑动轨迹"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Hold at start (ms)"
+msgstr "起点停留时间（毫秒）"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Use a straight line"
+msgstr "沿直线滑动"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Swipe direction"
+msgstr "滑动方向"
+
+#: waydroid_helper/controller/widgets/components/gestures.py
+msgid "Pinch inward"
+msgstr "双指向内捏合"
+
+#: waydroid_helper/controller/widgets/components/recorded_action.py
+msgid "Recorded action"
+msgstr "操作录制键"
+
+#: waydroid_helper/controller/widgets/components/recorded_action.py
+msgid "Bind a recording made or imported from the Input recording menu."
+msgstr "使用“操作录制”菜单录制或导入操作，然后在此绑定。"
+
+#: waydroid_helper/controller/widgets/components/recorded_action.py
+#, python-format
+msgid "Use latest recording (%d events attached)"
+msgstr "使用最近一次录制（已附加 %d 个事件）"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Save profile"
+msgstr "保存方案"
+
+#: waydroid_helper/controller/app/input_recording.py
+msgid "Record or import input first"
+msgstr "请先录制或导入操作"
+
+#: waydroid_helper/controller/widgets/base/base_widget.py
+msgid "Show control hint"
+msgstr "显示键位提示"
+
+#: waydroid_helper/controller/widgets/base/base_widget.py
+msgid "Hint label"
+msgstr "提示文字"
+
+#: waydroid_helper/controller/widgets/components/aim.py
+msgid "Hold to look around"
+msgstr "按住观察"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Tutorial"
+msgstr "教程"
+
+#: waydroid_helper/controller/app/emulator_toolbar.py waydroid_helper/controller/app/mapping_panel.py
+msgid "Manage profiles"
+msgstr "管理方案"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Show control hints (F12)"
+msgstr "显示按键提示 (F12)"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Opacity"
+msgstr "透明度"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "No gamepad profiles"
+msgstr "暂无手柄方案"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "No keyboard and mouse profiles"
+msgstr "暂无键鼠方案"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Clear"
+msgstr "清空"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Right-click the Android image to place a control."
+msgstr "在 Android 画面上点击右键，选择要放置的控件。"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Click a key label and press the input to bind. Drag the control to move it. Open its settings to adjust it."
+msgstr "单击键名后按下要绑定的按键。拖动控件可调整位置，打开设置可修改参数。"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+msgid "Save applies this profile. Cancel restores your previous controls."
+msgstr "保存后会应用当前方案。取消编辑会恢复进入编辑前的方案。"
+
+#: waydroid_helper/controller/app/mapping_panel.py
+#, python-format
+msgid "Editing profile · %s"
+msgstr "编辑方案：%s"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+msgid "This profile belongs to the other input device"
+msgstr "这个方案属于另一种输入设备"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+msgid "This layout has no controls for this input device"
+msgstr "这个布局没有适用于此输入设备的控件"
+
+#: waydroid_helper/controller/app/mapping_profiles.py
+#, python-format
+msgid "Custom profile (%d)"
+msgstr "自定义方案(%d)"
+
+#: waydroid_helper/controller/app/window.py
+msgid "Drag on the Android screen to record a swipe"
+msgstr "在 Android 画面上按住鼠标左键并拖动，松开即可结束录制"
+
+#: waydroid_helper/controller/widgets/base/paired_gesture.py
+msgid "Gesture distance"
+msgstr "手势距离"
+
+#: waydroid_helper/controller/core/key_system.py
+msgctxt "Mouse wheel keycap"
+msgid "Wheel"
+msgstr "轮"

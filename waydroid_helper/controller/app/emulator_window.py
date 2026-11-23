@@ -1,6 +1,7 @@
 """Decorated emulator window sharing the existing mapping workspace."""
 
 import asyncio
+from pathlib import Path
 from gettext import gettext as _
 
 from gi.repository import Gdk, Gio, GLib, Gtk
@@ -23,6 +24,8 @@ from waydroid_helper.controller.app.emulator_display import (
 )
 from waydroid_helper.controller.app.emulator_gamepad import GamepadInput
 from waydroid_helper.controller.app.input_recording import InputRecording
+from waydroid_helper.controller.app.mapping_profiles import ProfileWorkspace
+from waydroid_helper.controller.app.mapping_profiles_dialog import MappingProfilesDialog
 from waydroid_helper.controller.app.emulator_tools import EmulatorTools
 from waydroid_helper.controller.app.emulator_tasks import AndroidTasks
 from waydroid_helper.controller.app.emulator_toolbar import EmulatorToolbar
@@ -42,6 +45,9 @@ class EmulatorWindow(MappingWindow):
         self.compositor = compositor_type()(socket=self.session.socket)
         self.compositor.set_can_target(False)
         self.compositor.set_focusable(False)
+        self.edit_shade = Gtk.Box(can_target=False, visible=False)
+        self.edit_shade.add_css_class("mapping-edit-shade")
+        overlay.add_overlay(self.edit_shade)
         overlay.add_overlay(self.fixed)
         overlay.set_focusable(True)
 
@@ -58,6 +64,27 @@ class EmulatorWindow(MappingWindow):
         self.tools = EmulatorTools(self)
         self.recorder = InputRecording(self)
         self.gamepad = GamepadInput(self)
+        self.profiles = ProfileWorkspace(
+            self, Path(GLib.get_user_config_dir()) / "waydroid-helper" / "profiles"
+        )
+        self.foreground_package = "home"
+        self.profile_dialog = None
+        self.connect(
+            "notify::is-active",
+            lambda *_: self._release_mapping_input() if not self.is_active() else None,
+        )
+        if self.find_property("visible-dialog"):
+            self.connect(
+                "notify::visible-dialog",
+                lambda *_: (
+                    self._release_mapping_input() if self.get_visible_dialog() else None
+                ),
+            )
+        self.preferences.connect(
+            "changed::emulator-hint-opacity", self._sync_hint_opacity
+        )
+        self._sync_hint_opacity(self.preferences, "emulator-hint-opacity")
+        self.profiles.load_initial()
         self.mini_width = None
         self._pending_resize = 0
         self.android_tasks = None
@@ -67,6 +94,7 @@ class EmulatorWindow(MappingWindow):
             spacing=6,
             halign=Gtk.Align.CENTER,
             valign=Gtk.Align.CENTER,
+            visible=False,
         )
         self.status_box.add_css_class("emulator-status")
         self.status = Gtk.Label(
@@ -107,12 +135,12 @@ class EmulatorWindow(MappingWindow):
             #emulator-display { background: black; }
             #emulator-display #mode-notification-box { padding: 5px 12px; border-radius: 14px; }
             #emulator-display #mode-notification-label { font-size: 13px; font-weight: 500; }
+            .mapping-edit-shade { background-color: rgba(0, 0, 0, .48); }
             .emulator-header { min-height: 36px; padding: 0 6px; }
             .emulator-header .emulator-tool > button, .emulator-header button.emulator-tool,
             .emulator-header windowcontrols button { min-width: 28px; min-height: 26px; padding: 2px 4px; }
             .emulator-header headerbar.compact .emulator-tool > button,
             .emulator-header headerbar.compact windowcontrols button { padding-left: 0; padding-right: 0; }
-            .emulator-header .editing > button { background: alpha(@accent_color, .18); }
             .emulator-status { color: white; background: alpha(black, .75); }
             .emulator-status { padding: 8px 14px; border-radius: 8px; }
 
@@ -134,15 +162,45 @@ class EmulatorWindow(MappingWindow):
         keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         keys.connect("key-pressed", self._on_shortcut)
         self.add_controller(keys)
-        self.pending_control = None
         click = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
         click.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         click.connect("pressed", self._on_canvas_press)
         self.canvas.add_controller(click)
+        # Observe the final geometry and captured key after GTK dispatches
+        # the release. This avoids polling the editor while it is idle.
+        releases = Gtk.EventControllerLegacy()
+        releases.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+
+        def released(controller, _event):
+            if self.profiles.edit is None:
+                return False
+            # The legacy signal can pass None to Python even while GTK is
+            # dispatching a release. The controller owns the current event.
+            event = controller.get_current_event()
+            if event is not None and event.get_event_type() in (
+                Gdk.EventType.BUTTON_RELEASE,
+                Gdk.EventType.KEY_RELEASE,
+                Gdk.EventType.TOUCH_END,
+            ):
+                self.queue_editor_refresh()
+            return False
+
+        releases.connect("event", released)
+        self.canvas.add_controller(releases)
+        self._placed_controls = self.fixed.observe_children()
+        self._placed_controls.connect(
+            "items-changed", lambda *_: self.queue_editor_refresh()
+        )
         self.resolution_refresh = None
         self.viewport.connect("output-resized", self._queue_resolution_refresh)
         self.startup = None
         self.connect("map", self._on_map)
+        self.switch_mode(self.MAPPING_MODE)
+
+    def _sync_hint_opacity(self, settings, key):
+        controller = self.widget_transparency_controller
+        controller.hint_opacity = settings.get_double(key)
+        controller.apply_to_all()
 
     def _on_map(self, *_):
         if self.startup is None:
@@ -155,10 +213,30 @@ class EmulatorWindow(MappingWindow):
                         max(1, round(mode.height / scale)),
                     )
                 )
-                self.screen_geometry.set_host_resolution(*self.viewport.mapping_size)
+                self._sync_mapping_geometry()
                 self._set_width(self.windowed_width)
             self.get_surface().connect("notify::scale", self._queue_resolution_refresh)
             self._start_if_idle()
+
+    def _sync_mapping_geometry(self):
+        size = self.viewport.mapping_size
+        if self.screen_geometry.get_host_resolution() == size:
+            return
+        # The guest can announce its logical dimensions after the home profile
+        # has already loaded. Reproject from stored layout coordinates once.
+        # Ordinary host-window resizes only change the viewport transform.
+        self._release_mapping_input()
+        edit = self.profiles.edit
+        working = self.profiles.capture() if edit else None
+        self.screen_geometry.set_host_resolution(*size)
+        if edit:
+            # Both snapshots must use the same coordinate space for the Save
+            # button's dirty check. Cancel already restores a versioned layout.
+            self.profiles.restore(edit.initial)
+            edit.initial = self.profiles.capture()
+            self.profiles.restore(working)
+        else:
+            self.profiles.load_initial()
 
     def _queue_resolution_refresh(self, *_):
         if not self.server.connected_event.is_set() or self._is_closing:
@@ -199,11 +277,12 @@ class EmulatorWindow(MappingWindow):
         )
         if size != self.viewport.configured_output:
             self.viewport.set_configured_output(size)
-            self.screen_geometry.set_host_resolution(*self.viewport.mapping_size)
+            self._sync_mapping_geometry()
             self._set_width(self.windowed_width)
 
     def _start_if_idle(self):
         if self.startup is None or self.startup.done():
+            self.status_box.set_visible(False)
             self.canvas.grab_focus()
             self.startup = asyncio.create_task(self._start())
 
@@ -236,9 +315,6 @@ class EmulatorWindow(MappingWindow):
 
     async def _start(self):
         observer = None
-        self.status.set_label(_("Starting Waydroid…"))
-        self.status_box.set_visible(True)
-        self.retry.set_visible(False)
         try:
             status = await session_status()
             if (
@@ -250,7 +326,6 @@ class EmulatorWindow(MappingWindow):
                     return
             address = await self.session.start()
             await self._use_waydroid_geometry()
-            self.status.set_label(_("Connecting input controls…"))
             service = self.scrcpy_lifecycle
             service.adb_helper.serial = f"{address}:5555"
             mode = self._selected_mode()
@@ -268,13 +343,12 @@ class EmulatorWindow(MappingWindow):
             await asyncio.wait_for(self.server.connected_event.wait(), 20)
             self.android_tasks = AndroidTasks(
                 service.adb_helper.serial,
-                self.toolbar.tabs.update_tasks,
+                self._tasks_changed,
                 self.show_notification,
+                unavailable=lambda: self.toolbar.tabs.update_tasks([], 0),
             )
             observer = asyncio.create_task(self.android_tasks.observe())
             self._queue_resolution_refresh()
-            self.status_box.set_visible(False)
-            self.switch_mode(self.MAPPING_MODE)
             self.canvas.grab_focus()
             logger.info(
                 "Emulator ready on %s with Android output %s",
@@ -287,20 +361,128 @@ class EmulatorWindow(MappingWindow):
             logger.exception("Embedded display on %s: %s", self.session.socket, error)
             self.status.set_label(str(error) or _("Timed out waiting for Waydroid."))
             self.status_box.set_visible(True)
-            self.retry.set_visible(True)
         finally:
+            self._release_mapping_input()
             if observer:
                 observer.cancel()
                 await asyncio.gather(observer, return_exceptions=True)
                 self.android_tasks = None
                 self.toolbar.tabs.update_tasks([], 0)
 
+    def _release_mapping_input(self):
+        self.gamepad.reset()
+        self.key_mapping_manager.release_pressed()
+        if self.recorder.player:
+            self.recorder.stop()
+        for control in self.workspace_manager.iter_widgets():
+            if hasattr(control, "stop_gesture"):
+                control.stop_gesture()
+        self.event_bus.emit(Event(EventType.EXIT_STARING, self, None))
+
+    def _tasks_changed(self, apps, active):
+        self.toolbar.tabs.update_tasks(apps, active)
+        package = next((app["package"] for app in apps if app["id"] == active), "home")
+        # Android can change the foreground independently of our tab buttons.
+        # Keep the edit transaction tied to its original package until exit.
+        self.foreground_package = package
+        if package != self.profiles.package and not self.profiles.edit:
+            if self.profile_dialog:
+                self.profile_dialog.close()
+            self.select_input()
+
+    def select_input(self, kind=None):
+        if self.profiles.edit:
+            return
+        if self.foreground_package != self.profiles.package or (
+            kind and kind != self.profiles.kind
+        ):
+            self._release_mapping_input()
+            try:
+                self.profiles.switch(self.foreground_package, kind)
+            except (ValueError, OSError) as error:
+                self.show_notification(str(error))
+        self.toolbar.sync_mode()
+
+    def open_profiles(self):
+        if self.profiles.edit:
+            return
+        if self.profile_dialog is None:
+            self.profile_dialog = MappingProfilesDialog(self, self.profiles.kind)
+            self.profile_dialog.on_dismissed(
+                lambda *_: setattr(self, "profile_dialog", None)
+            )
+        self.profile_dialog.present()
+
+    def create_widget_at_position(self, widget, x, y):
+        widget.profile_kind = self.profiles.kind
+        for combo in widget.final_keys:
+            if widget.text == str(combo):
+                widget.text = combo.display_text
+                break
+        widget.enable_hint_settings()
+        super().create_widget_at_position(widget, x, y)
+        widget.get_config_manager().connect(
+            "config-changed", lambda *_: self.queue_editor_refresh()
+        )
+        self.queue_editor_refresh()
+
+    def queue_editor_refresh(self):
+        if self.profiles.edit and not getattr(self, "_editor_refresh", 0):
+
+            def update():
+                self._editor_refresh = 0
+                self.toolbar.sync_mode()
+                return GLib.SOURCE_REMOVE
+
+            self._editor_refresh = GLib.idle_add(update)
+
+    def edit_profile(self, new=False, ident=None):
+        if self.profiles.edit:
+            return
+        self._release_mapping_input()
+        try:
+            self.profiles.begin_edit(new, ident)
+        except (ValueError, OSError) as error:
+            self.show_notification(str(error))
+            return
+        self.switch_mode(self.EDIT_MODE)
+        self.toolbar.sync_mode()
+
+    def finish_profile(self, save):
+        try:
+            if save:
+                # Keyboard shortcuts can save with a keycap still focused.
+                # Commit its pending chord before serializing the layout.
+                self.clear_all_selections()
+            self.profiles.finish(save)
+        except (OSError, ValueError) as error:
+            logger.exception("Failed to finish mapping profile")
+            self.show_notification(str(error))
+            return False
+        super().switch_mode(self.MAPPING_MODE)
+        self.select_input()
+        return True
+
+    def cycle_profile(self, offset):
+        if self.profiles.edit:
+            return
+        lib = self.profiles.library()
+        ids = [ident for ident, _, _ in lib.entries()]
+        if ids:
+            active = lib.active()
+            index = ids.index(active) if active in ids else (-1 if offset > 0 else 0)
+            ident = ids[(index + offset) % len(ids)]
+            self.profiles.apply(ident)
+            self.show_notification(lib.read(ident)["profile"]["name"])
+
     def task_action(self, action, task_id):
-        if self.android_tasks:
+        if self.android_tasks and not self.profiles.edit:
             self.android_tasks.command(action, task_id)
         self.canvas.grab_focus()
 
     def send_key(self, keycode):
+        if self.profiles.edit:
+            return
         if not self.server.connected_event.is_set():
             self.show_notification(_("Android input is not connected."))
             return
@@ -308,47 +490,47 @@ class EmulatorWindow(MappingWindow):
             message = InjectKeycodeMsg(action, keycode, 0, 0)
             self.event_bus.emit(Event(EventType.CONTROL_MSG, self, message))
 
-    def toggle_mapping(self):
-        self.switch_mode(self.mode_controller.toggle(self.current_mode))
-
-    def begin_placement(self, kind):
-        self.switch_mode(self.EDIT_MODE)
-        self.pending_control = kind
-        self.canvas.grab_focus()
-        self.canvas.set_cursor_from_name("crosshair")
-        name = self.widget_factory.get_widget_metadata(kind)["name"]
-        self.show_notification(_("Click to place %s · Esc to cancel") % name)
-
-    def _cancel_placement(self):
-        self.pending_control = None
-        self.canvas.set_cursor(None)
+    def switch_mode(self, new_mode):
+        # F1 reaches the window through the global input router. Commit through
+        # the same transaction as the Save button before hiding the editor.
+        if new_mode == self.MAPPING_MODE and self.profiles.edit:
+            return self.finish_profile(True)
+        return super().switch_mode(new_mode)
 
     def _on_canvas_press(self, gesture, count, x, y):
-        if self.pending_control is None:
-            if self.current_mode == self.MAPPING_MODE:
-                self.canvas.grab_focus()
-            return
-        widget = self.widget_factory.create_widget(self.pending_control)
-        self._cancel_placement()
-        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
-        if widget:
-            width, height = self.screen_geometry.get_host_resolution()
-            left = max(0, min(x - widget.width / 2, width - widget.width))
-            top = max(0, min(y - widget.height / 2, height - widget.height))
-            self.create_widget_at_position(widget, round(left), round(top))
-            widget.grab_focus()
+        if self.current_mode == self.MAPPING_MODE:
+            self.canvas.grab_focus()
 
     def _on_mode_changed(self, widget, pspec):
-        self._cancel_placement()
+        self._release_mapping_input()
+        if self.current_mode == self.EDIT_MODE:
+            self.recorder.stop()
+            self.profiles.begin_edit()
         super()._on_mode_changed(widget, pspec)
+        self.widget_transparency_controller.apply_to_all()
         self.set_title(_("Waydroid Emulator"))
         self.toolbar.sync_mode()
 
     def _on_shortcut(self, controller, keyval, keycode, state):
         if hasattr(self, "get_visible_dialog") and self.get_visible_dialog():
             return False
-        if keyval == Gdk.KEY_Escape and self.pending_control:
-            self._cancel_placement()
+        if self.profiles.edit:
+            if keyval == Gdk.KEY_Menu or (
+                keyval == Gdk.KEY_F10 and state & Gdk.ModifierType.SHIFT_MASK
+            ):
+                width, height = self.screen_geometry.get_host_resolution()
+                self._show_widget_creation_menu(width // 2, height // 2)
+                return True
+            self.queue_editor_refresh()
+            if keyval == Gdk.KEY_Escape:
+                self.clear_all_selections()
+                return True
+            return False
+        if state & Gdk.ModifierType.CONTROL_MASK and keyval in (
+            Gdk.KEY_bracketleft,
+            Gdk.KEY_bracketright,
+        ):
+            self.cycle_profile(1 if keyval == Gdk.KEY_bracketright else -1)
             return True
         if keyval == Gdk.KEY_F9:
             self.tools.screenshot()
@@ -381,7 +563,7 @@ class EmulatorWindow(MappingWindow):
 
     def _fullscreen_changed(self, *_):
         fullscreen = self.is_fullscreen()
-        self.toolbar.widget.set_visible(not fullscreen)
+        self.toolbar.widget.set_visible(not fullscreen or bool(self.profiles.edit))
         self.exit_fullscreen.set_visible(fullscreen)
         if not fullscreen:
             self.set_resizable(False)
@@ -597,7 +779,6 @@ class EmulatorWindow(MappingWindow):
             logger.exception("Could not restart embedded Waydroid")
             self.status.set_label(str(error))
             self.status_box.set_visible(True)
-            self.retry.set_visible(True)
         finally:
             self.restarting = False
 

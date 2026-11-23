@@ -37,7 +37,7 @@ class EditableCaptureSession:
         self.original_text = ""
         self.current_edit_region: EditableRegion | None = None
         self.original_keys: set[KeyCombination] = set()
-        self.realtime_keys: set[Key] = set()
+        self.held_keys: dict[Key, None] = {}
 
     def should_keep_editing_on_click(
         self,
@@ -82,7 +82,7 @@ class EditableCaptureSession:
         self.current_edit_region = None
         self.original_text = widget.text or ""
         self.original_keys = set(widget.final_keys)
-        self.realtime_keys = set()
+        self.held_keys.clear()
 
         if not widget.final_keys and not self.original_text:
             widget.text = CAPTURE_HINT_TEXT
@@ -108,35 +108,56 @@ class EditableCaptureSession:
         self.current_edit_region = region
         self.original_keys = set(region["get_keys"]())
         self.original_text = widget.text
-        self.realtime_keys = set()
+        widget.capture_preview = None
+        self.held_keys.clear()
         return True
 
     def capture_key(self, widget: "BaseWidget", key: Key) -> None:
-        if len(self.realtime_keys) >= self.max_keys:
-            removed_key = next(iter(self.realtime_keys))
-            self.realtime_keys.remove(removed_key)
-            logger.debug("Real-time set is full, remove oldest key: %s", removed_key)
+        kind = getattr(widget, "profile_kind", None)
+        if kind and key.name.startswith("Pad_") != (kind == "gamepad"):
+            return
+        if key in self.held_keys:
+            return  # Auto-repeat does not start a new chord.
 
-        self.realtime_keys.add(key)
-        logger.debug(
-            "Add key to real-time set: %s, current real-time set: %s",
-            key,
-            [str(k) for k in self.realtime_keys],
-        )
-        self._update_final_capture(widget)
+        # Track all physical presses until their releases. For a bounded
+        # chord, keep the first held prefix and the newest input. A one-key
+        # direction cell therefore takes just the newest key, while Ctrl,
+        # Shift, M in a two-key cell displays Ctrl+M.
+        prefix = list(self.held_keys)[: self.max_keys - 1]
+        self.held_keys[key] = None
+        combination = KeyCombination([*prefix, key])
+        if self.current_edit_region is not None:
+            widget.capture_preview = combination
+        else:
+            widget.final_keys = {combination}
+            self._update_display(widget)
 
-    def release_key(self, widget: "BaseWidget", key: Key) -> bool:
-        if key not in self.realtime_keys:
-            return False
+    def release_key(self, widget: "BaseWidget", key: Key) -> EditableFinishResult | None:
+        if key not in self.held_keys:
+            return None
+        del self.held_keys[key]
+        if self.current_edit_region is not None and not self.held_keys:
+            return self._commit_region_chord(widget)
+        return None
 
-        self.realtime_keys.remove(key)
-        logger.debug(
-            "Remove key from real-time set: %s, current real-time set: %s",
-            key,
-            [str(k) for k in self.realtime_keys],
-        )
+    def _commit_region_chord(self, widget: "BaseWidget") -> EditableFinishResult | None:
+        """Accept one gesture without taking focus away from its keycap.
+
+        A paired control may move a binding from its opposite row. Only
+        publish the complete chord, never an intermediate modifier. A later
+        press in this same field starts a replacement for that binding.
+        """
+        region = self.current_edit_region
+        combo = widget.capture_preview
+        widget.capture_preview = None
+        if region is None or combo is None:
+            return None
+        previous = set(region["get_keys"]())
+        if previous == {combo}:
+            return None
+        region["set_keys"]({combo})
         self._update_display(widget)
-        return True
+        return EditableFinishResult(region=region, original_keys=previous)
 
     def remove_last_final_key(self, widget: "BaseWidget") -> KeyCombination | None:
         if not widget.final_keys:
@@ -165,24 +186,13 @@ class EditableCaptureSession:
         widget: "BaseWidget",
         apply_changes: bool,
     ) -> EditableFinishResult:
-        region = self.current_edit_region
-        original_keys = set(self.original_keys)
-
-        if region is not None:
-            if not apply_changes:
-                logger.debug("Cancel region %s key capture", region["id"])
-                region["set_keys"](set(original_keys))
-            else:
-                logger.debug("Region %s key capture completed", region["id"])
-
+        result = self._commit_region_chord(widget) if apply_changes else None
+        widget.capture_preview = None
         self.current_edit_region = None
-        self.original_keys = set()
-        self.realtime_keys = set()
+        self.original_keys.clear()
+        self.held_keys.clear()
         widget.queue_draw()
-
-        if apply_changes and region is not None:
-            return EditableFinishResult(region=region, original_keys=original_keys)
-        return EditableFinishResult()
+        return result or EditableFinishResult()
 
     def _finish_widget_editing(
         self,
@@ -214,31 +224,14 @@ class EditableCaptureSession:
 
             register_widget_mappings = bool(widget.final_keys)
 
-        self.realtime_keys = set()
+        self.held_keys.clear()
         widget.queue_draw()
         return EditableFinishResult(register_widget_mappings=register_widget_mappings)
-
-    def _update_final_capture(self, widget: "BaseWidget") -> None:
-        if self.realtime_keys:
-            current_combination = KeyCombination(list(self.realtime_keys))
-
-            if self.current_edit_region:
-                self.current_edit_region["set_keys"]({current_combination})
-                logger.debug(
-                    "Update region %s keys: %s",
-                    self.current_edit_region["id"],
-                    current_combination,
-                )
-            else:
-                widget.final_keys = {current_combination}
-                logger.debug("Update final capture: %s", current_combination)
-
-        self._update_display(widget)
 
     def _update_display(self, widget: "BaseWidget") -> None:
         if widget.final_keys:
             first_combination = next(iter(widget.final_keys))
-            widget.text = str(first_combination)
+            widget.text = first_combination.display_text
         elif self.is_editing:
             widget.text = CAPTURE_HINT_TEXT
         else:

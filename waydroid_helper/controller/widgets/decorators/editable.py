@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 可编辑装饰器
-为组件添加双击编辑文本的功能，直接在组件上编辑
+在点选的键名位置捕获绑定。
 """
 
 import gi
@@ -13,9 +13,6 @@ from waydroid_helper.controller.core.handler import InputEventType
 from waydroid_helper.controller.core.runtime import WidgetInputEventFactory
 from waydroid_helper.util.log import logger
 
-from waydroid_helper.controller.widgets.base.draw_overlay import (
-    add_decorator_draw_overlay,
-)
 from waydroid_helper.controller.widgets.base.decorator_contracts import (
     EditableWidgetBehavior,
 )
@@ -52,11 +49,14 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
             self._wrapped_widget.runtime_context.key_mapping_service,
         )
         
-        # Hook双击事件、键盘事件、鼠标事件和绘制函数
-        self._hook_double_click()
+        # Capture starts on a keycap release, after workspace drag arbitration.
+        self._blink_source = 0
         self._hook_keyboard_events()
         self._hook_mouse_events()
-        self._hook_draw_function()
+        focus = Gtk.EventControllerFocus()
+        focus.connect("leave", lambda *_: self.finish_editing())
+        self._wrapped_widget.add_controller(focus)
+        self._wrapped_widget.connect("unmap", lambda *_: self.finish_editing())
         
         # 不再使用拦截器，改为提供查询方法给window使用
         
@@ -75,32 +75,16 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
             y,
         )
     
-    def _hook_double_click(self):
-        """Hook双击事件，添加编辑功能"""
-        logger.debug("Hook double click")
-        original_double_click = self._wrapped_widget.on_widget_double_clicked
-        
-        def enhanced_double_click(x, y):
-            logger.debug(f"Double click event triggered, position: ({x}, {y})")
-            original_double_click(x, y)
+    def capture_at(self, x, y):
+        region = self._wrapped_widget.get_region_at_position(x, y)
+        current = self._capture_session.current_edit_region
+        if current and region and current["id"] == region["id"]:
+            return
+        if current:
+            self.finish_editing()
+        if region:
+            self.start_region_editing(region)
 
-            region = self._wrapped_widget.get_region_at_position(x, y)
-            if region:
-                logger.debug(f"Start editing region: {region['name']} ({region['id']})")
-                self.start_region_editing(region)
-            else:
-                logger.debug("Clicked position not in any editable region")
-        
-        self._wrapped_widget.on_widget_double_clicked = enhanced_double_click
-    
-    def _hook_draw_function(self):
-        """Hook绘制函数，在编辑模式下绘制光标和编辑文本"""
-        def editable_draw(cr, width, height):
-            if self._capture_session.is_editing:
-                self._draw_edit_overlay(cr, width, height)
-
-        add_decorator_draw_overlay(self._wrapped_widget, editable_draw)
-    
     def _hook_keyboard_events(self):
         """Hook键盘事件处理文本输入"""
         # 确保组件可获得焦点
@@ -123,6 +107,9 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
         self.mouse_controller.connect('pressed', self._on_mouse_pressed)
         self.mouse_controller.connect('released', self._on_mouse_released)
         self._wrapped_widget.add_controller(self.mouse_controller)
+        scroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
+        scroll.connect("scroll", self._capture_scroll)
+        self._wrapped_widget.add_controller(scroll)
         
         logger.debug("Mouse event controller set")
     
@@ -156,7 +143,7 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
 
         if input_event.key:
             logger.debug(f"Mouse button pressed: {input_event.key}")
-            self._capture_session.capture_key(self._wrapped_widget, input_event.key)
+            self.capture_external_key(input_event.key, True)
             self._wrapped_widget.queue_draw()
             return True  # 消费掉这个事件，避免触发其他逻辑
         
@@ -186,7 +173,7 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
 
         if input_event.key:
             logger.debug(f"Mouse button released: {input_event.key}")
-            self._capture_session.release_key(self._wrapped_widget, input_event.key)
+            self.capture_external_key(input_event.key, False)
             self._wrapped_widget.queue_draw()
             return True
         
@@ -228,23 +215,19 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
         ):
             return
         
-        # 强制获取焦点以接收键盘输入
-        self._wrapped_widget.grab_focus()
-        
-        # 检查焦点状态
-        def check_focus():
-            has_focus = self._wrapped_widget.has_focus()
-            logger.debug(f"After region editing, focus state: {has_focus}")
-            if not has_focus:
-                logger.debug(f"Focus failed, retry...")
-                self._wrapped_widget.grab_focus()
-            return False
-            
-        GLib.timeout_add(10, check_focus)
-        
-        # 重绘组件
-        self._wrapped_widget.queue_draw()
-    
+        widget = self._wrapped_widget
+        widget.capture_region = region["id"]
+        widget.caret_visible = True
+        widget.grab_focus()
+        widget.queue_draw()
+
+        def blink():
+            widget.caret_visible = not widget.caret_visible
+            widget.queue_draw()
+            return GLib.SOURCE_CONTINUE
+
+        self._blink_source = GLib.timeout_add(500, blink)
+
     def _get_input_event_factory(self) -> WidgetInputEventFactory:
         """Return the input adapter injected by the controller composition root."""
         return self._wrapped_widget.runtime_context.input_event_factory
@@ -300,50 +283,9 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
             InputEventType.KEY_RELEASE, controller, keyval, keycode
         )
         if input_event and input_event.key:
-            self._capture_session.release_key(self._wrapped_widget, input_event.key)
+            self.capture_external_key(input_event.key, False)
             logger.debug(f"Key released: {input_event.key} ({keyval})")
         return True
-    
-    def _draw_edit_overlay(self, cr, width, height):
-        """在编辑模式下绘制编辑边框"""
-        if not self._capture_session.is_editing:
-            return
-            
-        logger.debug(f"Draw edit overlay: is_editing={self._capture_session.is_editing}")
-        
-        # 只绘制编辑状态的边框提示
-        self._draw_edit_border(cr, width, height)
-    
-    def _draw_edit_border(self, cr, width, height):
-        """绘制编辑状态的边框提示"""
-        # 绘制蓝色虚线边框表示编辑状态
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.8)  # 蓝色
-        cr.set_line_width(2)
-        cr.set_dash([5, 3])  # 虚线样式
-        
-        current_edit_region = self._capture_session.current_edit_region
-        if current_edit_region:
-            # 区域编辑模式：绘制区域特定的边框
-            bounds = current_edit_region['bounds']
-            if bounds and len(bounds) == 4:
-                rx, ry, rw, rh = bounds
-                cr.rectangle(rx, ry, rw, rh)
-                cr.stroke()
-            
-            # 显示区域名称
-            region_name = current_edit_region.get('name', 'Unknown Region')
-            cr.set_source_rgba(0.2, 0.6, 1.0, 1.0)
-            cr.select_font_face("Arial", 0, 1)
-            cr.set_font_size(10)
-            cr.move_to(5, 15)
-            cr.new_path()
-        else:
-            # 传统编辑模式：绘制整个widget边框
-            cr.rectangle(1, 1, width - 2, height - 2)
-            cr.stroke()
-        
-        # 重置虚线样式
-        cr.set_dash([])
     
     def _on_key_pressed(self, controller, keyval, keycode, state):
         """处理键盘按键 - 按键捕获模式"""
@@ -363,17 +305,29 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
                 f"Key pressed: {input_event.key} "
                 f"(original keyval: {input_event.key_symbol_name})"
             )
-            self._capture_session.capture_key(self._wrapped_widget, input_event.key)
+            self.capture_external_key(input_event.key, True)
             self._wrapped_widget.queue_draw()
         return True
     
+    def _capture_scroll(self, controller, dx, dy):
+        if not self._capture_session.is_editing:
+            return False
+        event = self._get_input_event_factory().create_scroll_event(controller, dx, dy)
+        if event.key is None:
+            return False
+        self.capture_external_key(event.key, True)
+        self.capture_external_key(event.key, False)
+        return True
+
     def capture_external_key(self, key, pressed):
         if not self._capture_session.is_editing:
             return False
         if pressed:
             self._capture_session.capture_key(self._wrapped_widget, key)
         else:
-            self._capture_session.release_key(self._wrapped_widget, key)
+            result = self._capture_session.release_key(self._wrapped_widget, key)
+            if result:
+                self._register_capture(result)
         self._wrapped_widget.queue_draw()
         return True
 
@@ -383,6 +337,14 @@ class EditableDecorator(WidgetDecorator, EditableWidgetBehavior):
         if result is None:
             return
 
+        if self._blink_source:
+            GLib.source_remove(self._blink_source)
+            self._blink_source = 0
+        self._wrapped_widget.capture_region = None
+        self._wrapped_widget.queue_draw()
+        self._register_capture(result)
+
+    def _register_capture(self, result):
         if result.region is not None and result.original_keys is not None:
             self._mapping_registrar.register_region_mappings(
                 result.region,

@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from gettext import pgettext
 from typing import TYPE_CHECKING, NamedTuple, cast
 
+
 from waydroid_helper.controller.android import AMotionEventAction, AMotionEventButtons
 from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.util.log import logger
@@ -795,62 +796,17 @@ class Macro(BaseWidget):
         else:
             self.release_commands = []
 
-    def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
-        """绘制圆形按钮的具体内容"""
-        # 计算圆心和半径
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 5  # 留出边距
+    SETTINGS_SYMBOL = "pencil"
 
-        # 绘制圆形背景
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.6)
+    def draw_widget_content(self, cr, width, height):
+        from waydroid_helper.controller.widgets.base import control_art as art
 
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
+        super().draw_widget_content(cr, width, height)
+        x, y = width * .64, height * .82
+        art.rounded(cr, x - 8, y - 4, 16, 8, 3)
+        cr.set_source_rgb(.04, .57, .88)
         cr.fill()
-
-        # 绘制圆形边框
-        cr.set_source_rgba(0.3, 0.3, 0.3, 0.9)
-        cr.set_line_width(2)
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.stroke()
-
-    def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
-        if self.text:
-            center_x = width / 2
-            center_y = height / 2
-
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色文字
-            cr.select_font_face("Arial", FontSlant.NORMAL, FontWeight.BOLD)
-            cr.set_font_size(12)
-            text_extents = cr.text_extents(self.text)
-            x = center_x - text_extents.width / 2
-            y = center_y + text_extents.height / 2
-            cr.move_to(x, y)
-            cr.show_text(self.text)
-
-            # 清除路径，避免影响后续绘制
-            cr.new_path()
-
-    def draw_selection_border(self, cr: "Context[Surface]", width: int, height: int):
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 5
-
-        # 绘制圆形选择边框
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.8)
-        cr.set_line_width(3)
-        cr.arc(center_x, center_y, radius + 3, 0, 2 * math.pi)
-        cr.stroke()
-
-    def draw_mapping_mode_background(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        pass
-
-    def draw_mapping_mode_content(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        pass
+        art.caption(cr, x, y, "‹/›", 8)
 
     def on_key_triggered(
         self,
@@ -960,11 +916,13 @@ class Macro(BaseWidget):
 
     @property
     def mapping_start_x(self):
-        return int(self.x + self.width / 2)
+        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
+
 
     @property
     def mapping_start_y(self):
-        return int(self.y + self.height / 2)
+        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
+
 
     @property
     def center_x(self):

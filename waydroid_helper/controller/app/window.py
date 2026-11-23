@@ -174,6 +174,7 @@ class MappingWindow(Adw.Window):
         self.set_title(APP_TITLE)
 
         overlay = Gtk.Overlay.new()
+        self.swipe_placement = None
         self.canvas = overlay
         self.input_surface = overlay if self.embedded else self
 
@@ -361,7 +362,30 @@ class MappingWindow(Adw.Window):
         widget.x = x
         widget.y = y
 
+    def begin_swipe_placement(self, widget):
+        from waydroid_helper.controller.ui.swipe_placement import SwipePlacement
+
+        self.clear_all_selections()
+        def completed(points, duration):
+            width, height = self.screen_geometry.get_host_resolution()
+            x, y = widget.set_recorded_path(points, duration, width, height)
+            self.cancel_swipe_placement()
+            self.create_widget_at_position(widget, x, y)
+            widget.set_selected(True)
+            widget.capture_key_at_endpoint()
+
+        self.swipe_placement = SwipePlacement(completed)
+        self.canvas.add_overlay(self.swipe_placement)
+        self.swipe_placement.grab_focus()
+        self.show_notification(_("Drag on the Android screen to record a swipe"))
+
+    def cancel_swipe_placement(self):
+        if self.swipe_placement is not None:
+            self.canvas.remove_overlay(self.swipe_placement)
+            self.swipe_placement = None
+
     def clear_all_selections(self) -> None:
+        self.cancel_swipe_placement()
         self.workspace_manager.clear_all_selections()
 
     def set_all_widgets_mapping_mode(self, mapping_mode: bool) -> None:

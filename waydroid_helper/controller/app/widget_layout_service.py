@@ -78,25 +78,40 @@ class WidgetLayoutService:
             if layout_data is None:
                 return 0
 
-            if layout_data.get("version") != BaseWidget.WIDGET_VERSION:
-                logger.warning(
-                    "Layout file version mismatch: %s != %s",
-                    layout_data.get("version"),
-                    BaseWidget.WIDGET_VERSION,
-                )
-
-            scale_x, scale_y = self._calculate_scale(layout_data)
-            clear_widgets()
-            return self._create_widgets(
-                layout_data,
-                widget_factory,
-                create_widget_at_position,
-                scale_x,
-                scale_y,
+            return self.restore_layout(
+                layout_data, widget_factory, clear_widgets, create_widget_at_position
             )
         except Exception:
             logger.exception("Failed to load layout from %s", file_path)
             return 0
+
+    def restore_layout(
+        self,
+        layout_data: dict[str, Any],
+        widget_factory: "WidgetFactory",
+        clear_widgets: Callable[[], None],
+        create_widget_at_position: Callable[[BaseWidget, int, int], None],
+    ) -> int:
+        """Restore a decoded layout using the same scaling as a JSON file."""
+        if (
+            "version" in layout_data
+            and layout_data["version"] != BaseWidget.WIDGET_VERSION
+        ):
+            logger.warning(
+                "Layout file version mismatch: %s != %s",
+                layout_data.get("version"),
+                BaseWidget.WIDGET_VERSION,
+            )
+
+        scale_x, scale_y = self._calculate_scale(layout_data)
+        clear_widgets()
+        return self._create_widgets(
+            layout_data,
+            widget_factory,
+            create_widget_at_position,
+            scale_x,
+            scale_y,
+        )
 
     def _read_layout(self, file_path: str) -> dict[str, Any] | None:
         path = Path(file_path)

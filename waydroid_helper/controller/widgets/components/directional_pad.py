@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import math
 from enum import Enum
-from gettext import pgettext
+from gettext import gettext as _, pgettext
 from typing import TYPE_CHECKING, Callable, TypedDict, cast
+
+from waydroid_helper.controller.widgets.base import control_art as art
 
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
 
@@ -22,7 +24,10 @@ from waydroid_helper.controller.core import (
 from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.event_bus import Event, EventType
 from waydroid_helper.controller.widgets import BaseWidget
-from waydroid_helper.controller.widgets.config import create_dropdown_config
+from waydroid_helper.controller.widgets.config import (
+    create_dropdown_config,
+    create_slider_config,
+)
 from waydroid_helper.controller.widgets.decorators import (Editable, Resizable,
                                                            ResizableDecorator)
 from waydroid_helper.util.log import logger
@@ -30,6 +35,7 @@ from waydroid_helper.util.log import logger
 class MovementMode(Enum):
     SMOOTH = "smooth"
     INSTANT = "instant"
+    PAN = "pan"
 
 class MovementState(Enum):
     """方向盘移动状态"""
@@ -150,22 +156,32 @@ class DirectionalPad(BaseWidget):
         # 初始化编辑区域字典
         self.edit_regions: dict[str, DirectionalPadEditableRegion] = {}
 
-        
-
         # 移动模式设置
         # self._movement_mode: MovementMode = MovementMode.SMOOTH
         movement_mode_config = create_dropdown_config(
             key="movement_mode",
             label=pgettext("Controller Widgets", "Operating Method"),
-            options=[MovementMode.SMOOTH.value, MovementMode.INSTANT.value],
+            options=[mode.value for mode in MovementMode],
             option_labels={
-                MovementMode.SMOOTH.value: pgettext("Controller Widgets", "Slide control"),
-                MovementMode.INSTANT.value: pgettext("Controller Widgets", "Click control"),
+                MovementMode.PAN.value: _("Camera pan"),
+                MovementMode.SMOOTH.value: pgettext(
+                    "Controller Widgets", "Slide control"
+                ),
+                MovementMode.INSTANT.value: pgettext(
+                    "Controller Widgets", "Click control"
+                ),
             },
             value=MovementMode.SMOOTH.value,
-            description=pgettext("Controller Widgets", "Adjusts the operating method of the directional pad")
+            description=pgettext(
+                "Controller Widgets",
+                "Adjusts the operating method of the directional pad",
+            ),
         )
         self.add_config_item(movement_mode_config)
+        self.add_config_item(
+            create_slider_config("pan_speed", _("Camera speed (%)"), 100, 10, 400)
+        )
+        self.config_manager.set_visible("pan_speed", False)
         self.add_config_change_callback("movement_mode", lambda key, value, restoring: self.set_movement_mode(value))
         self.swipehold_radius_factor = 1
 
@@ -186,10 +202,30 @@ class DirectionalPad(BaseWidget):
         self._move_steps_total = max_steps
 
     def set_movement_mode(self, mode: str):
-        if mode not in [MovementMode.SMOOTH.value, MovementMode.INSTANT.value]:
-            # self._movement_mode = MovementMode.SMOOTH
-            return
-        # self._movement_mode = MovementMode(mode)
+        self.config_manager.set_visible("pan_speed", mode == MovementMode.PAN.value)
+
+    async def _pan_camera(self, target):
+        # A keyboard direction represents velocity. Integrate elapsed time so
+        # a delayed UI frame cannot turn a held key into a large camera jump.
+        loop = asyncio.get_running_loop()
+        last = loop.time()
+        cx, cy = self.center
+        while self._joystick_active and target != self.center:
+            await asyncio.sleep(0.016)
+            now = loop.time()
+            step = min(now - last, 0.05) * self.get_config_value("pan_speed") / 50
+            last = now
+            x = self._current_position[0] + (target[0] - cx) * step
+            y = self._current_position[1] + (target[1] - cy) * step
+            self._current_position = (
+                min(max(x, self.x), self.x + self.width),
+                min(max(y, self.y), self.y + self.height),
+            )
+            self._emit_touch_event(AMotionEventAction.MOVE)
+            if self._current_position != (x, y):
+                self._emit_touch_event(AMotionEventAction.UP)
+                self._current_position = self.center
+                self._emit_touch_event(AMotionEventAction.DOWN)
 
     def __del__(self):
         """清理异步任务"""
@@ -228,6 +264,11 @@ class DirectionalPad(BaseWidget):
 
         # 根据移动模式决定是否使用平滑移动
         use_smooth = smooth and self.get_config_value("movement_mode") == MovementMode.SMOOTH.value
+
+        if self.get_config_value("movement_mode") == MovementMode.PAN.value:
+            if self._joystick_active:
+                self._movement_task = asyncio.create_task(self._pan_camera(target))
+            return
 
         if use_smooth:
             # 创建平滑移动任务
@@ -419,95 +460,11 @@ class DirectionalPad(BaseWidget):
     def get_layout_direction_keys(self) -> dict[str, KeyCombination | None]:
         return dict(self.direction_keys)
 
-    def draw_direction_buttons(
-        self,
-        cr: "Context[Surface]",
-        center_x: float,
-        center_y: float,
-        outer_radius: float,
-        inner_radius: float,
-    ):
-        """绘制四个方向的按钮区域"""
-        button_radius = (outer_radius + inner_radius) / 2
-        button_size = (outer_radius - inner_radius) / 2
-
-        # 方向位置计算
-        direction_positions = {
-            "up": (center_x, center_y - button_radius),
-            "down": (center_x, center_y + button_radius),
-            "left": (center_x - button_radius, center_y),
-            "right": (center_x + button_radius, center_y),
-        }
-
-        for direction in self.DIRECTIONS:
-            x, y = direction_positions[direction]
-            key = self.direction_keys[direction]
-            is_pressed = self.pressed_directions[direction]
-
-            # 根据按下状态选择颜色
-            if is_pressed:
-                cr.set_source_rgba(0.2, 0.7, 0.2, 0.9)  # 按下时为绿色
-            else:
-                cr.set_source_rgba(0.5, 0.5, 0.5, 0.8)  # 默认为灰色
-
-            # 绘制方向按钮圆圈
-            cr.arc(x, y, button_size, 0, 2 * math.pi)
-            cr.fill()
-
-            # 绘制方向按钮边框
-            cr.set_source_rgba(0.3, 0.3, 0.3, 1.0)
-            cr.set_line_width(1)
-            cr.arc(x, y, button_size, 0, 2 * math.pi)
-            cr.stroke()
-
-            # 绘制按键文字
-            key_text = str(key) if key else ""
-
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色文字
-            cr.select_font_face("Arial", 0, 1)
-
-            # 根据按键长度调整字体大小
-            if len(key_text) <= 1:
-                cr.set_font_size(14)
-            elif len(key_text) <= 3:
-                cr.set_font_size(10)
-            else:
-                cr.set_font_size(8)
-
-            text_extents = cr.text_extents(key_text)
-            text_x = x - text_extents.width / 2
-            text_y = y + text_extents.height / 2
-            cr.move_to(text_x, text_y)
-            cr.show_text(key_text)
-            cr.new_path()  # 清除路径
-
     def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
         """重写文本绘制 - 显示按键映射信息"""
 
-    def draw_selection_border(self, cr: "Context[Surface]", width: int, height: int):
-        """重写选择边框绘制 - 绘制圆形边框适配圆形方向盘"""
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 5
-
-        # 绘制圆形选择边框
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.8)
-        cr.set_line_width(3)
-        cr.arc(center_x, center_y, radius + 3, 0, 2 * math.pi)
-        cr.stroke()
-
-    def draw_mapping_mode_background(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        """映射模式下的背景绘制 - 圆形背景"""
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 2  # 减少边距
-
-        # 绘制单一背景色的圆形
-        cr.set_source_rgba(0.6, 0.6, 0.6, 0.5)  # 统一的半透明灰色
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.fill()
+    def draw_mapping_mode_background(self, cr, width, height):
+        art.disc(cr, width/2, height/2, min(width, height)/2 - 2, art.HINT)
 
     def draw_mapping_mode_content(
         self, cr: "Context[Surface]", width: int, height: int
@@ -518,6 +475,8 @@ class DirectionalPad(BaseWidget):
         radius = min(width, height) / 2 - 2  # 减少边距
         inner_radius = radius * 0.3
         button_radius = (radius + inner_radius) / 2
+        art.disc(cr, center_x, center_y, radius * 0.22, art.BODY)
+        art.compass(cr, center_x, center_y, inner_radius + 1)
 
         # 方向位置计算
         direction_positions = {
@@ -605,7 +564,6 @@ class DirectionalPad(BaseWidget):
             else:
                 self._move_to(target, smooth=False)
 
-
             # 这里可以调用具体的方向处理方法
             self.on_direction_triggered(direction, key_combination)
             return True
@@ -670,31 +628,11 @@ class DirectionalPad(BaseWidget):
         """方向被释放时的具体处理 - 子类可以重写此方法"""
         pass
 
-    def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
-        # 计算圆心和半径
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 8  # 留出边距
-
-        # 绘制外圆背景
-        cr.set_source_rgba(0.4, 0.4, 0.4, 0.7)
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.fill()
-
-        # 绘制外圆边框
-        cr.set_source_rgba(0.2, 0.2, 0.2, 0.9)
-        cr.set_line_width(2)
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.stroke()
-
-        # 绘制中心圆
-        inner_radius = radius * 0.3
-        cr.set_source_rgba(0.6, 0.6, 0.6, 0.8)
-        cr.arc(center_x, center_y, inner_radius, 0, 2 * math.pi)
-        cr.fill()
-
-        # 绘制四个方向的按钮区域和文字
-        self.draw_direction_buttons(cr, center_x, center_y, radius, inner_radius)
+    def draw_widget_content(self, cr, width, height):
+        x, y, radius = width / 2, height / 2, min(width, height) / 2 - 6
+        art.disc(cr, x, y, radius, art.BODY, art.OUTLINE)
+        art.cross_pad(cr, x, y, radius * .84)
+        art.compass(cr, x, y, radius * .22)
 
     @property
     def mapping_start_x(self):

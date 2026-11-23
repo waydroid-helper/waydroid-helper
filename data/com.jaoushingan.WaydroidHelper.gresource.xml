@@ -18,4 +18,19 @@
     <file alias="system-symbolic.svg">icons/system-symbolic.svg</file>
     <file alias="info-symbolic.svg">icons/info-symbolic.svg</file>
   </gresource>
+  <gresource prefix="/com/jaoushingan/WaydroidHelper/mapping-icons/scalable/actions">
+    <file alias="mapping-tap-symbolic.svg">icons/mapping/tap-symbolic.svg</file>
+    <file alias="mapping-repeat-tap-symbolic.svg">icons/mapping/repeat-tap-symbolic.svg</file>
+    <file alias="mapping-swipe-symbolic.svg">icons/mapping/swipe-symbolic.svg</file>
+    <file alias="mapping-d-pad-symbolic.svg">icons/mapping/d-pad-symbolic.svg</file>
+    <file alias="mapping-left-stick-symbolic.svg">icons/mapping/left-stick-symbolic.svg</file>
+    <file alias="mapping-right-stick-symbolic.svg">icons/mapping/right-stick-symbolic.svg</file>
+    <file alias="mapping-fire-symbolic.svg">icons/mapping/fire-symbolic.svg</file>
+    <file alias="mapping-right-click-symbolic.svg">icons/mapping/right-click-symbolic.svg</file>
+    <file alias="mapping-cast-symbolic.svg">icons/mapping/cast-symbolic.svg</file>
+    <file alias="mapping-scroll-symbolic.svg">icons/mapping/scroll-symbolic.svg</file>
+    <file alias="mapping-pinch-symbolic.svg">icons/mapping/pinch-symbolic.svg</file>
+    <file alias="mapping-macro-symbolic.svg">icons/mapping/macro-symbolic.svg</file>
+    <file alias="mapping-recorded-action-symbolic.svg">icons/mapping/recorded-action-symbolic.svg</file>
+  </gresource>
 </gresources>

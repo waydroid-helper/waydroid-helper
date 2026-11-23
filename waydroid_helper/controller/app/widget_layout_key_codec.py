@@ -52,6 +52,12 @@ class WidgetLayoutKeyCodec:
         if widget_type == self.DIRECTIONAL_PAD_TYPE:
             return self._serialize_directional_pad_keys(widget)
 
+        if hasattr(widget, "get_layout_binding_rows"):
+            return {"binding_rows": {
+                direction: [self.serialize_key_combination(c) for c in sorted(keys, key=str)]
+                for direction, keys in widget.get_layout_binding_rows().items()
+            }}
+
         if not isinstance(widget, KeyLayoutProvider):
             return {}
 
@@ -74,6 +80,15 @@ class WidgetLayoutKeyCodec:
     ) -> None:
         if widget_type == self.DIRECTIONAL_PAD_TYPE:
             self._apply_directional_pad_keys(widget_data, create_kwargs)
+            return
+
+        if widget_type in ("scroll", "pinch") and "binding_rows" in widget_data:
+            rows = widget_data["binding_rows"]
+            create_kwargs["binding_rows"] = {
+                d: {combo for names in rows.get(d, [])
+                    if (combo := self.deserialize_key_combination(names))}
+                for d in ("forward", "reverse")
+            }
             return
 
         default_keys = []

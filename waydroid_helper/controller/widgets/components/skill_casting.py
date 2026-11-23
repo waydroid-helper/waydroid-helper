@@ -12,13 +12,15 @@ from enum import Enum
 from gettext import pgettext
 from typing import TYPE_CHECKING, cast
 
+from waydroid_helper.controller.widgets.base import control_art as art
+
 from waydroid_helper.controller.widgets.components.cancel_casting import \
     CancelCasting
 from waydroid_helper.util.log import logger
+from gi.repository import Gtk
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
-    from gi.repository import Gtk
     from waydroid_helper.controller.widgets.base.base_widget import EditableRegion
 
 from cairo import FONT_SLANT_NORMAL, FONT_WEIGHT_BOLD
@@ -183,6 +185,7 @@ class SkillCasting(BaseWidget):
 
         # 设置配置项
         self.setup_config()
+        self._install_radius_drag()
 
         # 监听选中状态变化，用于圆形绘制通知
         self.connect("notify::is-selected", self._on_selection_changed)
@@ -589,6 +592,7 @@ class SkillCasting(BaseWidget):
         # 添加取消施法按钮配置
 
         self.add_config_item(circle_radius_config)
+        self._radius_config = circle_radius_config
         self.add_config_item(tilt_angle_config)
         self.add_config_item(camera_fov_config)
         self.add_config_item(origin_x_config)
@@ -613,6 +617,7 @@ class SkillCasting(BaseWidget):
             # self.circle_radius = int(value)
             # 如果当前选中状态，重新发送圆形绘制事件
             self._update_circle_if_selected()
+            self.queue_draw()
         except (ValueError, TypeError):
             pass
 
@@ -754,235 +759,91 @@ class SkillCasting(BaseWidget):
             }
             self.event_bus.emit(Event(EventType.WIDGET_SELECTION_OVERLAY, self, circle_data))
 
-    def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
-        """绘制圆形按钮的具体内容"""
-        # 计算圆心和半径
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 5  # 留出边距
+    def get_edit_chrome_radius(self):
+        return max(5, min(24, min(self.width, self.height) / 2 - 4))
 
-        # 绘制圆形背景
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.6)
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.fill()
+    def _radius_track(self):
+        """Leave the center and resize handles usable in small saved layouts."""
+        x = self.width / 2 - self.get_edit_chrome_radius() - 15
+        if x < 13:
+            return None
+        half = min(28, self.height / 3)
+        return x, self.height / 2 - half, self.height / 2 + half
 
-        # 绘制雷达扫描效果
-        # 绘制同心圆（类似雷达的圆圈）- 从内向外颜色加深
-        # 内圆 - 最浅灰色 (133/400 = 0.33)
-        inner_radius = radius * 0.33
-        cr.set_source_rgba(0.8, 0.8, 0.8, 0.8)  # 最浅灰色
-        cr.arc(center_x, center_y, inner_radius, 0, 2 * math.pi)
-        cr.fill()
+    def _install_radius_drag(self):
+        # Claim only presses on the scale. Ordinary drags and keycap clicks
+        # must continue to reach the shared workspace interaction handlers.
+        drag = Gtk.GestureDrag(button=1)
+        drag.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
 
-        # 中圆 - 中等灰色 (266/400 = 0.66)
-        middle_radius = radius * 0.66
-        cr.set_source_rgba(0.6, 0.6, 0.6, 0.8)  # 中等灰色
-        cr.arc(center_x, center_y, middle_radius, 0, 2 * math.pi)
-        cr.fill()
+        def begin(gesture, x, y):
+            track = self._radius_track()
+            if (
+                self.mapping_mode or not track
+                or abs(x - track[0]) > 10
+                or not track[1] - 5 <= y <= track[2] + 5
+            ):
+                gesture.set_state(Gtk.EventSequenceState.DENIED)
+                return
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+            self._set_radius_at(y)
 
-        # 外圆已经是原本的圆形背景(0.5, 0.5, 0.5, 0.6)，是最深的，保持不变
+        def update(gesture, dx, dy):
+            valid, _, start_y = gesture.get_start_point()
+            if valid and gesture.is_recognized():
+                self._set_radius_at(start_y + dy)
 
-        # 绘制135度扇形朝上 - 透明度高
-        cr.set_source_rgba(64 / 255, 224 / 255, 208 / 255, 0.25)  # 青绿色，透明度0.25
-        cr.move_to(center_x, center_y)
-        # 135度扇形，以向上(-π/2)为中心，向两边扩展67.5度
-        start_angle_135 = -math.pi / 2 - 135 * math.pi / 360  # 向上中心-67.5度
-        end_angle_135 = -math.pi / 2 + 135 * math.pi / 360  # 向上中心+67.5度
-        cr.arc(center_x, center_y, radius, start_angle_135, end_angle_135)
-        cr.close_path()
-        cr.fill()
+        drag.connect("drag-begin", begin)
+        drag.connect("drag-update", update)
+        self.add_controller(drag)
 
-        # 绘制45度扇形朝上 - 透明度低
-        cr.set_source_rgba(64 / 255, 224 / 255, 208 / 255, 0.15)  # 青绿色，透明度0.15
-        cr.move_to(center_x, center_y)
-        # 45度扇形，以向上(-π/2)为中心，向两边扩展22.5度
-        start_angle_45 = -math.pi / 2 - 45 * math.pi / 360  # 向上中心-22.5度
-        end_angle_45 = -math.pi / 2 + 45 * math.pi / 360  # 向上中心+22.5度
-        cr.arc(center_x, center_y, radius, start_angle_45, end_angle_45)
-        cr.close_path()
-        cr.fill()
+    def _set_radius_at(self, y):
+        _, top, bottom = self._radius_track()
+        cfg = self._radius_config
+        fraction = max(0, min(1, (bottom - y) / (bottom - top)))
+        value = cfg.min_value + fraction * (cfg.max_value - cfg.min_value)
+        self.set_config_value(cfg.key, round(round(value / cfg.step) * cfg.step, 1))
 
-        # 绘制圆形边框
-        cr.set_source_rgba(0.3, 0.3, 0.3, 0.9)
+    def _draw_radius_track(self, cr):
+        track = self._radius_track()
+        if not track:
+            return
+        x, top, bottom = track
+        cfg = self._radius_config
+        value = float(cfg.value)
+        fraction = (value - cfg.min_value) / (cfg.max_value - cfg.min_value)
+        knob = bottom - fraction * (bottom - top)
         cr.set_line_width(2)
-        cr.arc(center_x, center_y, radius, 0, 2 * math.pi)
-        cr.stroke()
-
-    def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
-        """重写文本绘制 - 使用白色文字适配圆形按钮"""
-        if self.text:
-            center_x = width / 2
-            center_y = height / 2
-
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色文字
-            cr.select_font_face(
-                "Arial", FONT_SLANT_NORMAL, FONT_WEIGHT_BOLD
-            )
-            cr.set_font_size(12)
-            text_extents = cr.text_extents(self.text)
-            x = center_x - text_extents.width / 2
-            y = center_y + text_extents.height / 2
-            cr.move_to(x, y)
-            cr.show_text(self.text)
-
-            # 清除路径，避免影响后续绘制
-            cr.new_path()
-
-    def draw_selection_border(self, cr: "Context[Surface]", width: int, height: int):
-        """重写选择边框绘制 - 绘制圆形边框适配圆形按钮"""
-        center_x = width / 2
-        center_y = height / 2
-        radius = min(width, height) / 2 - 5
-
-        # 绘制圆形选择边框
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.8)
-        cr.set_line_width(3)
-        cr.arc(center_x, center_y, radius + 3, 0, 2 * math.pi)
-        cr.stroke()
-
-    def draw_mapping_mode_background(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        """映射模式下的背景绘制 - 根据文字长度的圆角矩形"""
-        center_x = width / 2
-        center_y = height / 2
-
-        # 计算文字尺寸
-        if self.text:
-            cr.set_font_size(12)
-            text_extents = cr.text_extents(self.text)
-            text_width = text_extents.width
-            text_height = text_extents.height
-        else:
-            text_width = 20  # 默认宽度
-            text_height = 12  # 默认高度
-
-        # 圆角矩形参数
-        padding_x = 8  # 左右内边距
-        padding_y = 4  # 上下内边距
-        corner_radius = 6  # 圆角半径
-
-        rect_width = text_width + 2 * padding_x
-        rect_height = text_height + 2 * padding_y
-
-        # 确保矩形不会太小
-        rect_width = max(rect_width, 24)
-        rect_height = max(rect_height, 16)
-
-        # 计算矩形位置（居中）
-        rect_x = center_x - rect_width / 2
-        rect_y = center_y - rect_height / 2
-
-        # 绘制圆角矩形背景
-        cr.set_source_rgba(0.6, 0.6, 0.6, 0.7)  # 稍微加深一点透明度
-
-        # 使用路径绘制圆角矩形
-        # 左上角
-        cr.move_to(rect_x + corner_radius, rect_y)
-        # 上边
-        cr.line_to(rect_x + rect_width - corner_radius, rect_y)
-        # 右上角
-        cr.arc(
-            rect_x + rect_width - corner_radius,
-            rect_y + corner_radius,
-            corner_radius,
-            -math.pi / 2,
-            0,
-        )
-        # 右边
-        cr.line_to(rect_x + rect_width, rect_y + rect_height - corner_radius)
-        # 右下角
-        cr.arc(
-            rect_x + rect_width - corner_radius,
-            rect_y + rect_height - corner_radius,
-            corner_radius,
-            0,
-            math.pi / 2,
-        )
-        # 下边
-        cr.line_to(rect_x + corner_radius, rect_y + rect_height)
-        # 左下角
-        cr.arc(
-            rect_x + corner_radius,
-            rect_y + rect_height - corner_radius,
-            corner_radius,
-            math.pi / 2,
-            math.pi,
-        )
-        # 左边
-        cr.line_to(rect_x, rect_y + corner_radius)
-        # 左上角
-        cr.arc(
-            rect_x + corner_radius,
-            rect_y + corner_radius,
-            corner_radius,
-            math.pi,
-            3 * math.pi / 2,
-        )
-        cr.close_path()
+        for start, end, color in ((top, knob, art.OUTLINE), (knob, bottom, (0.02, 0.77, 1, 1))):
+            cr.set_source_rgba(*color)
+            cr.move_to(x, start)
+            cr.line_to(x, end)
+            cr.stroke()
+        art.rounded(cr, x - 11, knob - 6, 22, 12, 2)
+        cr.set_source_rgba(1, 1, 1, 0.94)
         cr.fill()
+        art.caption(cr, x, knob, f"{value:g}", 8, (0.12, 0.14, 0.19, 1))
 
-        # 绘制圆角矩形边框
-        cr.set_source_rgba(0.4, 0.4, 0.4, 0.9)
-        cr.set_line_width(1)
-        # 重复上面的路径
-        cr.move_to(rect_x + corner_radius, rect_y)
-        cr.line_to(rect_x + rect_width - corner_radius, rect_y)
-        cr.arc(
-            rect_x + rect_width - corner_radius,
-            rect_y + corner_radius,
-            corner_radius,
-            -math.pi / 2,
-            0,
-        )
-        cr.line_to(rect_x + rect_width, rect_y + rect_height - corner_radius)
-        cr.arc(
-            rect_x + rect_width - corner_radius,
-            rect_y + rect_height - corner_radius,
-            corner_radius,
-            0,
-            math.pi / 2,
-        )
-        cr.line_to(rect_x + corner_radius, rect_y + rect_height)
-        cr.arc(
-            rect_x + corner_radius,
-            rect_y + rect_height - corner_radius,
-            corner_radius,
-            math.pi / 2,
-            math.pi,
-        )
-        cr.line_to(rect_x, rect_y + corner_radius)
-        cr.arc(
-            rect_x + corner_radius,
-            rect_y + corner_radius,
-            corner_radius,
-            math.pi,
-            3 * math.pi / 2,
-        )
-        cr.close_path()
-        cr.stroke()
+    def draw_selection_border(self, cr, width, height):
+        art.ring(cr, width / 2, height / 2, self.get_edit_chrome_radius(), self.is_selected)
 
-    def draw_mapping_mode_content(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        if self.text:
-            center_x = width / 2
-            center_y = height / 2
-
-            # 使用白色文字以在灰色背景上清晰显示
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色文字
-            cr.select_font_face(
-                "Arial", FONT_SLANT_NORMAL, FONT_WEIGHT_BOLD
-            )
-            cr.set_font_size(12)
-            text_extents = cr.text_extents(self.text)
-            x = center_x - text_extents.width / 2
-            y = center_y + text_extents.height / 2
-            cr.move_to(x, y)
-            cr.show_text(self.text)
-
-            # 清除路径，避免影响后续绘制
-            cr.new_path()
+    def draw_widget_content(self, cr, width, height):
+        # Keep the key legible independently of the configured cast radius.
+        # The selected range still follows the original projection and resize
+        # geometry, which is also used by the runtime touch calculation.
+        x, y, radius = width / 2, height / 2, self.get_edit_chrome_radius()
+        art.disc(cr, x, y, radius, art.BODY, art.OUTLINE)
+        art.disc(cr, x, y, radius * .74, (.16, .26, .32, .78))
+        art.disc(cr, x, y, radius * .48, (.2, .34, .40, .66))
+        self._draw_radius_track(cr)
+        if self.is_selected:
+            cr.set_source_rgba(.6, .85, 1, .65)
+            cr.set_line_width(1)
+            # The slider caption leaves a current point. Start the range circle
+            # separately so Cairo does not connect that point to the arc.
+            cr.new_sub_path()
+            cr.arc(x, y, max(radius, min(x, y) - 4), 0, math.tau)
+            cr.stroke()
 
     def _get_window_center(self) -> tuple[float, float]:
         """获取窗口中心坐标"""
@@ -1176,11 +1037,13 @@ class SkillCasting(BaseWidget):
 
     @property
     def mapping_start_x(self):
-        return int(self.x + self.width / 2)
+        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
+
 
     @property
     def mapping_start_y(self):
-        return int(self.y + self.height / 2)
+        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
+
 
     @property
     def center_x(self):

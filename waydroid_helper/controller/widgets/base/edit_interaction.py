@@ -13,8 +13,6 @@ class EditInteractionHost(EditableControlHost, Protocol):
     SETTINGS_PANEL_AUTO_HIDE: bool
 
     def queue_draw(self) -> None: ...
-    def set_cursor_from_name(self, cursor_name: str) -> None: ...
-    def set_cursor(self, cursor) -> None: ...
 
 
 class EditControlInteraction:
@@ -56,13 +54,6 @@ class EditControlInteraction:
         if self._edit_controls.update_hover(host, x, y):
             host.queue_draw()
 
-        if self._edit_controls.has_hover():
-            host.set_cursor_from_name("pointer")
-        else:
-            host.set_cursor(None)
-
     def handle_leave(self, host: EditInteractionHost) -> None:
         if self._edit_controls.clear_hover():
             host.queue_draw()
-
-        host.set_cursor(None)

@@ -13,6 +13,7 @@ class FakeHost:
     width: int = 100
     height: int = 100
     is_selected: bool = True
+    is_hovered: bool = False
     mapping_mode: bool = False
     delete_bounds: tuple[int, int, int, int] = (0, 0, 16, 16)
     settings_bounds: tuple[int, int, int, int] = (84, 84, 16, 16)
@@ -33,11 +34,16 @@ def test_edit_controls_resolve_action_from_host_button_bounds():
     assert controls.action_at(host, 50, 50) is EditControlAction.NONE
 
 
-def test_edit_controls_are_inactive_when_unselected_or_mapping():
+def test_edit_controls_follow_hover_and_selection_only_in_the_editor():
     controls = EditControls()
     host = FakeHost(is_selected=False)
 
     assert controls.action_at(host, 8, 8) is EditControlAction.NONE
+
+    host.is_hovered = True
+    assert controls.action_at(host, 92, 92) is EditControlAction.SETTINGS
+    host.is_hovered = False
+    assert controls.action_at(host, 92, 92) is EditControlAction.NONE
 
     host.is_selected = True
     host.mapping_mode = True

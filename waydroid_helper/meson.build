@@ -121,6 +121,9 @@ controller_app_sources = [
     'controller/app/emulator_viewport.py',
     'controller/app/emulator_display.py',
     'controller/app/emulator_preferences.py',
+    'controller/app/mapping_profiles.py',
+    'controller/app/mapping_panel.py',
+    'controller/app/mapping_profiles_dialog.py',
     'controller/app/emulator_toolbar.py',
     'controller/app/emulator_tabs.py',
     'controller/app/emulator_tasks.py',
@@ -196,6 +199,7 @@ controller_ui_sources = [
     'controller/ui/__init__.py',
     'controller/ui/layout_file_actions.py',
     'controller/ui/menus.py',
+    'controller/ui/swipe_placement.py',
     'controller/ui/styles.py',
 ]
 
@@ -213,11 +217,20 @@ controller_widgets_base_sources = [
     'controller/widgets/base/edit_interaction.py',
     'controller/widgets/base/draw_overlay.py',
     'controller/widgets/base/mode_layout.py',
+    'controller/widgets/base/touch_control.py',
+    'controller/widgets/base/control_art.py',
+    'controller/widgets/base/binding_art.py',
+    'controller/widgets/base/timed_gesture.py',
+    'controller/widgets/base/paired_gesture.py',
+    'controller/widgets/base/stroke_config.py',
 ]
 
 controller_widgets_components_sources = [
     'controller/widgets/components/__init__.py',
     'controller/widgets/components/aim.py',
+    'controller/widgets/components/analog_stick.py',
+    'controller/widgets/components/gestures.py',
+    'controller/widgets/components/recorded_action.py',
     'controller/widgets/components/directional_pad.py',
     'controller/widgets/components/fire.py',
     'controller/widgets/components/single_click.py',

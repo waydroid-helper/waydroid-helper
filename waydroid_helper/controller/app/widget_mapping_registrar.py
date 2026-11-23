@@ -46,5 +46,5 @@ class WidgetMappingRegistrar:
         for key_combination in capabilities.get_final_key_mappings(widget):
             if self._register_key_mapping(widget, key_combination):
                 registered_count += 1
-                capabilities.set_text_if_empty(widget, str(key_combination))
+                capabilities.set_text_if_empty(widget, key_combination.display_text)
         return registered_count

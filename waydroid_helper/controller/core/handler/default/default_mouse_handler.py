@@ -178,6 +178,10 @@ class MouseDefault(MouseBase):
         w, h = self.screen_geometry.get_host_resolution()
         device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
         dx, dy = event.scroll_delta
+        # GTK also reports the boundaries of a scroll sequence. These carry
+        # no movement and must not start a second pair of zoom contacts.
+        if dx == 0 and dy == 0:
+            return False
 
         scroll_begin_x = round(self._current_x)
         scroll_begin_y = round(self._current_y)
@@ -202,8 +206,6 @@ class MouseDefault(MouseBase):
             if event.scroll_is_surface:
                 hscroll = float(hscroll)
                 vscroll = float(vscroll)
-            if hscroll == 0 and vscroll == 0:
-                return False
             if self.natural_scroll:
                 hscroll = -hscroll
                 vscroll = -vscroll

@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import math
 from enum import Enum
-from gettext import pgettext
+from gettext import gettext as _, pgettext
 from typing import TYPE_CHECKING, Any, cast
+
+from waydroid_helper.controller.widgets.base import control_art as art
 
 from waydroid_helper.controller.android.input import (
     AMotionEventAction,
@@ -20,7 +22,10 @@ from waydroid_helper.controller.core import (
 from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.platform import get_platform
 from waydroid_helper.controller.widgets import BaseWidget
-from waydroid_helper.controller.widgets.config import create_slider_config
+from waydroid_helper.controller.widgets.config import (
+    create_slider_config,
+    create_switch_config,
+)
 from waydroid_helper.controller.widgets.decorators import (
     Editable,
     Resizable,
@@ -49,8 +54,10 @@ class AimState(Enum):
 @Editable
 @Resizable(resize_strategy=ResizableDecorator.RESIZE_SYMMETRIC)
 class Aim(BaseWidget):
-    MAPPING_MODE_WIDTH = 100
-    MAPPING_MODE_HEIGHT = 100
+    # The look area stays active for input but is visible only in the editor.
+    HAS_MAPPING_HINT = False
+    MAPPING_MODE_WIDTH = 40
+    MAPPING_MODE_HEIGHT = 30
     WIDGET_NAME = pgettext("Controller Widgets", "Aim")
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
@@ -143,6 +150,9 @@ class Aim(BaseWidget):
         )
 
         self.add_config_item(sensitivity_config)
+        self.add_config_item(
+            create_switch_config("hold_to_look", _("Hold to look around"), False)
+        )
         # 添加配置变更回调
         self.add_config_change_callback("sensitivity", self._on_sensitivity_changed)
 
@@ -467,94 +477,15 @@ class Aim(BaseWidget):
         self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))
         self.pointer_id_manager.release(self)
 
-    def draw_widget_content(self, cr: "Context[Surface]", width: int, height: int):
-        """绘制瞄准按钮的具体内容 - 中心50*50圆形区域"""
-        # 计算中心位置
-        center_x = width / 2
-        center_y = height / 2
+    def draw_widget_content(self, cr, width, height):
+        x, y = width/2, height/2
+        if self.is_selected:
+            art.range_guides(cr, width, height)
+        art.disc(cr, x, y, self.CIRCLE_RADIUS, art.BODY, art.OUTLINE)
+        art.sights(cr, x, y, self.CIRCLE_RADIUS)
 
-        # 绘制固定大小的圆形区域
-        cr.set_source_rgba(0.5, 0.5, 0.5, 0.6)  # 半透明灰色背景
-        cr.arc(center_x, center_y, self.CIRCLE_RADIUS, 0, 2 * math.pi)
-        cr.fill()
-
-        # 绘制圆形边框
-        cr.set_source_rgba(0.3, 0.3, 0.3, 0.9)
-        cr.set_line_width(2)
-        cr.arc(center_x, center_y, self.CIRCLE_RADIUS, 0, 2 * math.pi)
-        cr.stroke()
-
-        # 绘制准心 - 四条短线
-        cr.set_source_rgba(1, 1, 1, 0.9)  # 白色准心线
-        cr.set_line_width(2)
-
-        # 准心线长度
-        crosshair_length = 8
-
-        # 上方短线 (从圆的顶部向圆心延伸)
-        cr.move_to(center_x, center_y - self.CIRCLE_RADIUS)
-        cr.line_to(center_x, center_y - self.CIRCLE_RADIUS + crosshair_length)
-        cr.stroke()
-
-        # 下方短线 (从圆的底部向圆心延伸)
-        cr.move_to(center_x, center_y + self.CIRCLE_RADIUS)
-        cr.line_to(center_x, center_y + self.CIRCLE_RADIUS - crosshair_length)
-        cr.stroke()
-
-        # 左侧短线 (从圆的左侧向圆心延伸)
-        cr.move_to(center_x - self.CIRCLE_RADIUS, center_y)
-        cr.line_to(center_x - self.CIRCLE_RADIUS + crosshair_length, center_y)
-        cr.stroke()
-
-        # 右侧短线 (从圆的右侧向圆心延伸)
-        cr.move_to(center_x + self.CIRCLE_RADIUS, center_y)
-        cr.line_to(center_x + self.CIRCLE_RADIUS - crosshair_length, center_y)
-        cr.stroke()
-
-    def draw_text_content(self, cr: "Context[Surface]", width: int, height: int):
-        """绘制文本内容 - 在中心圆形区域显示"""
-        if self.text:
-            center_x = width / 2
-            center_y = height / 2
-
-            cr.set_source_rgba(1, 1, 1, 1)  # 白色文字
-            cr.select_font_face("Arial")
-            cr.set_font_size(12)
-            text_extents = cr.text_extents(self.text)
-            x = center_x - text_extents.width / 2
-            y = center_y + text_extents.height / 2
-            cr.move_to(x, y)
-            cr.show_text(self.text)
-
-            # 清除路径，避免影响后续绘制
-            cr.new_path()
-
-    def draw_selection_border(self, cr: "Context[Surface]", width: int, height: int):
-        """绘制选择边框 - 整个矩形区域背景色，重新绘制内容"""
-        # 绘制整个矩形的半透明背景色
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.3)  # 半透明蓝色背景
-        cr.rectangle(0, 0, width, height)
-        cr.fill()
-
-        # 重新绘制组件内容（避免被背景色覆盖）
-        self.draw_widget_content(cr, width, height)
-        self.draw_text_content(cr, width, height)
-
-        # 绘制矩形边框
-        cr.set_source_rgba(0.2, 0.6, 1.0, 0.8)  # 更深的蓝色边框
-        cr.set_line_width(3)
-        cr.rectangle(0, 0, width, height)
-        cr.stroke()
-
-    def draw_mapping_mode_background(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        """映射模式下的背景绘制 - 完全透明，什么都不绘制"""
-
-    def draw_mapping_mode_content(
-        self, cr: "Context[Surface]", width: int, height: int
-    ):
-        """映射模式下的内容绘制 - 完全透明，什么都不绘制"""
+    def draw_selection_border(self, cr, width, height):
+        art.ring(cr, width/2, height/2, self.CIRCLE_RADIUS, self.is_selected)
 
     def _handle_enter_staring(self, event: Event[Any]) -> None:
         """处理进入瞄准事件 - 创建异步任务"""
@@ -753,6 +684,10 @@ class Aim(BaseWidget):
         else:
             used_key = "未知按键"
 
+        if self.get_config_value("hold_to_look"):
+            asyncio.create_task(self._enter_aiming_state())
+            return True
+
         # 创建异步任务处理按键触发
         asyncio.create_task(self._handle_key_triggered(used_key))
         return True
@@ -778,7 +713,8 @@ class Aim(BaseWidget):
         key_combination: KeyCombination | None = None,
         event: "InputEvent|None" = None,
     ) -> bool:
-        """按键释放处理 - 在可重入模式下不做任何操作"""
+        if self.get_config_value("hold_to_look"):
+            asyncio.create_task(self._exit_aiming_state())
         return True
 
     def cleanup(self) -> None:
@@ -870,12 +806,12 @@ class Aim(BaseWidget):
     @property
     def mapping_start_x(self):
         """映射起始X坐标 - 中心位置"""
-        return self.x + self.width / 2
+        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
 
     @property
     def mapping_start_y(self):
         """映射起始Y坐标 - 中心位置"""
-        return self.y + self.height / 2
+        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
 
     @property
     def center_x(self):

@@ -130,7 +130,10 @@ def test_compact_picker_reserves_space_across_guest_launch_and_exit(tab_strip):
 
 
 def test_narrow_header_keeps_one_row_and_the_selected_page(adwaita):
-    toolbar = EmulatorToolbar(MagicMock())
+    window = MagicMock()
+    window.is_fullscreen.return_value = False
+    window.profiles.edit = None
+    toolbar = EmulatorToolbar(window)
     toolbar.tabs.update_tasks([{"id": 3, "package": "test.app"}], 3)
     page = toolbar.tabs.view.get_selected_page()
     for width, compact in ((904, False), (390, True), (904, False)):
@@ -144,3 +147,31 @@ def test_narrow_header_keeps_one_row_and_the_selected_page(adwaita):
         assert toolbar.tabs.view.get_selected_page() == page
         assert toolbar.back.get_visible() == (not compact)
         assert toolbar.fullscreen_button.get_visible() == (not compact)
+
+
+def test_profile_editor_replaces_the_whole_header_until_exit(adwaita):
+    window = MagicMock()
+    window.is_fullscreen.return_value = False
+    window.profiles.edit = None
+    toolbar = EmulatorToolbar(window)
+    assert toolbar.chrome.get_visible_child_name() == "normal"
+
+    window.profiles.edit = MagicMock()
+    window.profiles.edit.name = "Test profile"
+    window.profiles.dirty.return_value = False
+    toolbar.sync_mode()
+    assert toolbar.chrome.get_visible_child() == toolbar.editor.widget
+    assert isinstance(toolbar.editor.widget, Adw.HeaderBar)
+    assert not toolbar.editor.save.get_sensitive()
+    assert "Test profile" in toolbar.editor.title.get_text()
+    for width, compact in ((900, False), (390, True)):
+        toolbar.set_compact(compact)
+        assert toolbar.widget.measure(Gtk.Orientation.HORIZONTAL, -1).minimum <= width
+        assert all(label.get_visible() != compact for label in toolbar.editor.tools)
+
+    window.profiles.dirty.return_value = True
+    toolbar.sync_mode()
+    assert toolbar.editor.save.get_sensitive()
+    window.profiles.edit = None
+    toolbar.sync_mode()
+    assert toolbar.chrome.get_visible_child_name() == "normal"

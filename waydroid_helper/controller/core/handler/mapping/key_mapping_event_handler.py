@@ -27,6 +27,7 @@ class KeyMappingEventHandler(InputEventHandler):
             InputEventType.KEY_PRESS,
             InputEventType.KEY_RELEASE,
             InputEventType.MOUSE_PRESS,
+            InputEventType.MOUSE_SCROLL,
             InputEventType.MOUSE_RELEASE,
         }
 
@@ -36,6 +37,9 @@ class KeyMappingEventHandler(InputEventHandler):
         """
         if not self.can_handle(event):
             return False
+
+        if event.event_type == InputEventType.MOUSE_SCROLL:
+            return self.key_mapping_manager.pulse_key(event)
 
         # 对于按键事件，我们只关心主键（Key对象），组合逻辑由manager处理
         if event.event_type in {InputEventType.KEY_PRESS, InputEventType.MOUSE_PRESS}:

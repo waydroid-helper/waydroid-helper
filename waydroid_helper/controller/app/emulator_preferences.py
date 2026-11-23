@@ -57,12 +57,30 @@ def add_spin(group, title, value, low, high, step=1, digits=0):
     return control
 
 
-def add_switch(group, title, settings, key):
+def add_switch_row(group, title):
     if hasattr(Adw, "SwitchRow"):
         control = row = Adw.SwitchRow(title=title)
     else:
         control = Gtk.Switch(valign=Gtk.Align.CENTER)
         row = Adw.ActionRow(title=title, activatable_widget=control)
         row.add_suffix(control)
-    settings.bind(key, control, "active", 0)
     group.add(row)
+    return control
+
+
+def add_switch(group, title, settings, key):
+    control = add_switch_row(group, title)
+    settings.bind(key, control, "active", 0)
+
+
+def add_hint_opacity(group, title, settings):
+    scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01)
+    scale.set_draw_value(False)
+    scale.set_valign(Gtk.Align.CENTER)
+    scale.set_size_request(140, -1)
+    scale.set_tooltip_text(title)
+    settings.bind("emulator-hint-opacity", scale.get_adjustment(), "value", 0)
+    row = Adw.ActionRow(title=title, activatable_widget=scale)
+    row.add_suffix(scale)
+    group.add(row)
+    return row

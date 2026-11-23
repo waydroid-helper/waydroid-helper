@@ -234,3 +234,20 @@ def test_macro_mapping_events_are_scoped_to_their_event_bus_instance():
     finally:
         bus_a.clear()
         bus_b.clear()
+
+
+def test_discrete_wheel_prefers_modified_binding_and_preserves_held_keys(manager):
+    wheel = Key("Wheel_Up", -32768, KeyType.MOUSE)
+    zoom, scroll, held = MappingTarget(), MappingTarget(), ReentrantMappingTarget()
+    manager.subscribe(zoom, combo(KEY_CTRL, wheel))
+    manager.subscribe(scroll, combo(wheel))
+    manager.subscribe(held, combo(KEY_CTRL))
+    handle = KeyMappingEventHandler(manager).handle_event
+    assert handle(key_event(InputEventType.KEY_PRESS, KEY_CTRL))
+    assert handle(key_event(InputEventType.MOUSE_SCROLL, wheel))
+    assert len(zoom.triggered) == len(zoom.released) == 1
+    assert not scroll.triggered and not held.released and len(held.triggered) == 1
+    assert handle(key_event(InputEventType.KEY_RELEASE, KEY_CTRL))
+    assert handle(key_event(InputEventType.MOUSE_SCROLL, wheel))
+    assert len(scroll.triggered) == len(scroll.released) == 1
+    assert not handle(InputEvent(InputEventType.MOUSE_SCROLL, scroll_delta=(0, 1)))

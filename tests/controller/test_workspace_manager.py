@@ -61,8 +61,12 @@ class FakeFixed:
         return 600
 
     def __init__(self):
+        self.cursor_name = None
         self.children: list[FakeWidget] = []
         self.positions: dict[FakeWidget, tuple[int, int]] = {}
+
+    def set_cursor_from_name(self, name):
+        self.cursor_name = name
 
     def add(self, widget: FakeWidget, x: int, y: int):
         self.children.append(widget)
@@ -106,9 +110,6 @@ class FakeWindow:
     def create_widget_at_position(self, widget: FakeWidget, x: int, y: int):
         self.created_widgets.append((widget, x, y))
         self.fixed.add(widget, x, y)
-
-    def set_cursor(self, cursor):
-        return None
 
 
 def make_manager():
@@ -179,6 +180,32 @@ def test_primary_press_on_widget_selects_and_notifies_click():
         assert manager.selected_widget is widget
     finally:
         bus.clear()
+
+
+def test_only_selected_resize_handles_change_the_workspace_cursor():
+    manager, fixed, _, _ = make_manager()
+    widget = ResizeWidget(width=100, height=100)
+    fixed.add(widget, 0, 0)
+
+    manager.handle_pointer_motion(98, 50)
+    assert fixed.cursor_name is None
+    widget.set_selected(True)
+    for point, expected in (
+        ((98, 50), "ew-resize"),
+        ((50, 2), "ns-resize"),
+        ((98, 15), None),
+        ((50, 50), None),
+        ((110, 50), None),
+    ):
+        manager.handle_pointer_motion(*point)
+        assert fixed.cursor_name == expected
+
+    manager.resizing_widget = widget
+    manager.resize_direction = "w"
+    manager.handle_pointer_motion(110, 50)
+    assert fixed.cursor_name == "ew-resize"
+    manager.handle_pointer_release(110, 50)
+    assert fixed.cursor_name is None
 
 
 def test_pointer_release_resets_resize_session():

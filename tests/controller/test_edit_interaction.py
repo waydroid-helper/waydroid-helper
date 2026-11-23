@@ -18,7 +18,6 @@ class FakeHost:
 
     def __post_init__(self):
         self.queue_draw_calls = 0
-        self.cursors: list[str | None] = []
 
     def get_delete_button_bounds(self):
         return self.delete_bounds
@@ -28,12 +27,6 @@ class FakeHost:
 
     def queue_draw(self):
         self.queue_draw_calls += 1
-
-    def set_cursor_from_name(self, cursor_name: str):
-        self.cursors.append(cursor_name)
-
-    def set_cursor(self, cursor):
-        self.cursors.append(cursor)
 
 
 def test_edit_interaction_emits_delete_and_settings_events():
@@ -57,7 +50,7 @@ def test_edit_interaction_emits_delete_and_settings_events():
     ]
 
 
-def test_edit_interaction_updates_cursor_and_redraw_for_hover():
+def test_edit_interaction_redraws_when_hover_changes():
     controls = EditControls()
     host = FakeHost()
     interaction = EditControlInteraction(
@@ -69,17 +62,14 @@ def test_edit_interaction_updates_cursor_and_redraw_for_hover():
     interaction.handle_motion(host, 8, 8)
 
     assert host.queue_draw_calls == 1
-    assert host.cursors == ["pointer"]
 
     interaction.handle_motion(host, 50, 50)
 
     assert host.queue_draw_calls == 2
-    assert host.cursors == ["pointer", None]
 
     interaction.handle_motion(host, 50, 50)
 
     assert host.queue_draw_calls == 2
-    assert host.cursors == ["pointer", None, None]
 
 
 def test_edit_interaction_clears_hover_on_leave():
@@ -96,4 +86,3 @@ def test_edit_interaction_clears_hover_on_leave():
 
     assert controls.has_hover() is False
     assert host.queue_draw_calls == 2
-    assert host.cursors == ["pointer", None]

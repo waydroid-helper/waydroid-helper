@@ -8,14 +8,10 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-import gi
-
-gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GLib
-
 from waydroid_helper.controller.app import widget_capabilities as capabilities
 from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
 from waydroid_helper.controller.core.utils import is_point_in_rect
+from waydroid_helper.controller.widgets.decorators.resize_geometry import ResizeGeometryCalculator
 from waydroid_helper.util.log import logger
 
 
@@ -35,11 +31,16 @@ class WorkspaceHost(Protocol):
 
     def fixed_move(self, widget: Any, x: int, y: int) -> None: ...
 
-    def set_cursor(self, cursor: Gdk.Cursor | None) -> None: ...
-
 
 class WorkspaceManager:
     """处理编辑模式下的所有UI交互"""
+
+    _RESIZE_CURSORS = {
+        "n": "ns-resize", "s": "ns-resize",
+        "w": "ew-resize", "e": "ew-resize",
+        "nw": "nwse-resize", "se": "nwse-resize",
+        "ne": "nesw-resize", "sw": "nesw-resize",
+    }
 
     def __init__(
         self,
@@ -50,6 +51,7 @@ class WorkspaceManager:
         self.host = host
         self.fixed = fixed_container
         self.event_bus = event_bus
+        self._cursor_name: str | None = None
 
         # 初始化拖拽和调整大小状态
         self.dragging_widget = None
@@ -128,61 +130,67 @@ class WorkspaceManager:
                     self.start_widget_resize(self.selected_widget, self.interaction_start_x, self.interaction_start_y, self.pending_resize_direction)
                 else:
                     self.start_widget_drag(self.selected_widget, self.interaction_start_x, self.interaction_start_y)
+                    self.handle_widget_drag(x, y)
 
-        # 更新鼠标指针样式
-        widget_at_position = self.get_widget_at_position(x, y)
-        if widget_at_position:
-            local_x, local_y = self.global_to_local_coords(widget_at_position, x, y)
+        self._update_cursor(x, y)
 
-            # 检查是否有调整大小功能
-            resize_direction = capabilities.check_resize_direction(
-                widget_at_position, local_x, local_y
-            )
-            if resize_direction:
-                cursor_name = self.get_cursor_name_for_resize_direction(resize_direction)
-                self.set_cursor_from_name(cursor_name)
-                return
+    def _update_cursor(self, x, y):
+        # The editor uses the desktop arrow for ordinary hover and movement.
+        # Only painted handles advertise resizing. Once a resize begins, keep
+        # its axis even if the pointer moves past the edge of the control.
+        direction = self.resize_direction
+        if direction is None and self.dragging_widget is None:
+            widget = self.get_widget_at_position(x, y)
+            if (
+                capabilities.is_selected(widget)
+                and isinstance(widget, capabilities.ResizableWidget)
+                and widget.supports_resizing()
+            ):
+                local_x, local_y = self.global_to_local_coords(widget, x, y)
+                direction = ResizeGeometryCalculator.handle_at(
+                    local_x, local_y, widget.get_allocated_width(), widget.get_allocated_height()
+                )
+        self._set_resize_cursor(direction)
 
-            # 默认鼠标指针（可拖拽）
-            self.set_cursor_from_name("grab")
-        else:
-            # 空白区域，默认指针
-            self.set_cursor_from_name("default")
+    def _set_resize_cursor(self, direction):
+        name = self._RESIZE_CURSORS.get(direction)
+        if name != self._cursor_name:
+            self.fixed.set_cursor_from_name(name)
+            self._cursor_name = name
 
-    def handle_pointer_release(self):
+    def handle_pointer_release(self, x=None, y=None):
         """处理编辑模式下的指针释放事件"""
         if self.resizing_widget:
             capabilities.notify_resize_release(self.resizing_widget)
 
+        elif self.dragging_widget is None and self.selected_widget and x is not None:
+            widget = self.selected_widget
+            if (capabilities.supports_editing_interaction(widget)
+                    and abs(x - self.interaction_start_x) <= 5
+                    and abs(y - self.interaction_start_y) <= 5):
+                from waydroid_helper.controller.widgets.base.decorator_contracts import EditableWidgetBehavior
+                behavior = widget.get_widget_behavior(EditableWidgetBehavior)
+                local = self.global_to_local_coords(widget, x, y)
+                if behavior:
+                    behavior.capture_at(*local)
         self.clear_interaction_state()
+        if x is not None and y is not None:
+            self._update_cursor(x, y)
 
     def handle_widget_interaction(self, widget, x, y, n_press=1):
-        """处理widget交互 - 支持双击检测"""
+        """Select the control and defer capture until a stationary release."""
         
         local_x, local_y = self.global_to_local_coords(widget, x, y)
-        
-        should_keep_editing = capabilities.should_keep_editing_on_click(
-            widget, local_x, local_y
-        )
-        
-        if should_keep_editing:
-            capabilities.mark_skip_delayed_bring_to_front(widget)
-            return
         
         self.clear_all_selections(exclude_widget=widget)
         capabilities.set_selected(widget, True)
-        
-        capabilities.clear_skip_delayed_bring_to_front(widget)
-        
-        self.schedule_bring_to_front(widget)
-        
-        local_x, local_y = self.global_to_local_coords(widget, x, y)
-        
-        if n_press == 2:
-            capabilities.mark_skip_delayed_bring_to_front(widget)
-            capabilities.notify_double_click(widget, local_x, local_y)
+        if widget.get_parent() is not self.fixed:
             return
-        
+        # Reorder siblings without unparenting. Removing the pressed GTK widget
+        # here cancels its gesture sequence and loses its key capture focus.
+        if hasattr(widget, "insert_after") and widget.get_next_sibling():
+            widget.insert_after(self.fixed, self.fixed.get_last_child())
+
         self.selected_widget = widget
         self.interaction_start_x = x
         self.interaction_start_y = y
@@ -209,7 +217,8 @@ class WorkspaceManager:
             child_height = child.get_allocated_height()
             
             if is_point_in_rect(x, y, child_x, child_y, child_width, child_height):
-                matched_child = child
+                if not hasattr(child, "contains") or child.contains(x - child_x, y - child_y):
+                    matched_child = child
             
         return matched_child
 
@@ -230,7 +239,8 @@ class WorkspaceManager:
         self.dragging_widget = widget
         self.drag_start_x = x
         self.drag_start_y = y
-        self.bring_widget_to_front_safe(widget)
+        if capabilities.supports_editing_interaction(widget):
+            widget.cancel_editing()
 
     def handle_widget_drag(self, x, y):
         """处理widget拖拽"""
@@ -306,6 +316,7 @@ class WorkspaceManager:
 
     def clear_interaction_state(self):
         """Reset transient pointer state owned by the workspace manager."""
+        self._set_resize_cursor(None)
         self.dragging_widget = None
         self.resizing_widget = None
         self.selected_widget = None
@@ -329,64 +340,3 @@ class WorkspaceManager:
             self.delete_specific_widget(widget)
 
         self.clear_interaction_state()
-
-    def bring_widget_to_front_safe(self, widget):
-        """安全地将widget置于最前 - 只在拖拽时使用"""
-        try:
-            x, y = self.fixed.get_child_position(widget)
-            self.fixed.remove(widget)
-            self.host.fixed_put(widget, x, y)
-            self.dragging_widget = widget
-        except Exception as e:
-            logger.error(f"Error bringing widget to front safely: {e}")
-    
-    def schedule_bring_to_front(self, widget):
-        """延迟置顶 - 避免立即操作导致的状态问题"""
-        GLib.idle_add(self._delayed_bring_to_front, widget)
-
-    def _delayed_bring_to_front(self, widget):
-        """延迟执行的置顶操作"""
-        try:
-            if capabilities.should_skip_delayed_bring_to_front(widget):
-                capabilities.clear_skip_delayed_bring_to_front(widget)
-                return False
-            
-            if not widget.get_parent() or widget.get_parent() != self.fixed:
-                return False
-                
-            x, y = self.fixed.get_child_position(widget)
-            
-            selected_state = capabilities.is_selected(widget)
-            
-            self.fixed.remove(widget)
-            self.host.fixed_put(widget, x, y)
-            
-            current_state = capabilities.is_selected(widget)
-            if current_state != selected_state:
-                capabilities.set_selected(widget, selected_state)
-        except Exception as e:
-            logger.error(f"Error during delayed bring to front: {e}")
-        
-        return False
-
-    def get_cursor_name_for_resize_direction(self, direction):
-        """根据调整大小方向获取鼠标指针名称"""
-        cursor_map = {
-            'se': 'se-resize', 'sw': 'sw-resize', 'ne': 'ne-resize',
-            'nw': 'nw-resize', 'e': 'e-resize', 'w': 'w-resize',
-            's': 's-resize', 'n': 'n-resize'
-        }
-        return cursor_map.get(direction, 'default')
-
-    def set_cursor_from_name(self, cursor_name):
-        """根据名称设置鼠标指针"""
-        try:
-            cursor = Gdk.Cursor.new_from_name(cursor_name)
-            self.host.set_cursor(cursor)
-        except Exception as e:
-            logger.error(f"Failed to set cursor: {cursor_name}, error: {e}")
-            try:
-                cursor = Gdk.Cursor.new_from_name("default")
-                self.host.set_cursor(cursor)
-            except Exception:
-                logger.exception("Failed to reset cursor to default")

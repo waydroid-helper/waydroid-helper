@@ -41,6 +41,9 @@ class EventType(str, Enum):
     SETTINGS_WIDGET = "settings-widget" # 设置组件
     WIDGET_SELECTION_OVERLAY = "widget-selection-overlay"  # 组件选中覆盖层显示
 
+    PLAY_RECORDING = "play-recording"
+    COPY_RECORDING = "copy-recording"
+    GAMEPAD_STICK = "gamepad-stick"
     MOUSE_MOTION = "mouse-motion"  # 鼠标移动事件
     CANCEL_CASTING = "cancel-casting"  # 取消施法事件
     MASK_CLICKED = "mask-clicked"  # 遮罩层点击事件，传递点击坐标

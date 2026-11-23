@@ -10,10 +10,12 @@ from waydroid_helper.util.log import logger
 
 
 class AndroidTasks:
-    def __init__(self, serial, update, notify):
+
+    def __init__(self, serial, update, notify, unavailable=None):
         self.serial = serial
         self.update = update
         self.notify = notify
+        self.unavailable = unavailable or (lambda: self.update([], 0))
         self.writer = None
         self.retry_delay = 1
 
@@ -30,7 +32,7 @@ class AndroidTasks:
                 logger.exception("Android task monitor disconnected on %s", self.serial)
                 if self.retry_delay == 1:
                     self.notify(_("Application tabs disconnected. Reconnecting…"))
-            self.update([], 0)
+            self.unavailable()
             await asyncio.sleep(self.retry_delay)
             self.retry_delay = min(self.retry_delay * 2, 15)
 

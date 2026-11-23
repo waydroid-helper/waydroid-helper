@@ -83,6 +83,12 @@ class EditableKeyMappingRegistrar:
         try:
             key_mapping_manager = self._key_mapping_service
 
+            if hasattr(self._widget, "get_layout_binding_rows"):
+                # The same input can move between the two rows in one edit.
+                # Rebuild both subscriptions or a moved chord will fire twice.
+                self.register_widget_mappings()
+                return
+
             for old_key_combination in original_keys:
                 key_mapping_manager.unsubscribe_key(self._widget, old_key_combination)
                 logger.debug(

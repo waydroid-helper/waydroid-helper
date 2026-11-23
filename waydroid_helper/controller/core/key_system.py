@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
+from gettext import pgettext
 from typing import Protocol
 
 
@@ -134,6 +135,10 @@ class KeyRegistry:
         self.register_key("Mouse_Left", -1, KeyType.MOUSE)
         self.register_key("Mouse_Middle", -2, KeyType.MOUSE)
         self.register_key("Mouse_Right", -3, KeyType.MOUSE)
+        for code, name in enumerate(
+            ("Wheel_Up", "Wheel_Down", "Wheel_Left", "Wheel_Right"), 1
+        ):
+            self.register_key(name, -32768 - code, KeyType.MOUSE)
         self.register_key("Mouse_Back", -8, KeyType.MOUSE)
         self.register_key("Mouse_Forward", -9, KeyType.MOUSE)
 
@@ -298,7 +303,20 @@ class KeyCombination:
     @property
     def display_text(self) -> str:
         """获取显示文本"""
-        return str(self)
+        wheel = pgettext("Mouse wheel keycap", "Wheel")
+        names = {
+            "Wheel_Up": wheel + "↑", "Wheel_Down": wheel + "↓",
+            "Wheel_Left": wheel + "←", "Wheel_Right": wheel + "→",
+        }
+        labels = []
+        for key in self.keys:
+            if key.key_type == KeyType.MODIFIER:
+                labels.append(key.name.removesuffix("_L").removesuffix("_R"))
+            elif key.name.startswith("Pad_"):
+                labels.append(key.name.removeprefix("Pad_").replace("_", " "))
+            else:
+                labels.append(names.get(key.name, key.name))
+        return "+".join(labels)
 
     @property
     def has_modifiers(self) -> bool:

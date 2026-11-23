@@ -195,13 +195,22 @@ class GtkInputEventFactory:
         event = controller.get_current_event()
         state = event.get_modifier_state() if event is not None else 0
 
+        surface = controller.get_unit() == Gdk.ScrollUnit.SURFACE
+        wheel_key = None
+        if not surface and (dx or dy):
+            if abs(dx or 0) > abs(dy or 0):
+                name = "Wheel_Right" if dx > 0 else "Wheel_Left"
+            else:
+                name = "Wheel_Down" if dy > 0 else "Wheel_Up"
+            wheel_key = self._key_registry.get_by_name(name)
         return InputEvent(
             event_type=InputEventType.MOUSE_SCROLL,
+            key=wheel_key,
             source=InputEventSource.GTK,
             modifier_state=self._modifier_state_from_gdk(state),
             buttons=self._android_buttons_from_gdk_state(state),
             scroll_delta=(float(dx or 0), float(dy or 0)),
-            scroll_is_surface=controller.get_unit() == Gdk.ScrollUnit.SURFACE,
+            scroll_is_surface=surface,
         )
 
     def create_zoom_event(

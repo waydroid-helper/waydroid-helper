@@ -163,9 +163,13 @@ class WindowInputRouter:
                 dx,
                 dy,
             )
-            self._dependencies.event_handler_chain.process_event(input_event)
+            consumed = self._dependencies.event_handler_chain.process_event(input_event)
+            if dx is not None and dy is not None:
+                return bool(consumed)
 
     def on_window_mouse_zoom(self, controller, zoom, status: str):
+        if self._dependencies.get_current_mode() != ModeController.MAPPING_MODE:
+            return
         input_event = self._dependencies.input_event_factory.create_zoom_event(
             controller,
             zoom,
@@ -176,7 +180,8 @@ class WindowInputRouter:
     def on_window_mouse_released(self, controller, n_press, x, y):
         if self._dependencies.get_current_mode() == ModeController.MAPPING_MODE:
             return False
-        self._dependencies.workspace_manager.handle_pointer_release()
+        if controller.get_current_button() == Gdk.BUTTON_PRIMARY:
+            self._dependencies.workspace_manager.handle_pointer_release(x, y)
 
     def on_global_key_press(self, controller, keyval, keycode, state):
         current_mode = self._dependencies.get_current_mode()

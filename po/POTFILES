@@ -59,6 +59,9 @@ waydroid_helper/controller/app/emulator_viewport.py
 waydroid_helper/controller/app/emulator_display.py
 waydroid_helper/controller/app/emulator_tools.py
 waydroid_helper/controller/app/emulator_gamepad.py
+waydroid_helper/controller/app/mapping_profiles.py
+waydroid_helper/controller/app/mapping_panel.py
+waydroid_helper/controller/app/mapping_profiles_dialog.py
 waydroid_helper/controller/app/input_recording.py
 waydroid_helper/controller/app/emulator_toolbar.py
 waydroid_helper/controller/app/emulator_tabs.py
@@ -94,6 +97,11 @@ waydroid_helper/controller/widgets/base/__init__.py
 waydroid_helper/controller/widgets/base/base_widget.py
 waydroid_helper/controller/widgets/components/__init__.py
 waydroid_helper/controller/widgets/components/aim.py
+waydroid_helper/controller/widgets/components/analog_stick.py
+waydroid_helper/controller/widgets/components/gestures.py
+waydroid_helper/controller/widgets/components/recorded_action.py
+waydroid_helper/controller/widgets/base/paired_gesture.py
+waydroid_helper/controller/widgets/base/timed_gesture.py
 waydroid_helper/controller/widgets/components/cancel_casting.py
 waydroid_helper/controller/widgets/components/directional_pad.py
 waydroid_helper/controller/widgets/components/fire.py

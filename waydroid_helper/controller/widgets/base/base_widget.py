@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from gettext import gettext as _
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, TypedDict, cast
 
 import gi
@@ -19,6 +20,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GObject, Gtk
 
 from waydroid_helper.controller.core import Event, EventType, KeyCombination
+from waydroid_helper.controller.widgets.base import control_art as art
 from waydroid_helper.controller.widgets.base.edit_controls import (
     EditControls,
 )
@@ -29,7 +31,11 @@ from waydroid_helper.controller.widgets.base.decorator_contracts import (
     WidgetDecoratorBehavior,
 )
 from waydroid_helper.controller.widgets.base.mode_layout import WidgetModeLayout
-from waydroid_helper.controller.widgets.config import ConfigManager
+from waydroid_helper.controller.widgets.config import (
+    ConfigManager,
+    create_switch_config,
+    create_text_config,
+)
 
 if TYPE_CHECKING:
     from cairo import Context, Surface
@@ -61,6 +67,7 @@ class BaseWidget(Gtk.DrawingArea):
     # 映射模式固定尺寸 - 子类可以覆盖这些值
     MAPPING_MODE_WIDTH = 50  # 默认映射模式宽度
     MAPPING_MODE_HEIGHT = 50  # 默认映射模式高度
+    HAS_MAPPING_HINT = True
 
     # 按键映射特性 - 子类可以覆盖这个值
     IS_REENTRANT = False  # 是否支持可重入（长按重复触发），默认不支持
@@ -114,6 +121,11 @@ class BaseWidget(Gtk.DrawingArea):
         )  # 最终保存的按键组合集合
 
         # 交互状态
+        self.is_hovered = False
+        self.hover_region = None
+        self.capture_preview = None
+        self.capture_region = None
+        self.caret_visible = False
         self.is_dragging:bool = False
         self.drag_start_x:int = 0
         self.drag_start_y:int = 0
@@ -159,6 +171,18 @@ class BaseWidget(Gtk.DrawingArea):
         self.pointer_id_manager = pointer_id_manager
         self.pointer_input_ownership = runtime_context.pointer_input_ownership
         self.key_registry = key_registry
+
+    def enable_hint_settings(self):
+        if not self.HAS_MAPPING_HINT:
+            return
+        self.add_config_item(
+            create_switch_config("show_hint", _("Show control hint"), True)
+        )
+        self.add_config_item(
+            create_text_config("hint_note", _("Hint label"), "", max_length=40)
+        )
+        for key in ("show_hint", "hint_note"):
+            self.add_config_change_callback(key, lambda *_: self.queue_draw())
 
     def set_default_keys(self, default_keys: set[KeyCombination]):
         self.final_keys = (set(default_keys))
@@ -305,31 +329,73 @@ class BaseWidget(Gtk.DrawingArea):
 
     def _on_clicked(self, controller, n_press, x, y):
         """处理删除按钮的点击事件"""
-        return self._edit_interaction.handle_click(self, x, y)
+        if not self.mapping_mode and (self.adjust_at(x, y) or self._edit_interaction.handle_click(self, x, y)):
+            controller.set_state(Gtk.EventSequenceState.CLAIMED)
+            return True
+        return False
+
+    def adjust_at(self, x, y):
+        return False
 
     def _on_motion(self, controller, x, y):
         """处理删除按钮的鼠标移动事件"""
+        if self.mapping_mode:
+            return
+        region = self.get_region_at_position(x, y)
+        ident = region["id"] if region else None
+        if not self.is_hovered or self.hover_region != ident:
+            self.is_hovered = True
+            self.hover_region = ident
+            self.queue_draw()
         self._edit_interaction.handle_motion(self, x, y)
 
     def _on_leave(self, controller):
         """处理鼠标离开删除按钮事件"""
+        self.is_hovered = False
+        self.hover_region = None
+        self.queue_draw()
         self._edit_interaction.handle_leave(self)
 
     def draw_func(self, widget:Gtk.DrawingArea, cr:'Context[Surface]', width:int, height:int, user_data:Any):
         """基础绘制函数 - 调用子类的具体绘制方法"""
+        from waydroid_helper.controller.widgets.base import control_art
+
         if self.mapping_mode:
             # 映射模式下的精简绘制
-            self.draw_mapping_mode(cr, width, height)
+            if not self.HAS_MAPPING_HINT or self.get_config_value("show_hint") is False:
+                return
+            note = self.get_config_value("hint_note")
+            if note:
+                # Fit the custom hint into the existing mapping badge. The
+                # control's Android target geometry is independent of the text.
+                control_art.rounded(cr, 1, 1, width - 2, height - 2, 8)
+                cr.set_source_rgba(.16, .17, .18, .80)
+                cr.fill()
+                from gi.repository import Pango, PangoCairo
+
+                layout = self.create_pango_layout(note)
+                layout.set_width(width * Pango.SCALE)
+                layout.set_alignment(Pango.Alignment.CENTER)
+                layout.set_ellipsize(Pango.EllipsizeMode.END)
+                cr.set_source_rgb(1, 1, 1)
+                cr.move_to(0, max(0, (height - layout.get_pixel_size()[1]) / 2))
+                PangoCairo.show_layout(cr, layout)
+            else:
+                self.draw_mapping_mode(cr, width, height)
         else:
             # 编辑模式下的正常绘制
             self.draw_widget_content(cr, width, height)
-            self.draw_text_content(cr, width, height)
+            if self.supports_editing_interaction():
+                from waydroid_helper.controller.widgets.base import binding_art
+                for region in self.get_editable_regions():
+                    binding_art.paint(self, cr, region)
+            else:
+                self.draw_text_content(cr, width, height)
             self.draw_selection_indicators(cr, width, height)
 
-    def draw_widget_content(self, cr:'Context[Surface]', width:int, height:int)->None:
-        """绘制widget的具体内容 - 子类应重写此方法"""
-        # 默认绘制一个简单的矩形背景
-        raise NotImplementedError("子类必须实现draw_widget_content方法")
+    def draw_widget_content(self, cr, width, height):
+        art.disc(cr, width / 2, height / 2, min(width, height)/2 - 6,
+                 art.BODY, art.OUTLINE)
 
     def draw_text_content(self, cr:'Context[Surface]', width:int, height:int)->None:
         """绘制文本内容 - 公共逻辑"""
@@ -348,14 +414,12 @@ class BaseWidget(Gtk.DrawingArea):
 
     def draw_selection_indicators(self, cr:'Context[Surface]', width:int, height:int):
         """绘制选择状态指示器"""
-        if self.is_selected:
-            # 绘制默认的矩形选择边框
+        if self.is_selected or self.is_hovered:
             self.draw_selection_border(cr, width, height)
             self._edit_controls.draw(self, cr)
 
-    def draw_selection_border(self, cr:'Context[Surface]', width:int, height:int)->None:
-        """绘制选择边框 - 子类可以重写此方法来自定义边框样式"""
-        raise NotImplementedError("子类必须实现draw_selection_border方法")
+    def draw_selection_border(self, cr, width, height):
+        art.ring(cr, width / 2, height / 2, min(width, height)/2 - 6, self.is_selected)
 
     def draw_mapping_mode(self, cr:'Context[Surface]', width:int, height:int)->None:
         """映射模式下的精简绘制"""
@@ -365,16 +429,16 @@ class BaseWidget(Gtk.DrawingArea):
         # 调用子类的映射模式内容绘制
         self.draw_mapping_mode_content(cr, width, height)
 
-    def draw_mapping_mode_background(self, cr:'Context[Surface]', width:int, height:int)->None:
-        """映射模式下的背景绘制 - 统一样式"""
-        # 默认绘制单一背景色矩形
-        cr.set_source_rgba(0.6, 0.6, 0.6, 0.5)  # 半透明灰色
-        cr.rectangle(0, 0, width, height)
+    def draw_mapping_mode_background(self, cr, width, height):
+        cap_width = min(width-2, max(18, len(self.text or "") * 8 + 10))
+        cap_height = min(height-2, 20)
+        art.rounded(cr, (width-cap_width)/2, (height-cap_height)/2,
+                    cap_width, cap_height, cap_height/2)
+        cr.set_source_rgba(*art.HINT)
         cr.fill()
 
-    def draw_mapping_mode_content(self, cr:'Context[Surface]', width:int, height:int)->None:
-        """映射模式下的内容绘制 - 子类必须重写此方法"""
-        # 默认什么都不绘制，子类应该重写此方法
+    def draw_mapping_mode_content(self, cr, width, height):
+        art.caption(cr, width / 2, height / 2, self.text or "", 11)
 
     def set_selected(self, selected: bool)->None:
         """设置选择状态"""
@@ -398,13 +462,16 @@ class BaseWidget(Gtk.DrawingArea):
         self._edit_controls.draw_settings_button(self, cr)
 
 
+    def get_edit_chrome_radius(self):
+        return max(1, min(self.width, self.height) / 2 - 3)
+
     def get_delete_button_bounds(self) -> tuple[int, int, int, int]:
         """获取删除按钮的边界 (x, y, w, h) - 子类可以重写"""
-        return self._edit_controls.default_delete_button_bounds(self.width, self.height)
+        return self._edit_controls.default_delete_button_bounds(self.width, self.height, self.get_edit_chrome_radius())
 
     def get_settings_button_bounds(self) -> tuple[int, int, int, int]:
         """获取设置按钮的边界 (x, y, w, h) - 子类可以重写"""
-        return self._edit_controls.default_settings_button_bounds(self.width, self.height)
+        return self._edit_controls.default_settings_button_bounds(self.width, self.height, self.get_edit_chrome_radius())
 
     def on_widget_clicked(self, x, y):
         """widget被点击时的回调 - 子类可以重写"""
@@ -473,19 +540,16 @@ class BaseWidget(Gtk.DrawingArea):
             ...
         ]
         """
-        # 默认返回单个编辑区域（整个widget）
-        return []
+        return [dict(id="default", name=self.WIDGET_NAME,
+                     bounds=(0, 0, self.width, self.height),
+                     get_keys=self.get_layout_key_mappings, set_keys=self.set_default_keys)]
 
     def get_region_at_position(self, x:int|float, y:int|float) -> EditableRegion|None:
         """获取指定位置的区域ID - 支持多区域编辑的widget应重写此方法"""
-        regions = self.get_editable_regions()
-        if not regions:
-            return None
-        for region in regions:
-            bounds = region.get("bounds")
-            if bounds and len(bounds) == 4:
-                rx, ry, rw, rh = bounds
-                if rx <= x <= rx + rw and ry <= y <= ry + rh:
+        from waydroid_helper.controller.widgets.base import binding_art
+        if self.supports_editing_interaction():
+            for region in self.get_editable_regions():
+                if binding_art.keycap(self, region).contains(x, y):
                     return region
         return None
 
