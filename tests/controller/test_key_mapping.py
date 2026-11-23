@@ -13,6 +13,7 @@ from waydroid_helper.controller.core.handler.event_handlers import (
 )
 from waydroid_helper.controller.core.handler.mapping.key_mapping_event_handler import (
     KeyMappingEventHandler,
+    TextInputMappingHandler,
 )
 from waydroid_helper.controller.core.handler.mapping.key_mapping_manager import (
     KeyMappingManager,
@@ -91,6 +92,53 @@ def mouse_event(event_type: InputEventType, key: Key, button: int) -> InputEvent
 
 def combo(*keys: Key) -> KeyCombination:
     return KeyCombination(list(keys))
+
+
+@pytest.mark.parametrize("key,button", [(KEY_A, None), (MOUSE_RIGHT, 3)])
+def test_ime_change_preserves_the_owner_of_a_held_input(manager, key, button):
+    target = MappingTarget()
+    manager.subscribe(target, combo(key))
+    handler = TextInputMappingHandler(manager, lambda: None)
+    if button:
+        down = mouse_event(InputEventType.MOUSE_PRESS, key, button)
+        up = mouse_event(InputEventType.MOUSE_RELEASE, key, button)
+    else:
+        down = key_event(InputEventType.KEY_PRESS, key)
+        up = key_event(InputEventType.KEY_RELEASE, key)
+
+    assert handler.handle_event(down)
+    handler.set_ime_visible(True)
+    manager.release_pressed()
+    assert handler.handle_event(down)
+    assert handler.handle_event(up)
+    assert len(target.triggered) == len(target.released) == 1
+
+    assert not handler.handle_event(down)
+    handler.set_ime_visible(False)
+    assert not handler.handle_event(down)
+    assert not handler.handle_event(up)
+    assert handler.handle_event(down)
+    assert handler.handle_event(up)
+    assert len(target.triggered) == len(target.released) == 2
+
+
+def test_ime_escape_sends_back_once_and_preserves_next_escape_binding(manager):
+    back = []
+    handler = TextInputMappingHandler(manager, lambda: back.append(True))
+    escape = Key("Escape", 65307, KeyType.SPECIAL)
+    target = MappingTarget()
+    manager.subscribe(target, combo(escape))
+    down = InputEvent(InputEventType.KEY_PRESS, key=escape, key_symbol_name="Escape")
+    up = InputEvent(InputEventType.KEY_RELEASE, key=escape, key_symbol_name="Escape")
+    handler.set_ime_visible(True)
+    assert handler.handle_event(down)
+    handler.set_ime_visible(False)
+    assert handler.handle_event(down)
+    assert handler.handle_event(up)
+    assert back == [True] and not target.triggered
+    assert handler.handle_event(down)
+    assert handler.handle_event(up)
+    assert len(target.triggered) == len(target.released) == 1
 
 
 def test_mapping_hit_consumes_event_before_default_handler(manager):

@@ -7,6 +7,7 @@ from gettext import gettext as _
 from gi.repository import Gdk, Gio, GLib, Gtk
 
 from waydroid_helper.controller.android.input import AKeyEventAction
+from waydroid_helper.controller.android.keycodes import AKeyCode
 from waydroid_helper.controller.app.embedded_session import (
     EmbeddedSession,
     compositor_type,
@@ -23,6 +24,8 @@ from waydroid_helper.controller.app.emulator_display import (
     stage_mode,
 )
 from waydroid_helper.controller.app.emulator_gamepad import GamepadInput
+from waydroid_helper.controller.app.desktop_ime_setup import DesktopImeSetup
+from waydroid_helper.controller.app.host_ime import HostIme
 from waydroid_helper.controller.app.input_recording import InputRecording
 from waydroid_helper.controller.app.mapping_profiles import ProfileWorkspace
 from waydroid_helper.controller.app.mapping_profiles_dialog import MappingProfilesDialog
@@ -34,11 +37,19 @@ from waydroid_helper.controller.app.window import MappingWindow
 from waydroid_helper.compat_widget import MessageDialog, ToolbarView
 from waydroid_helper.controller.core.control_msg import InjectKeycodeMsg
 from waydroid_helper.controller.core.event_bus import Event, EventType
+from waydroid_helper.controller.core.handler.mapping.key_mapping_event_handler import (
+    TextInputMappingHandler,
+)
 from waydroid_helper.util.log import logger
 
 
 class EmulatorWindow(MappingWindow):
     embedded = True
+
+    def create_key_mapping_handler(self):
+        return TextInputMappingHandler(
+            self.key_mapping_manager, lambda: self.send_key(AKeyCode.AKEYCODE_BACK)
+        )
 
     def build_canvas(self, overlay):
         self.session = EmbeddedSession()
@@ -69,17 +80,9 @@ class EmulatorWindow(MappingWindow):
         )
         self.foreground_package = "home"
         self.profile_dialog = None
-        self.connect(
-            "notify::is-active",
-            lambda *_: self._release_mapping_input() if not self.is_active() else None,
-        )
+        self.connect("notify::is-active", self._on_input_focus_changed)
         if self.find_property("visible-dialog"):
-            self.connect(
-                "notify::visible-dialog",
-                lambda *_: (
-                    self._release_mapping_input() if self.get_visible_dialog() else None
-                ),
-            )
+            self.connect("notify::visible-dialog", self._on_input_focus_changed)
         self.preferences.connect(
             "changed::emulator-hint-opacity", self._sync_hint_opacity
         )
@@ -88,6 +91,8 @@ class EmulatorWindow(MappingWindow):
         self.mini_width = None
         self._pending_resize = 0
         self.android_tasks = None
+        self.host_ime = HostIme(self)
+        self.ime_setup = DesktopImeSetup(self, self.host_ime)
         self.toolbar = EmulatorToolbar(self)
         self.status_box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -348,6 +353,7 @@ class EmulatorWindow(MappingWindow):
                 unavailable=lambda: self.toolbar.tabs.update_tasks([], 0),
             )
             observer = asyncio.create_task(self.android_tasks.observe())
+            self.ime_setup.attach(service.adb_helper.serial)
             self._queue_resolution_refresh()
             self.canvas.grab_focus()
             logger.info(
@@ -363,11 +369,28 @@ class EmulatorWindow(MappingWindow):
             self.status_box.set_visible(True)
         finally:
             self._release_mapping_input()
+            self.key_mapping_handler.forget_presses()
+            await self.ime_setup.detach()
             if observer:
                 observer.cancel()
                 await asyncio.gather(observer, return_exceptions=True)
                 self.android_tasks = None
                 self.toolbar.tabs.update_tasks([], 0)
+
+    def _on_input_focus_changed(self, *_):
+        if not self.is_active() or (
+            hasattr(self, "get_visible_dialog") and self.get_visible_dialog()
+        ):
+            self.key_mapping_handler.forget_presses()
+            self._release_mapping_input()
+
+    def _ime_changed(self, visible):
+        if visible == self.key_mapping_handler.ime_visible:
+            return
+        self.key_mapping_handler.set_ime_visible(visible)
+        logger.debug("Embedded Android IME visible=%s", visible)
+        if visible and self.current_mode == self.MAPPING_MODE:
+            self._release_mapping_input()
 
     def _release_mapping_input(self):
         self.gamepad.reset()
@@ -500,9 +523,11 @@ class EmulatorWindow(MappingWindow):
     def _on_canvas_press(self, gesture, count, x, y):
         if self.current_mode == self.MAPPING_MODE:
             self.canvas.grab_focus()
+            self.host_ime.clicked(x, y)
 
     def _on_mode_changed(self, widget, pspec):
         self._release_mapping_input()
+        self.key_mapping_handler.forget_presses()
         if self.current_mode == self.EDIT_MODE:
             self.recorder.stop()
             self.profiles.begin_edit()
@@ -526,9 +551,10 @@ class EmulatorWindow(MappingWindow):
                 self.clear_all_selections()
                 return True
             return False
-        if state & Gdk.ModifierType.CONTROL_MASK and keyval in (
-            Gdk.KEY_bracketleft,
-            Gdk.KEY_bracketright,
+        if (
+            not self.key_mapping_handler.ime_visible
+            and state & Gdk.ModifierType.CONTROL_MASK
+            and keyval in (Gdk.KEY_bracketleft, Gdk.KEY_bracketright)
         ):
             self.cycle_profile(1 if keyval == Gdk.KEY_bracketright else -1)
             return True

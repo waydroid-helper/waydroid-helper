@@ -105,6 +105,8 @@ class GamepadInput:
 
     def _accept_input(self):
         window = self.window
+        if window.current_mode == window.MAPPING_MODE and window.key_mapping_handler.ime_visible:
+            return False
         return window.profiles.kind == "gamepad" and window.is_active() and not (
             hasattr(window, "get_visible_dialog") and window.get_visible_dialog()
         )

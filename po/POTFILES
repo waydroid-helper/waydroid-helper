@@ -66,6 +66,8 @@ waydroid_helper/controller/app/input_recording.py
 waydroid_helper/controller/app/emulator_toolbar.py
 waydroid_helper/controller/app/emulator_tabs.py
 waydroid_helper/controller/app/emulator_tasks.py
+waydroid_helper/controller/app/host_ime.py
+waydroid_helper/controller/app/desktop_ime_setup.py
 waydroid_helper/controller/app/emulator_window.py
 waydroid_helper/controller/app/workspace_manager.py
 waydroid_helper/controller/core/__init__.py

@@ -1185,3 +1185,92 @@ msgstr "顯示快捷鍵"
 msgctxt "shortcut window"
 msgid "Quit"
 msgstr "退出"
+
+#: waydroid_helper/controller/app/host_ime.py
+msgid "Another emulator window is using the host input method."
+msgstr "另一個模擬器視窗正在使用主機輸入法。"
+
+#: waydroid_helper/controller/app/emulator_toolbar.py
+msgid "Set up desktop input method…"
+msgstr "設定電腦輸入法…"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Use your computer’s input method?"
+msgstr "使用電腦輸入法？"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "When you enter an Android text field, key mappings pause so you can type and choose candidates with your computer’s input method. When you finish entering text, key mappings resume automatically.\n\nOn first use, Waydroid Helper downloads the input method from its GitHub release and installs it in Waydroid."
+msgstr "進入 Android 輸入欄位時，按鍵映射會自動暫停，你可以用電腦輸入法打字和選字。結束輸入後，按鍵映射會自動恢復。\n\n首次使用時，Waydroid Helper 會從專案的 GitHub 發布頁下載輸入法，並安裝至 Waydroid。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Install and enable"
+msgstr "安裝並啟用"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Setting up the desktop input method…"
+msgstr "正在設定電腦輸入法…"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Desktop input method enabled."
+msgstr "已啟用電腦輸入法。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Turn off the desktop input method?"
+msgstr "停用電腦輸入法？"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Android text fields will stop using your computer’s input method."
+msgstr "Android 輸入欄位將停止使用電腦輸入法。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Turn off"
+msgstr "停用"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Desktop input method turned off."
+msgstr "已停用電腦輸入法。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "The input method download failed its integrity check."
+msgstr "下載的輸入法未通過完整性檢查。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Android could not verify the installed input method."
+msgstr "無法驗證 Android 中已安裝的輸入法。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Could not identify the current Android user."
+msgstr "無法識別目前的 Android 使用者。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Choose “Set up desktop input method…” to install the compatible version."
+msgstr "請從「設定電腦輸入法…」安裝相容版本。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Could not save the input method setting."
+msgstr "無法儲存輸入法設定。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Android did not respond."
+msgstr "Android 沒有回應。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+#, python-format
+msgid "Could not enable the desktop input method: %s"
+msgstr "無法啟用電腦輸入法：%s"
+
+#: waydroid_helper/controller/app/host_ime.py
+msgid "Android could not open the desktop input method."
+msgstr "Android 無法開啟電腦輸入法。"
+
+#: waydroid_helper/controller/app/host_ime.py
+msgid "The desktop input method disconnected."
+msgstr "電腦輸入法的連線已中斷。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "Could not download the input method. Check your connection and try again."
+msgstr "無法下載輸入法，請檢查網路連線後再試一次。"
+
+#: waydroid_helper/controller/app/desktop_ime_setup.py
+msgid "The active Android user changed. Set up the input method again."
+msgstr "目前的 Android 使用者已變更，請重新設定電腦輸入法。"

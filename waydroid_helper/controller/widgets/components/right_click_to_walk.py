@@ -224,6 +224,10 @@ class RightClickToWalk(BaseWidget):
             self._hold_timer = None
         
 
+    def stop_gesture(self):
+        if self._joystick_state != JoystickState.INACTIVE:
+            self._finish_joystick_action()
+
     def _finish_joystick_action(self):
         """完成摇杆动作，发送UP事件并重置"""
         self._emit_touch_event(AMotionEventAction.UP)

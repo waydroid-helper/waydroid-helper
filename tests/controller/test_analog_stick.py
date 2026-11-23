@@ -54,6 +54,7 @@ def test_fractional_travel_and_disconnect_release(control):
         is_active=lambda: True,
         current_mode=1,
         MAPPING_MODE=1,
+        key_mapping_handler=SimpleNamespace(ime_visible=False),
         server=SimpleNamespace(connected_event=SimpleNamespace(is_set=lambda: True)),
         event_bus=stick.event_bus,
     )
@@ -61,6 +62,10 @@ def test_fractional_travel_and_disconnect_release(control):
     pad._axis("one", SimpleNamespace(get_absolute=lambda: (True, 0, 0.25)))
     assert not events
     pad.window.profiles.kind = "gamepad"
+    pad.window.key_mapping_handler.ime_visible = True
+    pad._axis("one", SimpleNamespace(get_absolute=lambda: (True, 0, 0.25)))
+    assert not events
+    pad.window.key_mapping_handler.ime_visible = False
     pad._axis("one", SimpleNamespace(get_absolute=lambda: (True, 0, 0.25)))
     assert [m.action for m in events] == [Motion.DOWN, Motion.MOVE]
     assert events[-1].position == (225, 200, 800, 600)

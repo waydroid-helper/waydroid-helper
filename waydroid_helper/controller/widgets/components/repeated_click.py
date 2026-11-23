@@ -232,10 +232,19 @@ class RepeatedClick(BaseWidget):
         await self._send_touch_event(
             AMotionEventAction.DOWN, pointer_id, root_width, root_height, 1.0
         )
-        await asyncio.sleep(0.001)  # 短暂延迟确保事件处理
-        await self._send_touch_event(
-            AMotionEventAction.UP, pointer_id, root_width, root_height, 0.0
-        )
+        # An IME transition can cancel this task between DOWN and UP.
+        # Finish the same contact before the outer task recycles its pointer ID.
+        try:
+            await asyncio.sleep(0.001)
+        finally:
+            await self._send_touch_event(
+                AMotionEventAction.UP, pointer_id, root_width, root_height, 0.0
+            )
+
+    def stop_gesture(self):
+        self._is_clicking = False
+        if self._click_task:
+            self._click_task.cancel()
 
     def _get_root_dimensions(self) -> tuple[int, int] | None:
         """获取根窗口的尺寸"""

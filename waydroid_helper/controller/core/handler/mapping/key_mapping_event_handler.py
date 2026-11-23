@@ -51,3 +51,58 @@ class KeyMappingEventHandler(InputEventHandler):
             return self.key_mapping_manager.handle_key_release(event)
         # 如果事件没有被按键处理器消费，则返回False
         return False
+
+
+class TextInputMappingHandler(KeyMappingEventHandler):
+    """Keep physical presses on one input route across Android IME transitions."""
+
+    def __init__(self, key_mapping_manager, dismiss_ime):
+        super().__init__(key_mapping_manager)
+        self.dismiss_ime = dismiss_ime
+        self.ime_visible = False
+        self._pressed = {}
+        self._until_release = {}
+
+    def set_ime_visible(self, visible):
+        if visible:
+            # The caller cancels the mapped gestures when text entry begins.
+            # Swallow their repeats and eventual up; keys whose down reached
+            # Android must still send their up to Android, even after a close.
+            self._until_release.update(self._pressed)
+            self._pressed.clear()
+        self.ime_visible = visible
+
+    def forget_presses(self):
+        # GTK may deliver the physical release to a different window.
+        self._pressed.clear()
+        self._until_release.clear()
+
+    def handle_event(self, event):
+        if not self.can_handle(event):
+            return False
+        if event.event_type == InputEventType.MOUSE_SCROLL:
+            return not self.ime_visible and super().handle_event(event)
+
+        # GTK keyvals can change while Shift is held; the hardware keycode
+        # identifies both halves of the press independently of the symbol.
+        token = (
+            ("mouse", event.button) if event.button else ("key", event.keycode or event.key)
+        )
+        if event.event_type in (InputEventType.KEY_RELEASE, InputEventType.MOUSE_RELEASE):
+            self._pressed.pop(token, None)
+            if token in self._until_release:
+                return self._until_release.pop(token)
+            return not self.ime_visible and super().handle_event(event)
+        if token in self._until_release:
+            return self._until_release[token]
+        if self.ime_visible:
+            # Android IMEs are dismissed with BACK. A desktop Escape keycode
+            # is otherwise delivered to the editor and can leave the IME open.
+            dismiss = event.key_symbol_name == "Escape"
+            self._until_release[token] = dismiss
+            if dismiss:
+                self.dismiss_ime()
+            return dismiss
+        consumed = super().handle_event(event)
+        self._pressed.setdefault(token, consumed)
+        return consumed

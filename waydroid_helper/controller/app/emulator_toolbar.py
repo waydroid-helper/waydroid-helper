@@ -216,6 +216,7 @@ class EmulatorToolbar:
         action(management, "restore", _("Restore window size"), window.restore_size)
         model.append_submenu(_("Window management"), management)
         action(model, "mapping", _("Key mapping"), self.mapping.popup)
+        action(model, "desktop-ime", _("Set up desktop input method…"), window.ime_setup.configure)
         action(model, "profiles", _("Manage profiles"), window.open_profiles)
 
         recording = Gio.Menu()

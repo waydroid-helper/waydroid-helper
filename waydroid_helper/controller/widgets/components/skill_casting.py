@@ -471,12 +471,22 @@ class SkillCasting(BaseWidget):
         self._target_position = target
         self._emit_touch_event(AMotionEventAction.MOVE)
 
+    def stop_gesture(self):
+        # A press and release may still be queued on the event processor.
+        # Discard them before releasing a manually locked or moving contact.
+        while not self._event_queue.empty():
+            self._event_queue.get_nowait()
+            self._event_queue.task_done()
+        if self._skill_state != SkillState.INACTIVE:
+            self._emit_touch_event(AMotionEventAction.UP)
+            self._reset_skill()
+
     async def _release_skill(self):
         """释放技能"""
         self._emit_touch_event(AMotionEventAction.UP)
-        await self._reset_skill()
+        self._reset_skill()
 
-    async def _reset_skill(self):
+    def _reset_skill(self):
         """异步重置技能状态"""
         self._skill_state = SkillState.INACTIVE
         self._current_position = (self.center_x, self.center_y)

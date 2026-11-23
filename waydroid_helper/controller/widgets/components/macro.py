@@ -377,11 +377,11 @@ class ClickCommand(Command):
         # Execute press command (DOWN events)
         await self.press_command.execute(context)
 
-        # Wait 0.05 seconds between DOWN and UP events
-        await asyncio.sleep(0.05)
-
-        # Execute release command (UP events)
-        await self.release_command.execute(context)
+        # An interrupted macro still owes Android the UP for this click.
+        try:
+            await asyncio.sleep(0.05)
+        finally:
+            await self.release_command.execute(context)
 
 
 class SleepCommand(Command):
@@ -869,7 +869,14 @@ class Macro(BaseWidget):
         finally:
             logger.debug(f"Macro command task completed: {task_type}")
 
-    def trigger_release_all(self, event: Event[None]):
+    def stop_gesture(self):
+        # A finished macro can still own touches or toggled keys. Cancel its
+        # commands once even when neither execution task is currently running.
+        if self.current_press_task is not None or self.current_release_task is not None:
+            self.trigger_release_all()
+            self.current_press_task = self.current_release_task = None
+
+    def trigger_release_all(self, event: Event[None] | None = None):
         """触发释放所有命令状态 - 终止当前任务并执行所有命令的取消操作"""
         # 1. 终止当前执行的任务
         if self.current_press_task and not self.current_press_task.done():

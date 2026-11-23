@@ -127,6 +127,8 @@ controller_app_sources = [
     'controller/app/emulator_toolbar.py',
     'controller/app/emulator_tabs.py',
     'controller/app/emulator_tasks.py',
+    'controller/app/host_ime.py',
+    'controller/app/desktop_ime_setup.py',
     'controller/app/emulator_tools.py',
     'controller/app/emulator_gamepad.py',
     'controller/app/input_recording.py',

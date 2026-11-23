@@ -253,7 +253,7 @@ class MappingWindow(Adw.Window):
             self.register_widget_key_mapping
         )
         self.event_handler_chain = InputEventHandlerChain()
-        self.key_mapping_handler = KeyMappingEventHandler(self.key_mapping_manager)
+        self.key_mapping_handler = self.create_key_mapping_handler()
         self.default_handler = DefaultEventHandler(self.runtime_context)
         self.event_handler_chain.add_handler(self.key_mapping_handler)
         self.event_handler_chain.add_handler(self.default_handler)
@@ -298,6 +298,9 @@ class MappingWindow(Adw.Window):
 
     def build_canvas(self, overlay: Gtk.Overlay) -> None:
         raise NotImplementedError
+
+    def create_key_mapping_handler(self):
+        return KeyMappingEventHandler(self.key_mapping_manager)
 
     def setup_window(self) -> None:
         raise NotImplementedError
