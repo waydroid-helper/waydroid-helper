@@ -1,0 +1,124 @@
+diff --git a/src/casilda-compositor.c b/src/casilda-compositor.c
+--- a/src/casilda-compositor.c
++++ b/src/casilda-compositor.c
+@@ -247,6 +247,7 @@
+   GdkGLContext *gl_context;
+ 
+   GdkClipboard *clipboard;
++  uint32_t clipboard_serial;
+   gulong        clipboard_source;
+   GdkContentProvider *clipboard_provider;
+ 
+@@ -1471,11 +1472,17 @@
+       priv->toplevels = g_list_prepend (priv->toplevels, toplevel);
+     }
+ 
++  /* Desktop selections originate on a different display. Place their
++   * serial boundary before this client's keyboard enter, so its enter
++   * serial can be used to copy even after a desktop clipboard change. */
++  uint32_t clipboard_serial = wl_display_next_serial (priv->wl_display);
+   wlr_seat_keyboard_notify_enter (priv->seat,
+                                   xdg_toplevel->base->surface,
+                                   priv->keyboard.keycodes,
+                                   priv->keyboard.num_keycodes,
+                                   &priv->keyboard.modifiers);
++  if (priv->seat->keyboard_state.focused_surface == xdg_toplevel->base->surface)
++    priv->clipboard_serial = clipboard_serial;
+ }
+ 
+ static void
+@@ -2418,7 +2425,12 @@
+ on_casilda_compositor_clipboard_changed (G_GNUC_UNUSED GObject *obj, CasildaCompositorPrivate *priv)
+ {
+   struct wlr_data_source *source = casilda_data_source_new (G_OBJECT (priv->clipboard));
+-  wlr_seat_set_selection (priv->seat, source, wl_display_next_serial (priv->seat->display));
++  /* Changing the host offer is not a new input event on the nested seat.
++   * A fresh serial here would supersede Waydroid's valid keyboard serial.
++   * Keep wlroots' client and ordering checks on every guest request. */
++  if (!priv->seat->keyboard_state.focused_client)
++    priv->clipboard_serial = wl_display_next_serial (priv->wl_display);
++  wlr_seat_set_selection (priv->seat, source, priv->clipboard_serial);
+ }
+ 
+ static void
+@@ -2439,6 +2451,10 @@
+     g_signal_connect (priv->clipboard, "changed",
+                       G_CALLBACK (on_casilda_compositor_clipboard_changed),
+                       priv);
++  /* GDK may already own a selection when this widget is realized. A new
++   * Wayland client must receive that offer on its first keyboard enter,
++   * even if the desktop owner never changes again. */
++  on_casilda_compositor_clipboard_changed (G_OBJECT (priv->clipboard), priv);
+ }
+ 
+ static void
+@@ -2524,6 +2540,7 @@
+   CasildaCompositorPrivate *priv = wl_container_of (listener, priv, request_set_selection);
+   struct wlr_seat_request_set_selection_event *event = data;
+ 
++  priv->clipboard_serial = event->serial;
+   wlr_seat_set_selection (priv->seat, event->source, event->serial);
+ 
+   /* Integrate with Gtk clipboard */
+@@ -2741,8 +2758,10 @@
+                                              gtk_widget_get_width (widget),
+                                              gtk_widget_get_height (widget));
+     }
+-  else
+-    casilda_compositor_focus_toplevel (toplevel, xdg_toplevel->base->surface);
++  /* Restoring geometry or honoring a maximized/fullscreen request doesn't
++   * activate the surface. Wayland delivers the selection to the seat's
++   * keyboard client, including clients that receive input through Android. */
++  casilda_compositor_focus_toplevel (toplevel, xdg_toplevel->base->surface);
+ 
+   casilda_compositor_queue_draw (toplevel->priv);
+ }
+@@ -2751,10 +2770,12 @@
+ xdg_toplevel_unmap (struct wl_listener *listener, G_GNUC_UNUSED void *data)
+ {
+   CasildaCompositorToplevel *toplevel = wl_container_of (listener, toplevel, unmap);
++  CasildaCompositorPrivate *priv = toplevel->priv;
+   struct wlr_xdg_toplevel *xdg_toplevel = toplevel->xdg_toplevel;
+-
+-  if (toplevel == toplevel->priv->grabbed_toplevel)
+-    casilda_compositor_reset_pointer_mode (toplevel->priv);
++  struct wlr_surface *focused = priv->seat->keyboard_state.focused_surface;
++
++  if (toplevel == priv->grabbed_toplevel)
++    casilda_compositor_reset_pointer_mode (priv);
+ 
+   toplevel->state = NULL;
+ 
+@@ -2762,17 +2783,23 @@
+     {
+       CasildaCompositorToplevel *parent = xdg_toplevel->parent->base->data;
+       if (parent)
+-        {
+-          parent->toplevels = g_list_remove (parent->toplevels, toplevel);
+-
+-          /* focus parent */
+-          casilda_compositor_focus_toplevel (parent, parent->xdg_toplevel->base->surface);
+-        }
++        parent->toplevels = g_list_remove (parent->toplevels, toplevel);
+     }
+   else
+-    toplevel->priv->toplevels = g_list_remove (toplevel->priv->toplevels, toplevel);
+-
+-  casilda_compositor_queue_draw (toplevel->priv);
++    priv->toplevels = g_list_remove (priv->toplevels, toplevel);
++
++  /* Clipboard utilities can briefly map their own toplevel. Return the
++   * seat to the frontmost remaining window when its focused surface goes
++   * away. Unmapping an unrelated background window must preserve focus. */
++  if (priv->toplevels && (!focused || focused == xdg_toplevel->base->surface))
++    {
++      CasildaCompositorToplevel *next = priv->toplevels->data;
++      while (next->toplevels)
++        next = next->toplevels->data;
++      casilda_compositor_focus_toplevel (next, next->xdg_toplevel->base->surface);
++    }
++
++  casilda_compositor_queue_draw (priv);
+ }
+ 
+ static void
