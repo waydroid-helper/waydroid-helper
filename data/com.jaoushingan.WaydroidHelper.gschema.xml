@@ -19,6 +19,14 @@
       <description>Used internally to migrate the old JSON-backed key mapping preferences to GSettings only once.</description>
     </key>
     <key name="emulator-display-mode" type="(iii)"><default>(0, 0, 0)</default></key>
+    <key name="emulator-window-renderer" type="s">
+      <choices>
+        <choice value="auto"/>
+        <choice value="gl"/>
+        <choice value="vulkan"/>
+      </choices>
+      <default>'auto'</default>
+    </key>
     <key name="emulator-lock-size" type="b"><default>false</default></key>
     <key name="emulator-hint-opacity" type="d"><range min="0.0" max="1.0"/><default>1.0</default></key>
     <key name="emulator-remember-size" type="b"><default>true</default></key>

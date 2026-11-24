@@ -261,7 +261,7 @@ class EmulatorToolbar:
             )
         utilities.append_submenu(_("Shared folders"), sharing)
         model.append_submenu(_("More tools"), utilities)
-        action(model, "settings", _("Device settings"), window.open_display_settings)
+        action(model, "settings", _("Device settings"), window.open_device_settings)
 
         support = Gio.Menu()
         base = "https://github.com/waydroid-helper/waydroid-helper"

@@ -36,7 +36,22 @@ class AdbHelper:
         try:
             result = await self.sm.submit(f"adb connect {self.serial}", shell=False).get()
             output = result["stdout"]
-            if output.lower().startswith(("connected to ", "already connected to ")):
+            success_messages = ("connected to ", "already connected to ")
+            if output.lower().startswith(success_messages):
+                # After a container restart the TCP address can be registered
+                # with the ADB server while its old transport remains offline.
+                # Reconnect only this offline endpoint. A live transport may
+                # already carry another client's shell or reverse tunnel.
+                devices = await self.sm.submit("adb devices", shell=False).get()
+                if any(
+                    row.split() == [self.serial, "offline"]
+                    for row in devices["stdout"].splitlines()
+                ):
+                    logger.info("Reconnecting offline ADB transport %s", self.serial)
+                    await self.sm.submit(f"adb disconnect {self.serial}", shell=False).get()
+                    result = await self.sm.submit(f"adb connect {self.serial}", shell=False).get()
+                    output = result["stdout"]
+            if output.lower().startswith(success_messages):
                 logger.info(f"Successfully connected to {self.serial}")
                 return True
             else:

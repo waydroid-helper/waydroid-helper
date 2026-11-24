@@ -105,6 +105,7 @@ compat_widget_sources = [
     'compat_widget/file_dialog.py',
     'compat_widget/shared_folder_dialog.py',
     'compat_widget/animation_target.py',
+    'compat_widget/banner.py',
     'compat_widget/dialog.py',
 ]
 
@@ -124,6 +125,7 @@ controller_app_sources = [
     'controller/app/embedded_session.py',
     'controller/app/emulator_viewport.py',
     'controller/app/emulator_display.py',
+    'controller/app/emulator_device_settings.py',
     'controller/app/emulator_preferences.py',
     'controller/app/mapping_profiles.py',
     'controller/app/mapping_panel.py',

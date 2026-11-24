@@ -1381,11 +1381,11 @@ msgstr "固定窗口大小"
 msgid "Remember window size"
 msgstr "记住窗口大小"
 
-msgid "Apply display settings"
-msgstr "应用显示设置"
+msgid "Restart Android to apply the new resolution and DPI."
+msgstr "重启 Android 后，新分辨率和 DPI 将生效。"
 
-msgid "Display settings saved. Restart Android to use the new output mode."
-msgstr "已保存显示设置。重启 Android 后，新分辨率和 DPI 将生效。"
+msgid "Restart Now"
+msgstr "立即重启"
 
 msgid "Double-click a control and press a gamepad button"
 msgstr "双击要绑定的控件，然后按下手柄按键"
@@ -2079,3 +2079,15 @@ msgstr "浅扣从每秒两次起步，扣到底时达到设定的连点频率。
 
 msgid "Hold the bound button, aim with the right stick, and release the button to cast."
 msgstr "按住绑定键，用右摇杆瞄准，松键施放。"
+
+msgid "Performance"
+msgstr "性能"
+
+msgid "Window renderer"
+msgstr "窗口渲染器"
+
+msgid "Automatic"
+msgstr "自动"
+
+msgid "The window renderer takes effect the next time you open the emulator."
+msgstr "下次打开模拟器窗口时使用所选的渲染器。"

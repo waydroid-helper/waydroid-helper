@@ -6,6 +6,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
 from .animation_target import PropertyAnimationTarget
+from .banner import Banner
 from .dialog import Dialog
 from .file_dialog import FileDialog
 from .header_bar import HeaderBar
@@ -21,6 +22,7 @@ ADW_VERSION = Adw.get_major_version(), Adw.get_minor_version(), Adw.get_micro_ve
 GLIB_VERSION = GLib.MAJOR_VERSION, GLib.MINOR_VERSION, GLib.MICRO_VERSION
 
 __all__ = [
+    "Banner",
     "NavigationView",
     "NavigationPage",
     "ToolbarView",

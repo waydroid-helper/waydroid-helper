@@ -1,0 +1,115 @@
+diff --git a/src/casilda-compositor.c b/src/casilda-compositor.c
+--- a/src/casilda-compositor.c
++++ b/src/casilda-compositor.c
+@@ -609,7 +609,24 @@
+       gtk_snapshot_translate (sdata->snapshot, &GRAPHENE_POINT_INIT (-w, 0));
+     }
+ 
+-  gdk_paintable_snapshot (GDK_PAINTABLE (texture), sdata->snapshot, w, h);
++  /* Waydroid stretches a one-pixel SHM backdrop beneath its DMA-BUF.
++   * Keep solid pixels as colors so GSK can recognize texture-over-black.
++   * Other buffers, including one-pixel GPU textures, stay on the native
++   * texture path. This never downloads pixels from the GPU. */
++  if (GDK_IS_MEMORY_TEXTURE (texture) &&
++      gdk_texture_get_width (texture) == 1 && gdk_texture_get_height (texture) == 1)
++    {
++      g_autoptr (GdkTextureDownloader) downloader = gdk_texture_downloader_new (texture);
++      float pixel[4];
++
++      gdk_texture_downloader_set_format (downloader, GDK_MEMORY_R32G32B32A32_FLOAT);
++      gdk_texture_downloader_set_color_state (downloader, gdk_color_state_get_srgb ());
++      gdk_texture_downloader_download_into (downloader, (guchar *) pixel, sizeof pixel);
++      gtk_snapshot_append_color (sdata->snapshot, &(GdkRGBA) {pixel[0], pixel[1], pixel[2], pixel[3]},
++                                 &GRAPHENE_RECT_INIT (0, 0, w, h));
++    }
++  else
++    gdk_paintable_snapshot (GDK_PAINTABLE (texture), sdata->snapshot, w, h);
+   gtk_snapshot_pop (sdata->snapshot);
+ 
+   gtk_snapshot_restore (sdata->snapshot);
+diff --git a/src/casilda-buffer.c b/src/casilda-buffer.c
+--- a/src/casilda-buffer.c
++++ b/src/casilda-buffer.c
+@@ -200,29 +200,30 @@
+ 
+ #ifdef ENABLE_DMABUF
+ 
+-typedef struct {
+-  int n_planes;
+-  int fd[WLR_DMABUF_MAX_PLANES];
+-} PlaneFileDescriptors;
++static gboolean
++release_guest_buffer (gpointer buffer)
++{
++  wlr_buffer_unlock (buffer);
++  return G_SOURCE_REMOVE;
++}
+ 
+ static void
+-free_owned_fds (gpointer data)
+-{
+-  PlaneFileDescriptors *owned_fds = data;
+-
+-  for (int i = 0; i < owned_fds->n_planes; i++)
+-    close (owned_fds->fd[i]);
+-
+-  g_free (owned_fds);
++dmabuf_texture_released (gpointer buffer)
++{
++  /* GDK can drop its final reference on a renderer thread. Casilda
++   * dispatches its Wayland server on the default main context. */
++  if (g_main_context_is_owner (g_main_context_default ()))
++    wlr_buffer_unlock (buffer);
++  else
++    g_idle_add_full (G_PRIORITY_DEFAULT, release_guest_buffer, buffer, NULL);
+ }
+ 
+ static inline GdkTexture *
+-wlr_dmabuf_buffer_as_gdk (struct wlr_dmabuf_attributes *attrs, pixman_region32_t *damage, GdkTexture *prev)
++wlr_dmabuf_buffer_as_gdk (struct wlr_buffer *buffer, struct wlr_dmabuf_attributes *attrs,
++                          pixman_region32_t *damage, GdkTexture *prev)
+ {
+   g_autoptr (GdkDmabufTextureBuilder) builder = gdk_dmabuf_texture_builder_new ();
+   g_autoptr (GError) error = NULL;
+-  PlaneFileDescriptors *owned_fds = g_new0 (PlaneFileDescriptors, 1);
+-  owned_fds->n_planes = attrs->n_planes;
+ 
+   gdk_dmabuf_texture_builder_set_width (builder, attrs->width);
+   gdk_dmabuf_texture_builder_set_height (builder, attrs->height);
+@@ -232,7 +233,7 @@
+ 
+   for (int i = 0; i < attrs->n_planes; i++)
+     {
+-      gdk_dmabuf_texture_builder_set_fd (builder, i, owned_fds->fd[i] = dup(attrs->fd[i]));
++      gdk_dmabuf_texture_builder_set_fd (builder, i, attrs->fd[i]);
+       gdk_dmabuf_texture_builder_set_offset (builder, i, attrs->offset[i]);
+       gdk_dmabuf_texture_builder_set_stride (builder, i, attrs->stride[i]);
+     }
+@@ -246,11 +247,16 @@
+       cairo_region_destroy (region);
+     }
+ 
+-  GdkTexture *result = gdk_dmabuf_texture_builder_build (builder, free_owned_fds, owned_fds, &error);
++  /* Duplicating plane fds only keeps the storage alive. The guest must
++   * also wait to reuse its pixels until the host releases the wl_buffer.
++   * GDK retains the texture for that interval, and the wlroots lock owns
++   * both the plane fds and the guest's buffer-release notification. */
++  wlr_buffer_lock (buffer);
++  GdkTexture *result = gdk_dmabuf_texture_builder_build (builder, dmabuf_texture_released, buffer, &error);
+   if (error)
+     {
+       g_warning ("Failed to import dmabuf texture: %s", error->message);
+-      free_owned_fds (owned_fds);
++      wlr_buffer_unlock (buffer);
+     }
+   return result;
+ }
+@@ -393,7 +399,7 @@
+   struct wlr_dmabuf_attributes dmabuf_attrs;
+ 
+   if (wlr_buffer_get_dmabuf (buffer, &dmabuf_attrs))
+-    return wlr_dmabuf_buffer_as_gdk (&dmabuf_attrs, damage, prev);
++    return wlr_dmabuf_buffer_as_gdk (buffer, &dmabuf_attrs, damage, prev);
+ #endif
+ 
+   struct wlr_shm_attributes shm_attrs;

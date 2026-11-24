@@ -1361,3 +1361,66 @@ msgstr "淺扣從每秒兩次起步，扣到底時達到設定的連點頻率。
 
 msgid "Hold the bound button, aim with the right stick, and release the button to cast."
 msgstr "按住綁定鍵，用右搖桿瞄準，放開按鍵施放。"
+
+msgid "Performance"
+msgstr "效能"
+
+msgid "Window renderer"
+msgstr "視窗算繪器"
+
+msgid "Automatic"
+msgstr "自動"
+
+msgid "The window renderer takes effect the next time you open the emulator."
+msgstr "下次開啟模擬器視窗時使用所選的算繪器。"
+
+msgid "Device settings"
+msgstr "裝置設定"
+
+msgid "Display"
+msgstr "顯示"
+
+msgid "Window management"
+msgstr "視窗管理"
+
+msgid "Tablet"
+msgstr "平板"
+
+msgid "Phone"
+msgstr "手機"
+
+msgid "Ultrawide"
+msgstr "超寬螢幕"
+
+msgid "Resolution"
+msgstr "解析度"
+
+msgid "Custom"
+msgstr "自訂"
+
+msgid "Width"
+msgstr "寬度"
+
+msgid "Height"
+msgstr "高度"
+
+msgid "Fix window size"
+msgstr "固定視窗大小"
+
+msgid "Remember window size"
+msgstr "記住視窗大小"
+
+msgid "Restart Android to apply the new resolution and DPI."
+msgstr "重新啟動 Android 後，新的解析度和 DPI 就會生效。"
+
+msgid "Restart Now"
+msgstr "立即重新啟動"
+
+msgid "Could not save display settings."
+msgstr "無法儲存顯示設定。"
+
+msgid "Android display information is unavailable."
+msgstr "無法取得 Android 顯示資訊。"
+
+msgid "Android input is not connected."
+msgstr "尚未連接 Android 輸入服務。"

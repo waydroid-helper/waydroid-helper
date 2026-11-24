@@ -9,12 +9,24 @@ class EmulatorViewport(Gtk.Widget):
 
     def __init__(self, compositor, canvas):
         super().__init__(hexpand=True, vexpand=True, overflow=Gtk.Overflow.HIDDEN)
-        self.compositor = compositor
+        # Keep the input canvas in the parent surface. GTK can pass the guest
+        # DMA-BUF to the desktop beneath it and handles composited fallback
+        # when the guest supplies several layers or a dialog covers the view.
+        self.can_offload = (
+            hasattr(Gtk, "GraphicsOffload")
+            and self.get_display().__gtype__.name == "GdkWaylandDisplay"
+        )
+        self.compositor = (
+            Gtk.GraphicsOffload.new(compositor)
+            if self.can_offload
+            else compositor
+        )
+        self.compositor.set_can_target(False)
         self.canvas = canvas
         self.mapping_size = self.DEFAULT_WINDOW_SIZE
         self.configured_output = None
         self.output_size = None
-        compositor.set_parent(self)
+        self.compositor.set_parent(self)
         canvas.set_parent(self)
 
     def set_configured_output(self, size: tuple[int, int] | None):
@@ -70,4 +82,6 @@ class EmulatorViewport(Gtk.Widget):
 
     def detach(self):
         self.canvas.unparent()
+        if self.can_offload:
+            self.compositor.set_child(None)
         self.compositor.unparent()

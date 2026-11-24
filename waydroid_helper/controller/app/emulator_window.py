@@ -17,12 +17,12 @@ from waydroid_helper.controller.app.embedded_session import (
 )
 from waydroid_helper.controller.app.emulator_display import (
     DisplayMode,
-    DisplaySettings,
     apply_android_mode,
     device_command,
     read_mode,
     stage_mode,
 )
+from waydroid_helper.controller.app.emulator_device_settings import DeviceSettings
 from waydroid_helper.controller.app.emulator_gamepad import GamepadInput
 from waydroid_helper.controller.app.desktop_ime_setup import DesktopImeSetup
 from waydroid_helper.controller.app.host_ime import HostIme
@@ -77,7 +77,7 @@ class EmulatorWindow(MappingWindow):
         self.restarting = False
         self.restart_dialog = None
         self.close_dialog = None
-        self.display_dialog = None
+        self.device_settings = None
         self.tools = EmulatorTools(self)
         self.recorder = InputRecording(self)
         self.gamepad = GamepadInput(self, self._redraw_gamepad_keycaps)
@@ -142,7 +142,15 @@ class EmulatorWindow(MappingWindow):
         self.resize_handles = self._add_resize_handles(decoration)
         self.set_content(decoration)
         self.viewport.set_name("emulator-display")
+        # A rounded clip over the guest prevents GTK from offloading its
+        # buffer. Only square the two corners touching the Android display.
+        if self.viewport.can_offload:
+            self.add_css_class("emulator-display-window")
         self.style_manager.add_custom_style("""
+            window.emulator-display-window, window.emulator-display-window > contents {
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
             #emulator-display { background: black; }
             #emulator-display #mode-notification-box { padding: 5px 12px; border-radius: 14px; }
             #emulator-display #mode-notification-label { font-size: 13px; font-weight: 500; }
@@ -734,26 +742,22 @@ class EmulatorWindow(MappingWindow):
                 enabled and not self.is_fullscreen() and not self.is_maximized()
             )
 
-    def open_display_settings(self):
-        if self.display_dialog:
-            self.display_dialog.present()
-            return
-        self.run_device_action(self._open_display_settings)
+    def open_device_settings(self):
+        if self.device_settings is None:
+            self.device_settings = DeviceSettings(self)
+        self.device_settings.present()
 
     def _selected_mode(self):
         values = self.preferences.get_value("emulator-display-mode").unpack()
         return DisplayMode(*values) if all(n > 0 for n in values) else None
 
-    async def _open_display_settings(self):
-        mode = self._selected_mode() or await read_mode(
-            self.scrcpy_lifecycle.adb_helper.serial
-        )
-        if self.display_dialog is None:
-            self.display_dialog = DisplaySettings(self, mode)
-            self.display_dialog.on_dismissed(
-                lambda *_: setattr(self, "display_dialog", None)
-            )
-        self.display_dialog.present()
+    async def get_display_modes(self):
+        if self.restarting or not self.server.connected_event.is_set():
+            raise RuntimeError(_("Android input is not connected."))
+        # Read the live Android mode each time the dialog opens. The saved
+        # preference can be ahead of Android when a restart is still pending.
+        active = await read_mode(self.scrcpy_lifecycle.adb_helper.serial)
+        return active, self._selected_mode() or active
 
     def run_device_action(self, callback):
         if not self.server.connected_event.is_set() or self.restarting:
@@ -778,12 +782,12 @@ class EmulatorWindow(MappingWindow):
         )
         logger.info("Staged embedded Android display mode %s", mode)
 
-    def request_restart(self, message=None):
+    def request_restart(self):
         if self.restarting or self._is_closing or self.restart_dialog:
             return
         dialog = self.restart_dialog = MessageDialog(
             heading=_("Restart device"),
-            body=message or _("Open Android apps will close."),
+            body=_("Open Android apps will close."),
             parent=self,
         )
         dialog.add_response(Gtk.ResponseType.CANCEL, _("Later"))
@@ -792,15 +796,18 @@ class EmulatorWindow(MappingWindow):
 
         def respond(_dialog, response):
             self.restart_dialog = None
-            if (
-                response in (Gtk.ResponseType.OK, Gtk.ResponseType.OK.value_nick)
-                and not self.restarting
-            ):
-                self.restarting = True
-                self.start_restart = asyncio.create_task(self._restart())
+            if response in (Gtk.ResponseType.OK, Gtk.ResponseType.OK.value_nick):
+                self.restart_now()
 
         dialog.connect("response", respond)
         dialog.present()
+
+    def restart_now(self):
+        if self.restarting or self._is_closing or self.restart_dialog:
+            return False
+        self.restarting = True
+        self.start_restart = asyncio.create_task(self._restart())
+        return True
 
     async def _restart(self):
         try:

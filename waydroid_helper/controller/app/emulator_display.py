@@ -11,11 +11,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
 from waydroid_helper.controller.app.embedded_session import waydroid_output
-from waydroid_helper.controller.app.emulator_preferences import (
-    EmulatorPreferences,
-    add_spin,
-    add_switch,
-)
+from waydroid_helper.controller.app.emulator_preferences import add_spin, add_switch
 from waydroid_helper.util.log import logger
 
 
@@ -132,11 +128,27 @@ async def apply_android_mode(serial, mode):
         raise RuntimeError(_("Android did not accept the selected display mode."))
 
 
-class DisplaySettings(EmulatorPreferences):
-    def __init__(self, parent, mode):
-        super().__init__(parent, _("Device settings"), height=540)
-        display = Adw.PreferencesGroup(title=_("Display"))
-        self.page.add(display)
+class DisplaySettingsPage(Adw.Bin):
+    def __init__(self, dialog, active_mode, saved_mode):
+        from waydroid_helper.compat_widget import Banner, ToolbarView
+
+        super().__init__()
+        self.dialog = dialog
+        self.active_mode = active_mode
+        self.saved_mode = saved_mode
+        self._save_task = None
+        self._save_failed = False
+
+        self.banner = Banner()
+        self.banner.connect("button-clicked", self._banner_clicked)
+        page = Adw.PreferencesPage()
+        toolbar = ToolbarView()
+        toolbar.add_top_bar(self.banner)
+        toolbar.set_content(page)
+        self.set_child(toolbar)
+
+        display = Adw.PreferencesGroup()
+        page.add(display)
         self.modes = [DisplayMode(*values) for _, group in PRESETS for values in group]
         labels = [
             f"{w} × {h}, {dpi} DPI ({name})"
@@ -149,42 +161,37 @@ class DisplaySettings(EmulatorPreferences):
             model=Gtk.StringList.new([*labels, _("Custom")]),
         )
         self.combo.set_selected(
-            self.modes.index(mode) if mode in self.modes else len(labels)
+            self.modes.index(saved_mode) if saved_mode in self.modes else len(labels)
         )
         display.add(self.combo)
         self.fields = [
             add_spin(display, title, value, low, high)
             for title, value, low, high in (
-                (_("Width"), mode.width, 200, 8192),
-                (_("Height"), mode.height, 200, 8192),
-                ("DPI", mode.dpi, 72, 1200),
+                (_("Width"), saved_mode.width, 200, 8192),
+                (_("Height"), saved_mode.height, 200, 8192),
+                ("DPI", saved_mode.dpi, 72, 1200),
             )
         ]
-        self.combo.connect("notify::selected", self._selection)
-        self._selection()
-        window = Adw.PreferencesGroup()
-        self.page.add(window)
+        self._sync_fields()
+        self.combo.connect("notify::selected", self._selection_changed)
+        for field in self.fields:
+            field.connect("notify::value", self._custom_value_changed)
+
+        window = Adw.PreferencesGroup(title=_("Window management"))
+        page.add(window)
+        preferences = dialog.parent_window.preferences
         add_switch(
-            window, _("Fix window size"), parent.preferences, "emulator-lock-size"
+            window, _("Fix window size"), preferences, "emulator-lock-size"
         )
         add_switch(
             window,
             _("Remember window size"),
-            parent.preferences,
+            preferences,
             "emulator-remember-size",
         )
-        actions = Adw.PreferencesGroup()
-        self.page.add(actions)
-        self.message = Gtk.Label(xalign=0, wrap=True, visible=False)
-        actions.add(self.message)
-        self.apply_button = Gtk.Button(
-            label=_("Apply display settings"), halign=Gtk.Align.END
-        )
-        self.apply_button.add_css_class("suggested-action")
-        self.apply_button.connect("clicked", self._apply)
-        actions.add(self.apply_button)
+        self._update_banner()
 
-    def _selection(self, *_):
+    def _sync_fields(self):
         index = self.combo.get_selected()
         for field in self.fields:
             row = (
@@ -198,22 +205,66 @@ class DisplaySettings(EmulatorPreferences):
             for field, value in zip(self.fields, (mode.width, mode.height, mode.dpi)):
                 field.set_value(value)
 
-    def _apply(self, *_):
-        mode = DisplayMode(*(round(s.get_value()) for s in self.fields))
-        self.set_busy(True)
-        asyncio.create_task(self._save(mode))
+    def _selection_changed(self, *_):
+        self._sync_fields()
+        self._queue_save()
 
-    async def _save(self, mode):
-        try:
-            await self.parent_window.apply_display_mode(mode)
-        except Exception as error:
-            logger.exception("Failed to stage Android display mode %s", mode)
-            self.message.set_text(str(error))
-            self.message.set_visible(True)
+    def _custom_value_changed(self, *_):
+        if self.combo.get_selected() == len(self.modes):
+            self._queue_save()
+
+    def _chosen_mode(self):
+        index = self.combo.get_selected()
+        if index < len(self.modes):
+            return self.modes[index]
+        return DisplayMode(*(round(field.get_value()) for field in self.fields))
+
+    def _queue_save(self):
+        if self._save_task is not None:
             return
+        self._save_failed = False
+        if self._chosen_mode() == self.saved_mode:
+            self._update_banner()
+            return
+        self.banner.set_sensitive(False)
+        self.dialog.set_busy(True)
+        self._save_task = asyncio.create_task(self._save())
+
+    async def _save(self):
+        try:
+            # Native width and height are written in a single transaction.
+            # Serialize writes and pick up the latest choice after each one,
+            # so a preset change or repeated spin cannot interleave writes.
+            while (mode := self._chosen_mode()) != self.saved_mode:
+                try:
+                    await self.dialog.parent_window.apply_display_mode(mode)
+                except Exception:
+                    logger.exception("Failed to stage Android display mode %s", mode)
+                    if mode == self._chosen_mode():
+                        self._save_failed = True
+                        return
+                else:
+                    self.saved_mode = mode
         finally:
-            self.set_busy(False)
-        self.close()
-        self.parent_window.request_restart(
-            _("Display settings saved. Restart Android to use the new output mode.")
-        )
+            self._save_task = None
+            self.dialog.set_busy(False)
+            self._update_banner()
+            self.banner.set_sensitive(True)
+
+    def _update_banner(self):
+        if self._save_failed:
+            self.banner.set_title(_("Could not save display settings."))
+            self.banner.set_button_label(_("Retry"))
+        elif self.saved_mode != self.active_mode:
+            self.banner.set_title(_("Restart Android to apply the new resolution and DPI."))
+            self.banner.set_button_label(_("Restart Now"))
+        self.banner.set_revealed(self._save_failed or self.saved_mode != self.active_mode)
+
+    def _banner_clicked(self, *_):
+        if self._save_task is not None:
+            return
+        if self._save_failed:
+            self._queue_save()
+        elif self.saved_mode != self.active_mode:
+            if self.dialog.parent_window.restart_now():
+                self.dialog.close()

@@ -2,4 +2,4 @@
 directory = casilda
 url = https://gitlab.gnome.org/jpu/casilda.git
 revision = 47073ac41f7856efc88e3ddbd0bd5b65eebaa7fb
-diff_files = casilda-viewport.patch, casilda-seat-focus.patch
+diff_files = casilda-viewport.patch, casilda-seat-focus.patch, casilda-monitor-refresh.patch, casilda-dmabuf-presentation.patch

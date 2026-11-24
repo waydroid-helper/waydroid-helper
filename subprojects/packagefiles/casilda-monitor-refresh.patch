@@ -1,0 +1,98 @@
+diff --git a/src/casilda-compositor.c b/src/casilda-compositor.c
+--- a/src/casilda-compositor.c
++++ b/src/casilda-compositor.c
+@@ -282,8 +282,10 @@
+   GHashTable            *toplevel_state;
+ 
+   /* Widget logical coordinates in root surface */
+-  GdkSurface *root_surface;
++  GSignalGroup *surface_signals;
++  GSignalGroup *monitor_signals;
+   gdouble scale;
++  gint refresh_mhz;
+ 
+   /* Toplevel resize state */
+   gdouble                    pointer_x, pointer_y; /* Current pointer position */
+@@ -700,7 +702,7 @@
+ 
+   wlr_output_state_init (&state);
+   wlr_output_state_set_enabled (&state, true);
+-  wlr_output_state_set_custom_mode (&state, output_width * priv->scale, output_height * priv->scale, 0);
++  wlr_output_state_set_custom_mode (&state, output_width * priv->scale, output_height * priv->scale, priv->refresh_mhz);
+   wlr_output_state_set_scale (&state, priv->scale);
+   wlr_output_commit_state (&priv->output, &state);
+   wlr_output_state_finish (&state);
+@@ -749,26 +751,16 @@
+ static void
+ casilda_compositor_update_native_data (CasildaCompositorPrivate *priv)
+ {
+-  GtkRoot *root = gtk_widget_get_root (priv->self);
+-  GdkSurface *surface;
+-
+-  if (!root)
+-    return;
+-
+-  surface = gtk_native_get_surface (GTK_NATIVE (root));
+-
+-  if (priv->root_surface != surface)
+-    {
+-      if (priv->root_surface)
+-        g_signal_handlers_disconnect_by_func (priv->root_surface, on_root_surface_notify, priv->self);
+-
+-      priv->root_surface = surface;
+-
+-      g_signal_connect_object (surface, "notify::scale", G_CALLBACK (on_root_surface_notify), priv->self, G_CONNECT_DEFAULT);
+-    }
+-
+-  /* Get scale */
+-  priv->scale = gdk_surface_get_scale (surface);
++  GtkNative *native = gtk_widget_get_native (priv->self);
++  GdkSurface *surface = native ? gtk_native_get_surface (native) : NULL;
++  GdkMonitor *monitor = surface ? gdk_display_get_monitor_at_surface (gdk_surface_get_display (surface), surface) : NULL;
++
++  g_signal_group_set_target (priv->surface_signals, surface);
++  g_signal_group_set_target (priv->monitor_signals, monitor);
++  priv->scale = surface ? gdk_surface_get_scale (surface) : 1.0;
++  /* Both GDK and wl_output use millihertz. Preserve fractional rates and
++   * leave the mode's refresh unspecified when the host cannot report one. */
++  priv->refresh_mhz = monitor ? gdk_monitor_get_refresh_rate (monitor) : 0;
+ }
+ 
+ static void
+@@ -2231,6 +2223,17 @@
+ 
+   priv->scale = 1.0;
+ 
++  /* The host may first announce the window's monitor after its initial
++   * allocation. Crossing outputs at the same scale or changing a monitor's
++   * refresh rate also need not resize the widget. Re-run allocation on those
++   * signals so newly connecting clients always receive the current mode. */
++  priv->surface_signals = g_signal_group_new (GDK_TYPE_SURFACE);
++  g_signal_group_connect (priv->surface_signals, "notify::scale", G_CALLBACK (on_root_surface_notify), priv->self);
++  g_signal_group_connect_swapped (priv->surface_signals, "enter-monitor", G_CALLBACK (gtk_widget_queue_allocate), priv->self);
++  g_signal_group_connect_swapped (priv->surface_signals, "leave-monitor", G_CALLBACK (gtk_widget_queue_allocate), priv->self);
++  priv->monitor_signals = g_signal_group_new (GDK_TYPE_MONITOR);
++  g_signal_group_connect_swapped (priv->monitor_signals, "notify::refresh-rate", G_CALLBACK (gtk_widget_queue_allocate), priv->self);
++
+   /* Toplevel state */
+   priv->toplevel_state = g_hash_table_new_full (g_str_hash,
+                                                 g_str_equal,
+@@ -2313,6 +2316,8 @@
+ 
+   g_clear_pointer (&priv->toplevel_state, g_hash_table_destroy);
+   g_clear_pointer (&priv->socket, g_free);
++  g_clear_object (&priv->surface_signals);
++  g_clear_object (&priv->monitor_signals);
+ 
+   wl_display_destroy_clients (priv->wl_display);
+ 
+@@ -2462,6 +2467,9 @@
+ {
+   CasildaCompositorPrivate *priv = GET_PRIVATE (widget);
+ 
++  g_signal_group_set_target (priv->surface_signals, NULL);
++  g_signal_group_set_target (priv->monitor_signals, NULL);
++
+   if (priv->frame_clock && priv->frame_clock_source)
+     {
+       g_signal_handler_disconnect (priv->frame_clock, priv->frame_clock_source);

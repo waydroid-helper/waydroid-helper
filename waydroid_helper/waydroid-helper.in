@@ -77,6 +77,13 @@ def start_gui(emulator=False):
         repo.prepend_library_path(libdir)
 
     if emulator:
+        # GTK selects its renderer when the native window is realized. Read
+        # the emulator-only preference before importing GTK, leaving an
+        # explicit command-line environment override available for debugging.
+        from gi.repository import Gio
+        renderer = Gio.Settings.new('com.jaoushingan.WaydroidHelper').get_string('emulator-window-renderer')
+        if renderer != 'auto':
+            os.environ.setdefault('GSK_RENDERER', renderer)
         gamepad_libdir = os.path.join(libdir, 'waydroid-helper', 'gamepad')
         if os.path.isdir(gamepad_libdir):
             repo = gi.Repository.get_default()
