@@ -11,6 +11,7 @@ from waydroid_helper.controller.widgets.decorators import Editable
 
 @Editable(max_keys=1)
 class PairedGesture(TimedGesture):
+    CENTER_MAPPING_HINT = True
     MAPPING_MODE_WIDTH = 62
     MAPPING_MODE_HEIGHT = 42
     DIRECTIONS = ("forward", "reverse")

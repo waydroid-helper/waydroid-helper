@@ -142,18 +142,19 @@ GAMEPAD_CONTROLS = frozenset(
         "swipe",
         "analogstick",
         "rightstick",
-        "skillcasting",
+        "triggerslider",
+        "dualstagetrigger",
+        "gamepadskillcasting",
+        "gamepadcancelcasting",
         "macro",
     }
 )
 
 
 def supports_control(kind, control):
-    if control == "cancelcasting":
-        return True  # Companion placed by SkillCasting, never shown in the palette.
     if kind == "gamepad":
         return control in GAMEPAD_CONTROLS
-    return control not in {"analogstick", "rightstick"}
+    return control not in {"analogstick", "rightstick", "triggerslider", "dualstagetrigger", "gamepadskillcasting", "gamepadcancelcasting"}
 
 
 def layout_for_input(data, kind):
@@ -165,6 +166,15 @@ def layout_for_input(data, kind):
     result = deepcopy(data)
     widgets = []
     for item in result["widgets"]:
+        if kind == "gamepad" and item["type"] == "skillcasting":
+            # The old widget already used its placed diameter for the guest
+            # touch range. Keep that geometry and binding, and discard only
+            # settings that described the mouse projection and cast timing.
+            item["type"] = "gamepadskillcasting"
+            item["config"] = {k: v for k, v in item.get("config", {}).items()
+                              if k in ("show_hint", "hint_note")}
+        elif kind == "gamepad" and item["type"] == "cancelcasting":
+            item["type"] = "gamepadcancelcasting"
         if not supports_control(kind, item["type"]):
             continue
         combos = item.get("default_keys", [])

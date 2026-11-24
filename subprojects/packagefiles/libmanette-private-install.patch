@@ -1,0 +1,42 @@
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -72,14 +72,18 @@
+   libmanette_deps += [ gudev ]
+ endif
+ 
++# Keep these hotplug fixes local to the emulator, including when the host
++# already has the system libmanette in its dynamic linker search path.
++private_libdir = get_option('libdir') / 'waydroid-helper' / 'gamepad'
+ libmanette_lib = library(
+-  libmanette_module,
++  'waydroid-helper-' + libmanette_module,
+   libmanette_sources,
+   c_args: libmanette_c_args,
+   dependencies: libmanette_deps,
+   include_directories: confinc,
+   install: true,
+   soversion: 0,
++  install_dir: private_libdir,
+ )
+ 
+ libmanette_gir_args = [
+@@ -117,6 +121,8 @@
+     header: libmanette_main_header,
+     install: true,
+     symbol_prefix: 'manette',
++    install_gir: false,
++    install_dir_typelib: private_libdir,
+   )
+   built_girs += [ libmanette_gir ]
+ 
+@@ -146,6 +152,10 @@
+   dependencies: libmanette_deps,
+ )
+ 
++if meson.is_subproject()
++  subdir_done()
++endif
++
+ install_headers(libmanette_headers, subdir: 'libmanette')
+ 
+ pkg = import('pkgconfig')

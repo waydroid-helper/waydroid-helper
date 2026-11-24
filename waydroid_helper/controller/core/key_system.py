@@ -7,6 +7,9 @@ from gettext import pgettext
 from typing import Protocol
 
 
+_ARROW_GLYPHS = {"Up": "↑", "Down": "↓", "Left": "←", "Right": "→"}
+
+
 class KeyType(Enum):
     """按键类型枚举"""
 
@@ -74,6 +77,7 @@ class KeyRegistry:
 
     def __init__(self, symbol_resolver: KeySymbolResolver | None = None):
         self._symbol_resolver = symbol_resolver
+        self.keycap_labels: dict[str, str] = {}
         self._keys: dict[int, Key] = {}  # keyval -> Key
         self._names: dict[str, Key] = {}  # name -> Key
         self._init_standard_keys()
@@ -300,23 +304,33 @@ class KeyCombination:
     def __contains__(self, key: Key):
         return key in self.keys
 
-    @property
-    def display_text(self) -> str:
-        """获取显示文本"""
+    def _keycap_names(self, labels=None):
         wheel = pgettext("Mouse wheel keycap", "Wheel")
         names = {
             "Wheel_Up": wheel + "↑", "Wheel_Down": wheel + "↓",
             "Wheel_Left": wheel + "←", "Wheel_Right": wheel + "→",
         }
-        labels = []
         for key in self.keys:
-            if key.key_type == KeyType.MODIFIER:
-                labels.append(key.name.removesuffix("_L").removesuffix("_R"))
+            if labels and key.name in labels:
+                yield labels[key.name]
+            elif key.key_type == KeyType.MODIFIER:
+                yield key.name.removesuffix("_L").removesuffix("_R")
             elif key.name.startswith("Pad_"):
-                labels.append(key.name.removeprefix("Pad_").replace("_", " "))
+                yield key.name.removeprefix("Pad_").replace("_", " ")
             else:
-                labels.append(names.get(key.name, key.name))
-        return "+".join(labels)
+                yield names.get(key.name, key.name)
+
+    @property
+    def display_text(self) -> str:
+        return self.format_keycap()
+
+    def format_keycap(self, labels: dict[str, str] | None = None) -> str:
+        return "+".join(_ARROW_GLYPHS.get(name, name) for name in self._keycap_names(labels))
+
+    def matches_saved_label(self, text: str) -> bool:
+        # Older layouts saved either raw key names (Ctrl_L+Up) or the
+        # generated caption (Ctrl+Up). Only refresh those exact captions.
+        return text == str(self) or text == "+".join(self._keycap_names())
 
     @property
     def has_modifiers(self) -> bool:
@@ -351,3 +365,12 @@ class KeyCombination:
     def is_subset_of(self, other: "KeyCombination") -> bool:
         """检查此组合是否是另一个组合的子集"""
         return self.get_frozen_keys().issubset(other.get_frozen_keys())
+
+
+def bound_trigger(keys: set[KeyCombination]) -> str | None:
+    """A continuous axis has one physical source. Chords retain digital semantics."""
+    if len(keys) == 1:
+        combo = next(iter(keys))
+        if len(combo) == 1 and combo.keys[0].name in ("Pad_LT", "Pad_RT"):
+            return combo.keys[0].name[4:]
+    return None

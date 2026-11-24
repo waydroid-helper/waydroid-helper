@@ -55,6 +55,10 @@ def test_center_resize_keeps_center_position():
     assert result.x == pytest.approx(-15)
     assert result.y == pytest.approx(-5)
 
+    minimum = geometry.calculate("n", 0, 200, snapshot, ResizeStrategy.CENTER)
+    assert minimum.width == minimum.height == 50
+    assert (minimum.x + minimum.width / 2, minimum.y + minimum.height / 2) == (60, 70)
+
 
 def test_symmetric_resize_expands_around_center():
     geometry = ResizeGeometryCalculator()

@@ -43,6 +43,7 @@ class EventType(str, Enum):
 
     PLAY_RECORDING = "play-recording"
     COPY_RECORDING = "copy-recording"
+    GAMEPAD_TRIGGER = "gamepad-trigger"
     GAMEPAD_STICK = "gamepad-stick"
     MOUSE_MOTION = "mouse-motion"  # 鼠标移动事件
     CANCEL_CASTING = "cancel-casting"  # 取消施法事件
@@ -50,6 +51,14 @@ class EventType(str, Enum):
     ENTER_STARING = "enter-staring"  # 进入瞄准模式
     EXIT_STARING = "exit-staring"  # 退出瞄准模式
     SWIPEHOLD_RADIUS = "swipehold-radius"  # 滑动半径设置
+
+
+@dataclass(frozen=True, slots=True)
+class GamepadTrigger:
+    device: object
+    name: str
+    travel: float | None  # None cancels in place on focus loss or disconnect.
+    analog: bool = True
 
 
 @dataclass

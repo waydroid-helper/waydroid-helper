@@ -1,10 +1,25 @@
 from __future__ import annotations
 
 from waydroid_helper.controller.core.key_system import (
+    KeyCombination,
     KeyRegistry,
     KeyType,
     STANDARD_KEY_SYMBOLS,
 )
+
+
+def test_saved_keyboard_and_gamepad_arrow_captions():
+    registry = KeyRegistry()
+    registry.register_key("Pad_Left", -65536, KeyType.SPECIAL)
+    for names, old_caption, expected in [
+        (["Ctrl_L", "Up"], "Ctrl+Up", "Ctrl+↑"),
+        (["Pad_Left"], "Left", "←"),
+    ]:
+        combo = KeyCombination.from_names(names, registry)
+        assert combo.matches_saved_label(old_caption)
+        assert combo.matches_saved_label(str(combo))
+        assert not combo.matches_saved_label("Look Up")
+        assert combo.display_text == expected
 
 
 class FakeSymbolResolver:

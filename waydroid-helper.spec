@@ -31,6 +31,7 @@ BuildRequires:  systemd
 BuildRequires:  desktop-file-utils
 
 Requires:       python3
+Requires:       typelib(Rsvg) = 2.0
 Requires:       gtk4
 Requires:       libadwaita
 Requires:       waydroid

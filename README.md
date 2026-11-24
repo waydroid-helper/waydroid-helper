@@ -109,6 +109,8 @@ meson setup .build/embedded -Dbundle_casilda=true
 meson compile -C .build/embedded
 ```
 
+Under **Manage profiles → Connected gamepads**, select **Configure** beside a gamepad to see its buttons light up as you press them. Emulator builds use a private copy of libmanette that stops reading disconnected devices. Building it requires the libevdev, hidapi-hidraw and GObject Introspection development files. With a separately installed Casilda, you can also enable it explicitly with `-Dbundle_manette=enabled`.
+
 ### Manual Build and Installation
 
 For manual installation, you'll need to install the dependencies and build the project using Meson.

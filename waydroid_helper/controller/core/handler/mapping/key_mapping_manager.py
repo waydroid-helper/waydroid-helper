@@ -102,7 +102,9 @@ class KeyMappingManager:
         reentrant: bool | None = None,
     ) -> bool:
         """订阅按键事件"""
-        if not key_combination:
+        if not key_combination or getattr(target, "REQUIRES_ANALOG_TRIGGER", False) is True:
+            # Analog-only controls use the same editable keycaps and saved bindings
+            # as buttons, but never participate in digital chord arbitration.
             return False
 
         trigger_callback = getattr(target, "on_key_triggered", None)

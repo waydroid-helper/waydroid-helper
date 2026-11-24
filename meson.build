@@ -12,6 +12,11 @@ if get_option('bundle_casilda')
   subproject('casilda')
 endif
 
+if get_option('bundle_manette').enabled() or (get_option('bundle_manette').auto() and (
+    get_option('bundle_casilda') or dependency('casilda-1.0', required: false).found()))
+  subproject('libmanette', default_options: ['demos=false', 'build-tests=false', 'vapi=false'])
+endif
+
 subdir('data')
 subdir('waydroid_helper')
 subdir('po')

@@ -7,8 +7,10 @@ from gi.repository import Gdk, Gtk
 
 
 class SwipePlacement(Gtk.DrawingArea):
-    def __init__(self, completed):
+    def __init__(self, completed, cancelled, endpoints_only=False):
         super().__init__(hexpand=True, vexpand=True, focusable=True)
+        self.cancelled = cancelled
+        self.endpoints_only = endpoints_only
         self.completed = completed
         self.points = []
         self.set_cursor_from_name("crosshair")
@@ -41,7 +43,10 @@ class SwipePlacement(Gtk.DrawingArea):
             return
         point = self._point(self.origin[0] + dx, self.origin[1] + dy)
         if point != self.points[-1]:
-            self.points.append(point)
+            if self.endpoints_only:
+                self.points[1:] = [point]
+            else:
+                self.points.append(point)
             self.queue_draw()
 
     def _end(self, gesture, dx, dy):

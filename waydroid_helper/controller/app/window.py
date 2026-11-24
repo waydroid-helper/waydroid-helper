@@ -372,18 +372,22 @@ class MappingWindow(Adw.Window):
         def completed(points, duration):
             width, height = self.screen_geometry.get_host_resolution()
             x, y = widget.set_recorded_path(points, duration, width, height)
-            self.cancel_swipe_placement()
+            self.cancel_swipe_placement(completed=True)
             self.create_widget_at_position(widget, x, y)
             widget.set_selected(True)
             widget.capture_key_at_endpoint()
 
-        self.swipe_placement = SwipePlacement(completed)
+        self.swipe_placement = SwipePlacement(
+            completed, widget.on_delete, getattr(widget, "ENDPOINTS_ONLY", False)
+        )
         self.canvas.add_overlay(self.swipe_placement)
         self.swipe_placement.grab_focus()
-        self.show_notification(_("Drag on the Android screen to record a swipe"))
+        self.show_notification(widget.PLACEMENT_HINT)
 
-    def cancel_swipe_placement(self):
+    def cancel_swipe_placement(self, completed=False):
         if self.swipe_placement is not None:
+            if not completed:
+                self.swipe_placement.cancelled()
             self.canvas.remove_overlay(self.swipe_placement)
             self.swipe_placement = None
 
@@ -406,7 +410,12 @@ class MappingWindow(Adw.Window):
     def restore_all_widgets_opacity(self) -> bool:
         return self.widget_transparency_controller.restore_normal()
 
-    def create_widget_at_position(self, widget: "BaseWidget", x: int, y: int) -> None:
+    def create_widget_at_position(self, widget: "BaseWidget", x: float, y: float) -> None:
+        if widget.text:
+            for combo in widget.final_keys:
+                if combo.matches_saved_label(widget.text):
+                    widget.text = combo.display_text
+                    break
         self.fixed_put(widget, x, y)
         self.widget_mapping_registrar.register_widget(widget)
         if self.current_mode == self.MAPPING_MODE:

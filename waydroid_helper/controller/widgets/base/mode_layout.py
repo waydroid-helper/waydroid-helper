@@ -41,8 +41,10 @@ class WidgetModeLayout:
             return False
 
         host.mapping_mode = mapping_mode
-        geometry = self._mapping_geometry(host) if mapping_mode else self._edit_geometry(host)
-        self._apply_geometry(host, geometry)
+        if mapping_mode:
+            self.place_mapping_hint(host)
+        else:
+            self._apply_geometry(host, self._edit_geometry(host))
         host.queue_draw()
         return True
 
@@ -56,13 +58,10 @@ class WidgetModeLayout:
         height = host.get_allocated_height()
         return x, y, width, height
 
-    def _mapping_geometry(self, host: ModeLayoutHost) -> WidgetGeometry:
-        return WidgetGeometry(
-            x=host.mapping_start_x,
-            y=host.mapping_start_y,
-            width=host.MAPPING_MODE_WIDTH,
-            height=host.MAPPING_MODE_HEIGHT,
-        )
+    def place_mapping_hint(self, host: ModeLayoutHost) -> None:
+        width, height = host.MAPPING_MODE_WIDTH, host.MAPPING_MODE_HEIGHT
+        geometry = WidgetGeometry(host.mapping_start_x, host.mapping_start_y, width, height)
+        self._apply_geometry(host, geometry)
 
     def _edit_geometry(self, host: ModeLayoutHost) -> WidgetGeometry:
         return WidgetGeometry(

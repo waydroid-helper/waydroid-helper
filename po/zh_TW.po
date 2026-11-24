@@ -755,7 +755,7 @@ msgstr ""
 #: waydroid_helper/controller/widgets/components/cancel_casting.py:76
 msgctxt "Controller Widgets"
 msgid "Cancel Casting"
-msgstr ""
+msgstr "取消施法"
 
 #: waydroid_helper/controller/widgets/components/cancel_casting.py:27
 msgctxt "Controller Widgets"
@@ -999,7 +999,7 @@ msgstr ""
 #: waydroid_helper/controller/widgets/components/skill_casting.py:88
 msgctxt "Controller Widgets"
 msgid "Enable Cancel Button"
-msgstr ""
+msgstr "取消施法"
 
 #: waydroid_helper/controller/widgets/components/skill_casting.py:92
 msgctxt "Controller Widgets"
@@ -1009,7 +1009,7 @@ msgstr ""
 #: waydroid_helper/controller/widgets/components/skill_casting.py:488
 msgctxt "Controller Widgets"
 msgid "Casting Radius"
-msgstr ""
+msgstr "施法半徑"
 
 #: waydroid_helper/controller/widgets/components/skill_casting.py:495
 msgctxt "Controller Widgets"
@@ -1274,3 +1274,90 @@ msgstr "無法下載輸入法，請檢查網路連線後再試一次。"
 #: waydroid_helper/controller/app/desktop_ime_setup.py
 msgid "The active Android user changed. Set up the input method again."
 msgstr "目前的 Android 使用者已變更，請重新設定電腦輸入法。"
+
+msgid "Configure"
+msgstr "設定"
+
+msgid "Press a button to highlight it on the gamepad."
+msgstr "按下手把按鍵，圖中對應的位置會亮起。"
+
+msgid "No gamepad connected"
+msgstr "未連接手把"
+
+msgid "Connected gamepads"
+msgstr "已連接的手把"
+
+msgid "Gamepad bindings require libmanette 0.2"
+msgstr "手把按鍵映射需要 libmanette 0.2"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Controller name"
+msgstr "控制器名稱"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Advanced settings"
+msgstr "進階設定"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Use Nintendo button layout"
+msgstr "使用任天堂按鍵配置"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Swap A with B and X with Y for mapping and key capture."
+msgstr "互換 A 與 B、X 與 Y，同時套用於按鍵擷取及遊戲映射。"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Test device input"
+msgstr "測試裝置輸入"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Start test"
+msgstr "開始測試"
+
+#: waydroid_helper/controller/app/gamepad_preview.py
+#, python-format
+msgid "%s button"
+msgstr "%s 鍵"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Back"
+msgstr "返回"
+
+msgid "Trigger slider"
+msgstr "扳機滑桿"
+
+msgid "Squeeze or release a trigger to drag in either direction along the drawn path."
+msgstr "扣下或放開扳機，沿畫好的路徑來回拖曳。"
+
+msgid "Draw the slider path, then squeeze the trigger to bind it"
+msgstr "畫出滑桿路徑，再扣一下要綁定的扳機"
+
+msgid "Dual-stage trigger"
+msgstr "雙段扳機"
+
+msgid "Hold the first point on a soft pull and add the second point on a full pull."
+msgstr "淺扣按住第一個觸點，深扣同時按住第二個觸點。"
+
+msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
+msgstr "從淺扣觸點拖到深扣觸點，再扣一下要綁定的扳機"
+
+msgid "Trigger thresholds"
+msgstr "扳機觸發門檻"
+
+msgid "Soft pull (%)"
+msgstr "淺扣 (%)"
+
+msgid "Full pull (%)"
+msgstr "深扣 (%)"
+
+msgid "Requires a controller with analog triggers"
+msgstr "需要配備類比扳機的控制器"
+
+msgid "Vary rate with trigger travel"
+msgstr "連點頻率隨扳機行程變化"
+
+msgid "A soft pull starts at two taps per second. A full pull uses the configured rate."
+msgstr "淺扣從每秒兩次起步，扣到底時達到設定的連點頻率。"
+
+msgid "Hold the bound button, aim with the right stick, and release the button to cast."
+msgstr "按住綁定鍵，用右搖桿瞄準，放開按鍵施放。"

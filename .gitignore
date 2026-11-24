@@ -33,4 +33,6 @@ CLAUDE.md
 .serena/
 .cursor/
 /subprojects/casilda/
+/subprojects/libmanette-*/
+/subprojects/packagecache/
 /subprojects/.wraplock

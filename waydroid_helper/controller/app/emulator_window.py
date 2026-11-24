@@ -63,6 +63,12 @@ class EmulatorWindow(MappingWindow):
         overlay.set_focusable(True)
 
     def setup_window(self):
+        # The emulator uses a display-specific application ID. Register the
+        # shared icons before GTK creates the header or opens the control menu.
+        theme = Gtk.IconTheme.get_for_display(self.get_display())
+        icon_path = "/com/jaoushingan/WaydroidHelper/mapping-icons"
+        if icon_path not in (theme.get_resource_path() or ()):
+            theme.add_resource_path(icon_path)
         self.set_title(_("Waydroid Emulator"))
         self.viewport = EmulatorViewport(self.compositor, self.canvas)
         self.screen_geometry.set_host_resolution(*self.viewport.mapping_size)
@@ -74,7 +80,7 @@ class EmulatorWindow(MappingWindow):
         self.display_dialog = None
         self.tools = EmulatorTools(self)
         self.recorder = InputRecording(self)
-        self.gamepad = GamepadInput(self)
+        self.gamepad = GamepadInput(self, self._redraw_gamepad_keycaps)
         self.profiles = ProfileWorkspace(
             self, Path(GLib.get_user_config_dir()) / "waydroid-helper" / "profiles"
         )
@@ -438,16 +444,24 @@ class EmulatorWindow(MappingWindow):
 
     def create_widget_at_position(self, widget, x, y):
         widget.profile_kind = self.profiles.kind
-        for combo in widget.final_keys:
-            if widget.text == str(combo):
-                widget.text = combo.display_text
-                break
         widget.enable_hint_settings()
+        if widget.profile_kind == "gamepad" and hasattr(widget, "enable_trigger_repeat"):
+            widget.enable_trigger_repeat(self.gamepad.available_triggers)
         super().create_widget_at_position(widget, x, y)
         widget.get_config_manager().connect(
             "config-changed", lambda *_: self.queue_editor_refresh()
         )
         self.queue_editor_refresh()
+
+    def _on_widget_settings_requested(self, event):
+        widget = event.source
+        if widget.profile_kind == "gamepad" and hasattr(widget, "enable_trigger_repeat"):
+            widget.enable_trigger_repeat(self.gamepad.available_triggers)
+        super()._on_widget_settings_requested(event)
+
+    def _redraw_gamepad_keycaps(self):
+        for widget in self.workspace_manager.iter_widgets():
+            widget.queue_draw()
 
     def queue_editor_refresh(self):
         if self.profiles.edit and not getattr(self, "_editor_refresh", 0):

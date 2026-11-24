@@ -60,7 +60,10 @@ class MappingProfilesDialog(EmulatorPreferences):
         )
         self.page.add(self.group)
         self.kind = kind
-        self.status = Adw.ActionRow(title=_("Connected gamepads"))
+        self.device_rows = {}
+        self.device_settings = None
+        self.status = Adw.ExpanderRow(title=_("Connected gamepads"))
+        self.status.set_visible(kind == "gamepad")
         self.group.add(self.status)
         add_hint_opacity(self.group, _("Hint opacity"), window.preferences)
         self.list_group = Adw.PreferencesGroup(title=_("Saved profiles"))
@@ -89,13 +92,15 @@ class MappingProfilesDialog(EmulatorPreferences):
         )
         self.monitor_handlers = []
         monitor = window.gamepad.monitor
-        if monitor:
+        if monitor and self.kind == "gamepad":
             for signal in ("device-connected", "device-disconnected"):
                 self.monitor_handlers.append(
                     monitor.connect_after(signal, lambda *_: self.devices_changed())
                 )
 
         def disconnect_monitor(*_):
+            if self.device_settings:
+                self.device_settings.close()
             for handler in self.monitor_handlers:
                 monitor.disconnect(handler)
 
@@ -103,12 +108,55 @@ class MappingProfilesDialog(EmulatorPreferences):
         self.refresh()
 
     def devices_changed(self):
-        names = [d.get_name() for d in self.parent_window.gamepad.devices]
-        subtitle = ", ".join(names) or _("No gamepad connected")
-        if self.parent_window.gamepad.monitor is None:
+        if self.kind != "gamepad":
+            return
+        gamepad = self.parent_window.gamepad
+        had_devices = bool(self.device_rows)
+        # Keep row identity across hotplug and profile refreshes. Two gamepads
+        # may have the same display name but always open their own settings.
+        for device in tuple(self.device_rows):
+            if device not in gamepad.devices:
+                self.status.remove(self.device_rows.pop(device))
+                if self.device_settings and self.device_settings.pad.device == device:
+                    self.device_settings.close()
+        for device, pad in gamepad.devices.items():
+            title = GLib.markup_escape_text(pad.name)
+            if device in self.device_rows:
+                self.device_rows[device].set_title(title)
+                continue
+            row = Adw.ActionRow(title=title)
+            row.add_prefix(Gtk.Image(icon_name="input-gaming-symbolic"))
+            configure = Gtk.Button(label=_("Configure"), valign=Gtk.Align.CENTER)
+            configure.connect("clicked", lambda _, d=device: self.open_device(d))
+            row.add_suffix(configure)
+            row.set_activatable_widget(configure)
+            self.status.add_row(row)
+            self.device_rows[device] = row
+        if gamepad.monitor is None:
             subtitle = _("Gamepad bindings require libmanette 0.2")
+        else:
+            subtitle = "" if self.device_rows else _("No gamepad connected")
         self.status.set_subtitle(subtitle)
-        self.status.set_visible(self.kind == "gamepad")
+        self.status.set_enable_expansion(bool(self.device_rows))
+        if not had_devices and self.device_rows:
+            self.status.set_expanded(True)
+
+    def open_device(self, device):
+        from waydroid_helper.controller.app.gamepad_settings import GamepadSettingsWindow
+
+        if device not in self.device_rows:
+            return
+        if self.device_settings is None:
+            pad = self.parent_window.gamepad.devices[device]
+            self.device_settings = GamepadSettingsWindow(self.get_root(), pad)
+            self.device_settings.connect("unmap", self._settings_closed)
+        self.device_settings.present()
+
+    def _settings_closed(self, window):
+        if self.device_settings is window:
+            self.device_settings = None
+            if window.pad.device in self.device_rows:
+                self.device_rows[window.pad.device].set_title(GLib.markup_escape_text(window.pad.name))
 
     def action(self, group, title, icon, callback):
         row = Adw.ActionRow(title=title, activatable=True)

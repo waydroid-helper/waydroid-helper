@@ -73,4 +73,8 @@
       <default>false</default>
     </key>
   </schema>
+  <schema id="com.jaoushingan.WaydroidHelper.Gamepad">
+    <key name="name" type="s"><default>''</default></key>
+    <key name="nintendo-layout" type="b"><default>false</default></key>
+  </schema>
 </schemalist>

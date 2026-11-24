@@ -14,6 +14,8 @@ waydroid_helper/waydroid.py
 waydroid_helper/gsf_retriever.py
 waydroid_helper/model_controller.py
 waydroid_helper/key_mapping_preference_dialog.py
+waydroid_helper/controller/app/gamepad_preview.py
+waydroid_helper/controller/app/gamepad_settings.py
 waydroid_helper/gpu_combo_row.py
 waydroid_helper/cage_command.py
 waydroid_helper/models.py
@@ -53,6 +55,7 @@ waydroid_helper/controller/__init__.py
 waydroid_helper/controller/android/__init__.py
 waydroid_helper/controller/android/input.py
 waydroid_helper/controller/android/keycodes.py
+waydroid_helper/controller/app/widget_settings_popover.py
 waydroid_helper/controller/app/window.py
 waydroid_helper/controller/app/embedded_session.py
 waydroid_helper/controller/app/emulator_viewport.py
@@ -101,9 +104,13 @@ waydroid_helper/controller/widgets/components/__init__.py
 waydroid_helper/controller/widgets/components/aim.py
 waydroid_helper/controller/widgets/components/analog_stick.py
 waydroid_helper/controller/widgets/components/gestures.py
+waydroid_helper/controller/widgets/components/trigger_gestures.py
+waydroid_helper/controller/widgets/base/placed_path.py
+waydroid_helper/controller/widgets/base/trigger_thresholds.py
 waydroid_helper/controller/widgets/components/recorded_action.py
 waydroid_helper/controller/widgets/base/paired_gesture.py
 waydroid_helper/controller/widgets/base/timed_gesture.py
+waydroid_helper/controller/widgets/base/cast_cancel_button.py
 waydroid_helper/controller/widgets/components/cancel_casting.py
 waydroid_helper/controller/widgets/components/directional_pad.py
 waydroid_helper/controller/widgets/components/fire.py
@@ -112,6 +119,7 @@ waydroid_helper/controller/widgets/components/repeated_click.py
 waydroid_helper/controller/widgets/components/right_click_to_walk.py
 waydroid_helper/controller/widgets/components/single_click.py
 waydroid_helper/controller/widgets/components/skill_casting.py
+waydroid_helper/controller/widgets/components/gamepad_skill_casting.py
 waydroid_helper/controller/widgets/decorators/__init__.py
 waydroid_helper/controller/widgets/decorators/base_decorator.py
 waydroid_helper/controller/widgets/decorators/editable.py

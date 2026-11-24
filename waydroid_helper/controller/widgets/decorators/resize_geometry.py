@@ -162,12 +162,12 @@ class ResizeGeometryCalculator:
 
         scale_factor = max(
             scale_factor,
-            snapshot.min_width / snapshot.width,
-            snapshot.min_height / snapshot.height,
+            max(snapshot.min_width, self.FALLBACK_MIN_WIDTH) / snapshot.width,
+            max(snapshot.min_height, self.FALLBACK_MIN_HEIGHT) / snapshot.height,
         )
 
-        new_width = max(self.FALLBACK_MIN_WIDTH, snapshot.width * scale_factor)
-        new_height = max(self.FALLBACK_MIN_HEIGHT, snapshot.height * scale_factor)
+        new_width = snapshot.width * scale_factor
+        new_height = snapshot.height * scale_factor
         new_x = center_x - new_width / 2
         new_y = center_y - new_height / 2
         return ResizeResult(new_width, new_height, new_x, new_y)

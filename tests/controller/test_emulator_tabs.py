@@ -149,6 +149,20 @@ def test_narrow_header_keeps_one_row_and_the_selected_page(adwaita):
         assert toolbar.fullscreen_button.get_visible() == (not compact)
 
 
+def test_mapping_button_tracks_profile_kind_with_its_menu_closed(adwaita):
+    window = MagicMock()
+    window.profiles.edit = None
+    window.profiles.kind = "gamepad"
+    toolbar = EmulatorToolbar(window)
+    assert toolbar.mapping.get_icon_name() == "mapping-gamepad-symbolic"
+
+    for kind in ("keyboard", "gamepad"):
+        window.profiles.kind = kind
+        toolbar.sync_mode()
+        assert not toolbar.mapping.get_popover().get_visible()
+        assert toolbar.mapping.get_icon_name() == f"mapping-{kind}-symbolic"
+
+
 def test_profile_editor_replaces_the_whole_header_until_exit(adwaita):
     window = MagicMock()
     window.is_fullscreen.return_value = False

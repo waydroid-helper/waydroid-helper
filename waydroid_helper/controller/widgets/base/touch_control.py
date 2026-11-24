@@ -8,6 +8,7 @@ from waydroid_helper.controller.widgets.base import control_art as art
 
 
 class TouchControl(BaseWidget):
+    MIN_WIDTH = MIN_HEIGHT = 32
     MAPPING_MODE_WIDTH = 68
     MAPPING_MODE_HEIGHT = 36
 
@@ -30,8 +31,8 @@ class TouchControl(BaseWidget):
             self.WIDGET_NAME,
             text,
             default_keys,
-            min_width=32,
-            min_height=32,
+            min_width=self.MIN_WIDTH,
+            min_height=self.MIN_HEIGHT,
             runtime_context=runtime_context,
         )
         self.contacts = {}
@@ -39,14 +40,6 @@ class TouchControl(BaseWidget):
     @property
     def center(self):
         return self.x + self.width / 2, self.y + self.height / 2
-
-    @property
-    def mapping_start_x(self):
-        return self.center[0] - self.MAPPING_MODE_WIDTH / 2
-
-    @property
-    def mapping_start_y(self):
-        return self.center[1] - self.MAPPING_MODE_HEIGHT / 2
 
     def touch(self, finger, action, x, y):
         # Each finger owns a distinct pool slot until its final UP. A MOVE or

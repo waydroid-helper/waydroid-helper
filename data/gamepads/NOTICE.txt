@@ -1,0 +1,7 @@
+Original controller SVG geometry extracted from the installed Valve Steam client.
+Source: steamui/sp.js, controller outline components listed in steam-manifest.json.
+SVG paths, original strokes, proportions and glyph colors are preserved.
+Runtime input annotations and stable element IDs were added by Waydroid Helper.
+These Valve assets are not relicensed under Waydroid Helper's GPL license.
+Extraction tool: tools/extract_steam_gamepads.mjs
+Source bundle SHA-256: 692083495994d2b2cf686effd89c11fa987aefa45787cbfa212627c37eda9c7a

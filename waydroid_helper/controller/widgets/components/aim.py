@@ -804,16 +804,6 @@ class Aim(BaseWidget):
         ]
 
     @property
-    def mapping_start_x(self):
-        """映射起始X坐标 - 中心位置"""
-        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
-
-    @property
-    def mapping_start_y(self):
-        """映射起始Y坐标 - 中心位置"""
-        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
-
-    @property
     def center_x(self):
         """中心X坐标"""
         return self.x + self.width / 2

@@ -60,6 +60,8 @@ class WidgetLayoutOperations(Protocol):
 EMBEDDED_CONTROL_ICONS = {
     "singleclick": "mapping-tap-symbolic",
     "repeatedclick": "mapping-repeat-tap-symbolic",
+    "triggerslider": "mapping-trigger-slider-symbolic",
+    "dualstagetrigger": "mapping-dual-stage-symbolic",
     "swipe": "mapping-swipe-symbolic",
     "directionalpad": "mapping-d-pad-symbolic",
     "analogstick": "mapping-left-stick-symbolic",
@@ -71,6 +73,7 @@ EMBEDDED_CONTROL_ICONS = {
     "rightclicktowalk": "mapping-right-click-symbolic",
     "macro": "mapping-macro-symbolic",
     "recordedaction": "mapping-recorded-action-symbolic",
+    "gamepadskillcasting": "mapping-cast-symbolic",
     "skillcasting": "mapping-cast-symbolic",
 }
 
@@ -141,12 +144,6 @@ class ContextMenuManager:
         scrolled.set_child(self._flow_box)
 
         if getattr(self.parent_window, "embedded", False):
-            # The emulator's application ID includes the display name, so GTK's
-            # automatic icon lookup does not point at the shared resource bundle.
-            theme = Gtk.IconTheme.get_for_display(self.anchor.get_display())
-            icon_path = "/com/jaoushingan/WaydroidHelper/mapping-icons"
-            if icon_path not in (theme.get_resource_path() or ()):
-                theme.add_resource_path(icon_path)
             return
 
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
@@ -231,6 +228,10 @@ class ContextMenuManager:
             display_name = metadata.get("name", widget_type.title())
             button = Gtk.Button(label=str(display_name))
             if getattr(self.parent_window, "embedded", False):
+                if (getattr(widget_factory.widget_classes[widget_type], "REQUIRES_ANALOG_TRIGGER", False)
+                        and not self.parent_window.gamepad.available_triggers):
+                    button.set_sensitive(False)
+                    button.set_tooltip_text(_("Requires a controller with analog triggers"))
                 content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
                 image = Gtk.Image.new_from_icon_name(
                     EMBEDDED_CONTROL_ICONS.get(widget_type, "input-gaming-symbolic")
@@ -287,7 +288,7 @@ class ContextMenuManager:
         try:
             widget = widget_factory.create_widget(widget_type, x=x, y=y)
             if widget:
-                if widget_type == "swipe":
+                if hasattr(widget, "set_recorded_path"):
                     self.parent_window.begin_swipe_placement(widget)
                     return
                 if getattr(self.parent_window, "embedded", False):

@@ -16,10 +16,18 @@ from waydroid_helper.controller.widgets.config import (
     create_switch_config,
 )
 from waydroid_helper.controller.widgets.decorators import Resizable
+from waydroid_helper.controller.widgets.decorators.resize_geometry import ResizeStrategy
 
 
-@Resizable()
+def _stick_resize_strategy(stick):
+    if stick.get_config_value("action") == "move":
+        return ResizeStrategy.CENTER
+    return ResizeStrategy.SYMMETRIC
+
+
+@Resizable(resize_strategy=_stick_resize_strategy)
 class AnalogStick(TouchControl):
+    CENTER_MAPPING_HINT = True
     MAPPING_MODE_WIDTH = MAPPING_MODE_HEIGHT = 54
     EMBEDDED_ONLY = True
     DEFAULT_STICK = "left"
@@ -82,17 +90,15 @@ class AnalogStick(TouchControl):
         art.disc(cr, x, y, radius, art.BODY, art.OUTLINE)
         art.disc(cr, x, y, radius * 0.77, (0.08, 0.10, 0.14, 0.54))
         art.compass(cr, x, y, radius * 0.63)
-        vx, vy = self.vector if self.device else ((0, 0) if movement else (0.28, -0.28))
+        offset = 0 if movement else radius * 0.55 * 0.28
         knob = (0.20, 0.22, 0.26, 0.94) if movement else (0.62, 0.64, 0.68, 0.96)
-        art.disc(
-            cr, x + vx * radius * 0.55, y + vy * radius * 0.55, radius * 0.36, knob
-        )
+        art.disc(cr, x + offset, y - offset, radius * 0.36, knob)
 
     def draw_text_content(self, cr, width, height):
         pass
 
     def draw_mapping_mode_background(self, cr, width, height):
-        pass  # The stick paints its own circular background and moving knob.
+        pass  # The stick glyph includes its circular background.
 
     def draw_mapping_mode_content(self, cr, width, height):
         x, y = width / 2, height / 2
@@ -101,9 +107,8 @@ class AnalogStick(TouchControl):
         # Each compact hint depicts a physical stick from the side. Mirror
         # the resting tilt so the two axes remain distinguishable at a glance.
         tilt = -0.22 if self.get_config_value("stick") == "left" else 0.22
-        dx, dy = self.vector if self.device is not None else (0.0, 0.0)
-        tip_x = x + (tilt + dx * 0.3) * radius
-        tip_y = y + (-0.23 + dy * 0.24) * radius
+        tip_x = x + tilt * radius
+        tip_y = y - 0.23 * radius
         cr.save()
         cr.translate(x, y + radius * 0.42)
         cr.scale(1, 0.46)
@@ -140,7 +145,6 @@ class AnalogStick(TouchControl):
         if not self.contacts and not self.touch(0, Motion.DOWN, *self.center):
             return
         self.device = device
-        self.queue_draw()
         if self.get_config_value("action") == "move":
             cx, cy = self.center
             self.touch(
@@ -175,7 +179,6 @@ class AnalogStick(TouchControl):
             GLib.source_remove(self.timer)
             self.timer = 0
         self.device = None
-        self.queue_draw()
         super().stop_gesture()
 
 

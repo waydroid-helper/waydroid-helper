@@ -41,6 +41,7 @@ class JoystickState(Enum):
 class RightClickToWalk(BaseWidget):
     """Right click widget for work or context menu actions"""
 
+    CENTER_MAPPING_HINT = True
     MAPPING_MODE_WIDTH = 30
     MAPPING_MODE_HEIGHT = 30
     WIDGET_NAME = pgettext("Controller Widgets", "Right Click to Walk")
@@ -419,14 +420,6 @@ class RightClickToWalk(BaseWidget):
                 self._start_hold_timer()
 
         return True
-
-    @property
-    def mapping_start_x(self):
-        return self.x + self.width / 2 - self.MAPPING_MODE_WIDTH / 2
-
-    @property
-    def mapping_start_y(self):
-        return self.y + self.height / 2 - self.MAPPING_MODE_HEIGHT / 2
 
     @property
     def center_x(self):

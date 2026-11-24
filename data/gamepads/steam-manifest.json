@@ -1,0 +1,298 @@
+{
+  "bundle_sha256": "692083495994d2b2cf686effd89c11fa987aefa45787cbfa212627c37eda9c7a",
+  "components": {
+    "generic": {
+      "component": "GenericGamepadFrontOutline",
+      "paths": 30,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "20"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "ps3": {
+      "component": "PS3ControllerFrontOutline",
+      "paths": 26,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "ps4": {
+      "component": "PS4ControllerFrontOutline",
+      "paths": 49,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "20"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "ps5": {
+      "component": "PS5ControllerFrontOutline",
+      "paths": 48,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "20"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "xbox-360": {
+      "component": "Xbox360ControllerFrontOutline",
+      "paths": 34,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "xbox-one": {
+      "component": "XboxOneControllerFrontOutline",
+      "paths": 33,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "switch-pro": {
+      "component": "NintendoSwitchProControllerFrontOutline",
+      "paths": 56,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "joycon-left": {
+      "component": "NintendoJoyConLFrontOutline",
+      "paths": 17,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "5",
+        "6",
+        "7",
+        "9",
+        "10",
+        "17"
+      ],
+      "sticks": [
+        0
+      ]
+    },
+    "joycon-right": {
+      "component": "NintendoJoyConRFrontOutline",
+      "paths": 19,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "5",
+        "6",
+        "7",
+        "9",
+        "10",
+        "16"
+      ],
+      "sticks": [
+        0
+      ]
+    },
+    "joycon-pair": {
+      "component": "NintendoJoyConPairFrontOutline",
+      "paths": 44,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "gamecube": {
+      "component": "GameCubeControllerFrontOutline",
+      "paths": 37,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15"
+      ],
+      "sticks": [
+        0,
+        1
+      ]
+    },
+    "steam": {
+      "component": "SteamControllerFrontOutline",
+      "paths": 26,
+      "buttons": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "9",
+        "10",
+        "20"
+      ],
+      "sticks": [
+        0
+      ]
+    }
+  }
+}

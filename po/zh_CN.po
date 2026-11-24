@@ -2005,3 +2005,77 @@ msgstr "下载输入法失败，请检查网络连接后重试。"
 #: waydroid_helper/controller/app/desktop_ime_setup.py
 msgid "The active Android user changed. Set up the input method again."
 msgstr "当前 Android 用户已更改，请重新设置电脑输入法。"
+
+msgid "Configure"
+msgstr "配置"
+
+msgid "Press a button to highlight it on the gamepad."
+msgstr "按下手柄按键，图中对应的位置会亮起。"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Controller name"
+msgstr "控制器名称"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Advanced settings"
+msgstr "高级设置"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Use Nintendo button layout"
+msgstr "使用任天堂按键布局"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Swap A with B and X with Y for mapping and key capture."
+msgstr "互换 A 和 B、X 和 Y，同时应用于按键录入和游戏映射。"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Test device input"
+msgstr "测试设备输入"
+
+#: waydroid_helper/controller/app/gamepad_settings.py
+msgid "Start test"
+msgstr "开始测试"
+
+#: waydroid_helper/controller/app/gamepad_preview.py
+#, python-format
+msgid "%s button"
+msgstr "%s 键"
+
+msgid "Trigger slider"
+msgstr "扳机滑杆"
+
+msgid "Squeeze or release a trigger to drag in either direction along the drawn path."
+msgstr "扣下或松开扳机，沿画好的路径来回拖动。"
+
+msgid "Draw the slider path, then squeeze the trigger to bind it"
+msgstr "画出滑杆路径，再扣一下要绑定的扳机"
+
+msgid "Dual-stage trigger"
+msgstr "双段扳机"
+
+msgid "Hold the first point on a soft pull and add the second point on a full pull."
+msgstr "浅扣按住第一个触点，深扣同时按住第二个触点。"
+
+msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
+msgstr "从浅扣触点拖到深扣触点，再扣一下要绑定的扳机"
+
+msgid "Trigger thresholds"
+msgstr "扳机触发阈值"
+
+msgid "Soft pull (%)"
+msgstr "浅扣 (%)"
+
+msgid "Full pull (%)"
+msgstr "深扣 (%)"
+
+msgid "Requires a controller with analog triggers"
+msgstr "需要带有模拟扳机的手柄"
+
+msgid "Vary rate with trigger travel"
+msgstr "连点频率随扳机行程变化"
+
+msgid "A soft pull starts at two taps per second. A full pull uses the configured rate."
+msgstr "浅扣从每秒两次起步，扣到底时达到设定的连点频率。"
+
+msgid "Hold the bound button, aim with the right stick, and release the button to cast."
+msgstr "按住绑定键，用右摇杆瞄准，松键施放。"

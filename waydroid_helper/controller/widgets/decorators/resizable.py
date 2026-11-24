@@ -36,9 +36,7 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
     def __init__(self, widget, **kwargs):
         """初始化装饰器"""
         # 从参数中获取缩放策略，默认为普通缩放
-        self.resize_strategy = ResizeStrategy(
-            kwargs.get('resize_strategy', self.RESIZE_NORMAL)
-        )
+        self.resize_strategy = kwargs.get('resize_strategy', self.RESIZE_NORMAL)
         self._geometry = ResizeGeometryCalculator()
         
         # 初始化调整大小状态变量
@@ -47,7 +45,7 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
         self._resize_snapshot = ResizeSnapshot(0, 0, 0, 0, 0, 0)
         self.global_start_x = 0
         self.global_start_y = 0
-        self.current_resize_strategy = self.resize_strategy
+        self.current_resize_strategy = self._strategy_for(widget)
         
         super().__init__(widget, **kwargs)
     
@@ -58,8 +56,11 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
         
         logger.debug(f"ResizableDecorator applied to {type(self._wrapped_widget).__name__}")
         logger.debug(f"Resizable Hook draw function: {self._wrapped_widget.draw_func}")
-        logger.debug(f"Resize strategy: {self.current_resize_strategy}")
     
+    def _strategy_for(self, widget):
+        strategy = self.resize_strategy
+        return ResizeStrategy(strategy(widget) if callable(strategy) else strategy)
+
     def can_resize_at_position(self, x, y, width, height):
         """检查指定位置是否可以调整大小，返回调整方向"""
         return self._geometry.hit_test(x, y, width, height)
@@ -74,6 +75,9 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
         """开始调整大小"""
         self.is_resizing_flag = True
         self.resize_direction = resize_direction
+        # A configurable control may change actions between drags. Resolve its
+        # strategy once per gesture, alongside the original bounds.
+        self.current_resize_strategy = self._strategy_for(self._wrapped_widget)
         
         # 获取全局坐标
         parent = self._wrapped_widget.get_parent()
@@ -82,8 +86,8 @@ class ResizableDecorator(WidgetDecorator, ResizableWidgetBehavior):
             self._resize_snapshot = ResizeSnapshot(
                 width=self._wrapped_widget.width,
                 height=self._wrapped_widget.height,
-                x=widget_x,
-                y=widget_y,
+                x=self._wrapped_widget.x,
+                y=self._wrapped_widget.y,
                 min_width=self._wrapped_widget.min_width,
                 min_height=self._wrapped_widget.min_height,
             )

@@ -922,16 +922,6 @@ class Macro(BaseWidget):
         ]
 
     @property
-    def mapping_start_x(self):
-        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
-
-
-    @property
-    def mapping_start_y(self):
-        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
-
-
-    @property
     def center_x(self):
         return self.x + self.width / 2
 

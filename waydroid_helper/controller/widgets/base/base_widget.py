@@ -68,6 +68,7 @@ class BaseWidget(Gtk.DrawingArea):
     MAPPING_MODE_WIDTH = 50  # 默认映射模式宽度
     MAPPING_MODE_HEIGHT = 50  # 默认映射模式高度
     HAS_MAPPING_HINT = True
+    CENTER_MAPPING_HINT = False
 
     # 按键映射特性 - 子类可以覆盖这个值
     IS_REENTRANT = False  # 是否支持可重入（长按重复触发），默认不支持
@@ -181,8 +182,45 @@ class BaseWidget(Gtk.DrawingArea):
         self.add_config_item(
             create_text_config("hint_note", _("Hint label"), "", max_length=40)
         )
-        for key in ("show_hint", "hint_note"):
-            self.add_config_change_callback(key, lambda *_: self.queue_draw())
+        self.add_config_change_callback("show_hint", lambda *_: self.queue_draw())
+        self.add_config_change_callback("hint_note", self.refresh_mapping_hint)
+
+    @property
+    def mapping_anchor(self) -> tuple[float, float]:
+        return self.x + self.width / 2, self.y + self.height / 2
+
+    @property
+    def mapping_start_x(self) -> float:
+        return self._mapping_hint_position()[0]
+
+    @property
+    def mapping_start_y(self) -> float:
+        return self._mapping_hint_position()[1]
+
+    def _mapping_hint_position(self) -> tuple[float, float]:
+        width, height = self.MAPPING_MODE_WIDTH, self.MAPPING_MODE_HEIGHT
+        x, y = self.mapping_anchor
+        if self.CENTER_MAPPING_HINT or not self.HAS_MAPPING_HINT:
+            return x - width / 2, y - height / 2
+
+        # A point binding labels its target from the lower right. GTK positions
+        # the entire DrawingArea, which also includes transparent padding. Use
+        # the painted badge bounds so switching to a longer key or a custom
+        # note never puts that padding between the target and its label.
+        badge_w, badge_h = self._mapping_badge_size(width, height)
+        view_w, view_h = self.screen_geometry.get_host_resolution()
+        if view_w > 0:
+            x = max(0, min(x, view_w - badge_w))
+        if view_h > 0:
+            y = max(0, min(y, view_h - badge_h))
+        return x - (width - badge_w) / 2, y - (height - badge_h) / 2
+
+    def refresh_mapping_hint(self, *_):
+        # A profile can restore its note and recorded endpoint after GTK has
+        # already placed the widget in mapping mode.
+        if self.mapping_mode:
+            self._mode_layout.place_mapping_hint(self)
+        self.queue_draw()
 
     def set_default_keys(self, default_keys: set[KeyCombination]):
         self.final_keys = (set(default_keys))
@@ -303,14 +341,6 @@ class BaseWidget(Gtk.DrawingArea):
         """添加配置变更回调"""
         self.config_manager.add_change_callback(key, callback)
 
-    @property
-    def mapping_start_x(self)->float:
-        return self.x
-
-    @property
-    def mapping_start_y(self)->float:
-        return self.y
-
     def setup_event_controllers(self):
         """设置基础事件控制器 - 只处理widget特定的事件"""
         # 使组件可获得焦点（用于键盘事件）
@@ -368,7 +398,9 @@ class BaseWidget(Gtk.DrawingArea):
             if note:
                 # Fit the custom hint into the existing mapping badge. The
                 # control's Android target geometry is independent of the text.
-                control_art.rounded(cr, 1, 1, width - 2, height - 2, 8)
+                badge_w, badge_h = self._mapping_badge_size(width, height)
+                control_art.rounded(cr, (width - badge_w) / 2, (height - badge_h) / 2,
+                                    badge_w, badge_h, 8)
                 cr.set_source_rgba(.16, .17, .18, .80)
                 cr.fill()
                 from gi.repository import Pango, PangoCairo
@@ -429,16 +461,30 @@ class BaseWidget(Gtk.DrawingArea):
         # 调用子类的映射模式内容绘制
         self.draw_mapping_mode_content(cr, width, height)
 
+    def _mapping_badge_size(self, width, height):
+        if self.get_config_value("hint_note"):
+            return width - 2, height - 2
+        return min(width - 2, max(18, len(self.text or "") * 8 + 10)), min(height - 2, 20)
+
     def draw_mapping_mode_background(self, cr, width, height):
-        cap_width = min(width-2, max(18, len(self.text or "") * 8 + 10))
-        cap_height = min(height-2, 20)
+        cap_width, cap_height = self._mapping_badge_size(width, height)
         art.rounded(cr, (width-cap_width)/2, (height-cap_height)/2,
                     cap_width, cap_height, cap_height/2)
         cr.set_source_rgba(*art.HINT)
         cr.fill()
 
     def draw_mapping_mode_content(self, cr, width, height):
-        art.caption(cr, width / 2, height / 2, self.text or "", 11)
+        text = self.text or ""
+        labels = self.key_registry.keycap_labels
+        if labels:
+            # Layouts store a portable caption alongside the binding. Translate
+            # generated captions at paint time so custom text and profile files
+            # survive switching between controllers.
+            for combo in self.final_keys:
+                if text == combo.display_text:
+                    text = combo.format_keycap(labels)
+                    break
+        art.caption(cr, width / 2, height / 2, text, 11)
 
     def set_selected(self, selected: bool)->None:
         """设置选择状态"""

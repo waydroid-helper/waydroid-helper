@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import math
 from enum import Enum
 from gettext import gettext as _, pgettext
 from typing import TYPE_CHECKING, Callable, TypedDict, cast
@@ -58,6 +57,7 @@ class DirectionalPadEditableRegion(TypedDict):
 class DirectionalPad(BaseWidget):
     """方向键组件"""
 
+    CENTER_MAPPING_HINT = True
     MAPPING_MODE_WIDTH = 80
     MAPPING_MODE_HEIGHT = 80
     WIDGET_NAME = pgettext("Controller Widgets", "Directional Pad")
@@ -286,7 +286,6 @@ class DirectionalPad(BaseWidget):
         try:
             await self._set_movement_state(MovementState.MOVING)
             self._current_position = target
-            self.queue_draw()
             if self._joystick_active:
                 self._emit_touch_event(AMotionEventAction.MOVE)
         except asyncio.CancelledError:
@@ -322,7 +321,6 @@ class DirectionalPad(BaseWidget):
 
                 if self._joystick_active:
                     self._emit_touch_event(AMotionEventAction.MOVE)
-                self.queue_draw()
 
                 move_steps_count += 1
 
@@ -332,7 +330,6 @@ class DirectionalPad(BaseWidget):
 
             # 确保到达最终位置
             self._current_position = target
-            self.queue_draw()
 
         except asyncio.CancelledError:
             raise
@@ -491,28 +488,16 @@ class DirectionalPad(BaseWidget):
             key = self.direction_keys[direction]
 
             # 只绘制按键文字，不绘制按钮背景和边框
-            key_text = str(key) if key else "?"
-
-            cr.set_source_rgba(1, 1, 1, 0.9)  # 白色文字
-            cr.select_font_face("Arial", 0, 1)
+            key_text = key.format_keycap(self.key_registry.keycap_labels) if key else "?"
 
             # 根据按键长度调整字体大小
             if len(key_text) <= 1:
-                cr.set_font_size(10)  # 映射模式下稍小的字体
+                size = 10
             elif len(key_text) <= 3:
-                cr.set_font_size(8)
+                size = 8
             else:
-                cr.set_font_size(6)
-
-            text_extents = cr.text_extents(key_text)
-            text_x = x - text_extents.width / 2
-            text_y = y + text_extents.height / 2
-            cr.move_to(text_x, text_y)
-            cr.show_text(key_text)
-            cr.new_path()  # 清除路径
-
-        if self._joystick_active:
-            self._draw_joystick_dot(cr, width, height)
+                size = 6
+            art.caption(cr, x, y, key_text, size, (1, 1, 1, 0.9))
 
     def get_direction_from_key(self, key_combination: KeyCombination) -> str | None:
         """根据按键组合获取对应的方向"""
@@ -595,31 +580,6 @@ class DirectionalPad(BaseWidget):
         else:
             return False
 
-    def _draw_joystick_dot(
-        self, cr: "Context[Surface]", map_width: int, map_height: int
-    ):
-        """在映射模式下绘制代表摇杆位置的红点"""
-        # 1. 计算摇杆相对于其编辑模式中心的归一化偏移
-        edit_center_x, edit_center_y = self.center
-        offset_x = self._current_position[0] - edit_center_x
-        offset_y = self._current_position[1] - edit_center_y
-
-        edit_radius_x = self.width / 2
-        edit_radius_y = self.height / 2
-
-        norm_x = offset_x / edit_radius_x if edit_radius_x != 0 else 0
-        norm_y = offset_y / edit_radius_y if edit_radius_y != 0 else 0
-
-        # 2. 将归一化偏移应用到映射模式的尺寸上
-        map_center_x, map_center_y = map_width / 2, map_height / 2
-        draw_x = map_center_x + norm_x * (map_width / 2)
-        draw_y = map_center_y + norm_y * (map_height / 2)
-
-        # 3. 绘制红点
-        cr.set_source_rgba(1.0, 0.2, 0.2, 0.9)
-        cr.arc(draw_x, draw_y, 4, 0, 2 * math.pi)
-        cr.fill()
-
     def on_direction_triggered(self, direction: str, key_combination: KeyCombination):
         """方向被触发时的具体处理 - 子类可以重写此方法"""
         pass
@@ -633,14 +593,6 @@ class DirectionalPad(BaseWidget):
         art.disc(cr, x, y, radius, art.BODY, art.OUTLINE)
         art.cross_pad(cr, x, y, radius * .84)
         art.compass(cr, x, y, radius * .22)
-
-    @property
-    def mapping_start_x(self):
-        return int(self.x + self.width / 2 - self.MAPPING_MODE_WIDTH / 2)
-
-    @property
-    def mapping_start_y(self):
-        return int(self.y + self.height / 2 - self.MAPPING_MODE_HEIGHT / 2)
 
     @property
     def center(self) -> tuple[float, float]:

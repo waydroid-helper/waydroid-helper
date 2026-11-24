@@ -76,6 +76,50 @@ def test_fractional_travel_and_disconnect_release(control):
     assert not stick.contacts
 
 
+@pytest.mark.parametrize("kind", ["analogstick", "rightstick"])
+def test_resizing_stick_actions_preserves_touch_center_after_reload(control, kind):
+    from waydroid_helper.controller.app.widget_layout_service import WidgetLayoutService
+    from waydroid_helper.controller.widgets.factory import WidgetFactory
+
+    runtime = control[0].runtime_context
+    factory = WidgetFactory(runtime)
+    stick = factory.create_widget(kind, x=125, y=90, width=137, height=117)
+    fixed = Gtk.Fixed()
+    fixed.put(stick, stick.x, stick.y)
+    center = stick.center
+    for action in ("move", "look"):
+        stick.set_config_value("action", action)
+        for side, dx, dy in (("w", -11.5, 0), ("s", 0, 8.25)):
+            fixed.allocate(800, 600, -1, None)
+            w, h = stick.width, stick.height
+            x, y = (2, h / 2) if side == "w" else (w / 2, h - 2)
+            assert stick.check_resize_direction(x, y) == side
+            gx, gy = fixed.get_child_position(stick)
+            stick.start_resize(x, y, side)
+            stick.handle_resize_motion(gx + x + dx, gy + y + dy)
+            stick.on_resize_release()
+            assert stick.center == pytest.approx(center)
+            if action == "move":
+                assert stick.width > w and stick.height > h
+                assert stick.width / stick.height == pytest.approx(w / h)
+            else:
+                assert (stick.width, stick.height) == pytest.approx((w - 2 * dx, h + 2 * dy))
+
+    service = WidgetLayoutService(runtime)
+    layout = service.serialize_layout([stick])
+    restored = []
+
+    def place(widget, x, y):
+        widget.x, widget.y = x, y
+        restored.append(widget)
+
+    assert service.restore_layout(layout, factory, lambda: None, place) == 1
+    assert restored[0].center == pytest.approx(center)
+    fixed.remove(stick)
+    stick.on_delete()
+    restored[0].on_delete()
+
+
 def test_right_pan_balances_contacts_on_edit(control):
     stick, events = control
     stick.set_config_value("stick", "right")

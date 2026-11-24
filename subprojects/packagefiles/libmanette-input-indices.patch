@@ -1,0 +1,49 @@
+--- a/src/manette-evdev-backend.c
++++ b/src/manette-evdev-backend.c
+@@ -169,16 +169,16 @@
+     case ABS_HAT3X:
+     case ABS_HAT3Y:
+       manette_event.any.type = MANETTE_EVENT_HAT;
+-      manette_event.hat.hardware_index =
+-        self->key_map[(evdev_event->code - ABS_HAT0X) / 2] * 2 +
+-        (evdev_event->code - ABS_HAT0X) % 2;
++      manette_event.hat.hardware_index = self->abs_map[evdev_event->code];
+       manette_event.hat.axis = evdev_event->code;
+       manette_event.hat.value = evdev_event->value;
+ 
+       break;
+     default:
+       manette_event.any.type = MANETTE_EVENT_ABSOLUTE;
+-      manette_event.absolute.hardware_index = evdev_event->code;
++      /* SDL's aN counts only the analog axes present on this device.
++       * Keep the Linux code in axis for unmapped clients. */
++      manette_event.absolute.hardware_index = self->abs_map[evdev_event->code];
+       manette_event.absolute.axis = evdev_event->code;
+       manette_event.absolute.value =
+         centered_absolute_value (&self->abs_info[self->abs_map[evdev_event->code]],
+@@ -274,6 +274,7 @@
+   int vendor, product;
+   int buttons_number;
+   int axes_number;
++  int hat_axes_number = 0;
+   guint i;
+ 
+   self->fd = open (self->filename, O_RDWR | O_NONBLOCK, (mode_t) 0);
+@@ -323,9 +324,14 @@
+   // Get info about the axes.
+   axes_number = 0;
+   for (i = 0; i < ABS_MAX; i++) {
+-    // Skip hats
+-    if (i == ABS_HAT0X) {
+-      i = ABS_HAT3Y;
++    /* SDL numbers each present hat as a pair of directions in its own
++     * index space. Missing hats and buttons do not consume hat indices. */
++    if (i >= ABS_HAT0X && i <= ABS_HAT3Y) {
++      if (has_abs (self->evdev_device, i) || has_abs (self->evdev_device, i + 1)) {
++        self->abs_map[i] = hat_axes_number++;
++        self->abs_map[i + 1] = hat_axes_number++;
++      }
++      i++;
+ 
+       continue;
+     }

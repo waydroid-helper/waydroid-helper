@@ -36,7 +36,7 @@ a = Analysis(
         "gi": {
             "icons": ["Adwaita"],
             "themes": ["Adwaita"],
-            "module-versions": {"Gtk": "4.0"},
+            "module-versions": {"Gtk": "4.0", "Rsvg": "2.0"},
         }
     },
     runtime_hooks=[],

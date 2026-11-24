@@ -107,7 +107,7 @@ class EmulatorToolbar:
         ):
             self._row(self.volume, icon, label, lambda key=code: window.send_key(key))
 
-        self.mapping = self._menu("input-keyboard-symbolic", _("Key mapping"))
+        self.mapping = self._menu("mapping-keyboard-symbolic", _("Key mapping"))
         self.header.pack_end(self.mapping)
         self.mapping_panel = MappingPanel(window, self.mapping)
         self.editor = MappingEditorBar(window)
@@ -312,6 +312,9 @@ class EmulatorToolbar:
         self.menu_event = None
 
     def sync_mode(self):
+        icon = f"mapping-{self.window.profiles.kind}-symbolic"
+        if self.mapping.get_icon_name() != icon:
+            self.mapping.set_icon_name(icon)
         editing = self.window.profiles.edit is not None
         self.widget.set_visible(editing or not self.window.is_fullscreen())
         self.chrome.set_visible_child_name("edit" if editing else "normal")

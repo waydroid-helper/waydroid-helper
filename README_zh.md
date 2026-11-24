@@ -111,6 +111,8 @@ meson setup .build/embedded -Dbundle_casilda=true
 meson compile -C .build/embedded
 ```
 
+在手柄方案的「管理方案 → 已连接的手柄」中，每只手柄都有一个「配置」按钮，可查看按键的实时高亮。嵌入构建使用应用私有的 libmanette，以便在手柄断开时停止读取设备。构建它需要 libevdev、hidapi-hidraw 和 GObject Introspection 的开发文件。使用单独安装的 Casilda 时，也可以通过 `-Dbundle_manette=enabled` 显式启用。
+
 ### 手动构建和安装
 
 对于手动安装，您需要安装依赖项并使用 Meson 构建项目。

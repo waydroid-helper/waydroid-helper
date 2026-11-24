@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import asyncio
-from gettext import gettext as _
+from gettext import gettext as _, pgettext
 
-from gi.repository import Gdk, Gtk
+from gi.repository import Adw, Gdk, Gtk
 
 from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
 
@@ -128,6 +128,9 @@ class WidgetSettingsPopoverPresenter:
         title_label.set_halign(Gtk.Align.CENTER)
         main_box.append(title_label)
 
+        if hasattr(widget, "set_cast_radius"):
+            main_box.append(self._gamepad_skill_settings(widget))
+
         config_manager = widget.get_config_manager()
         if not config_manager.configs:
             main_box.append(Gtk.Label(label=_("This widget has no settings.")))
@@ -143,6 +146,45 @@ class WidgetSettingsPopoverPresenter:
 
         confirm_button.connect("clicked", on_confirm_clicked)
         main_box.append(confirm_button)
+
+    def _gamepad_skill_settings(self, widget):
+        from waydroid_helper.controller.app.emulator_preferences import add_spin, add_switch_row
+        from waydroid_helper.controller.widgets.components.cancel_casting import GamepadCancelCasting
+
+        group = Adw.PreferencesGroup()
+        maximum = max(widget.radius, *widget.screen_geometry.get_host_resolution())
+        spin = add_spin(group, pgettext("Controller Widgets", "Casting Radius"), widget.radius,
+                        widget.MIN_WIDTH / 2, maximum, step=.5, digits=1)
+
+        def resize(adjustment):
+            widget.set_cast_radius(adjustment.get_value())
+            self.window.queue_editor_refresh()
+
+        spin.get_adjustment().connect("value-changed", resize)
+        # The cancel button is shared by the skills in this profile. Its
+        # presence in the layout is the setting, including after undo/import.
+        def target():
+            return next((w for w in self.window.workspace_manager.iter_widgets()
+                         if isinstance(w, GamepadCancelCasting)), None)
+
+        toggle = add_switch_row(group, pgettext("Controller Widgets", "Enable Cancel Button"))
+        toggle.set_active(target() is not None)
+
+        def toggle_cancel(row, _prop):
+            current = target()
+            if row.get_active() and current is None:
+                button = self.window.widget_factory.create_widget("gamepadcancelcasting")
+                if button is not None:
+                    width, height = widget.screen_geometry.get_host_resolution()
+                    self.window.create_widget_at_position(
+                        button, max(0, min(width - button.width, .8 * width - button.width / 2)),
+                        max(0, min(height - button.height, (height - button.height) / 2)),
+                    )
+            elif not row.get_active() and current is not None:
+                self.window.workspace_manager.delete_specific_widget(current)
+
+        toggle.connect("notify::active", toggle_cancel)
+        return group
 
     def _point_to_settings_button(self, popover: Gtk.Popover, widget) -> None:
         settings_button_rect = Gdk.Rectangle()

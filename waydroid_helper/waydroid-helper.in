@@ -66,15 +66,22 @@ def start_gui(emulator=False):
             os.environ['XDG_DATA_DIRS'] = datadir + os.pathsep + dirs
     import gi
 
+    libdir = '@libdir@'
+    if BUILD_APPIMAGE == 'True':
+        libdir = os.path.join(appdir, libdir.lstrip('/'))
     if @bundle_casilda@:
-        libdir = '@libdir@'
-        if BUILD_APPIMAGE == 'True':
-            libdir = os.path.join(appdir, libdir.lstrip('/'))
         # In a non-system prefix GI needs both the typelib location and the
         # directory containing the shared library referenced by that typelib.
         repo = gi.Repository.get_default()
         repo.prepend_search_path(os.path.join(libdir, 'girepository-1.0'))
         repo.prepend_library_path(libdir)
+
+    if emulator:
+        gamepad_libdir = os.path.join(libdir, 'waydroid-helper', 'gamepad')
+        if os.path.isdir(gamepad_libdir):
+            repo = gi.Repository.get_default()
+            repo.prepend_search_path(gamepad_libdir)
+            repo.prepend_library_path(gamepad_libdir)
 
     gi.require_version('Adw', '1')
     gi.require_version("Gtk", "4.0")

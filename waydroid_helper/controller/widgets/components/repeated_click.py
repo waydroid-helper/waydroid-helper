@@ -7,7 +7,7 @@
 import asyncio
 from waydroid_helper.controller.widgets.base import control_art as art
 from enum import Enum
-from gettext import pgettext
+from gettext import gettext as _, pgettext
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,10 +26,13 @@ from waydroid_helper.controller.core import (
 )
 from waydroid_helper.controller.core.control_msg import InjectTouchEventMsg
 from waydroid_helper.controller.core.handler.event_handlers import InputEvent
-from waydroid_helper.controller.widgets.base.base_widget import BaseWidget
+from waydroid_helper.controller.widgets.base.touch_control import TouchControl
+from waydroid_helper.controller.core.key_system import bound_trigger
+from waydroid_helper.controller.widgets.base.trigger_repeat import TriggerRepeat
 from waydroid_helper.controller.widgets.config import (
     create_dropdown_config,
     create_text_config,
+    create_switch_config,
 )
 from waydroid_helper.controller.widgets.decorators import Editable
 from waydroid_helper.util.log import logger
@@ -43,7 +46,7 @@ class OperatingMethod(Enum):
 
 
 @Editable
-class RepeatedClick(BaseWidget):
+class RepeatedClick(TouchControl):
     """重复点击组件 - 圆形半透明蓝色按钮"""
 
     # 组件元数据
@@ -54,6 +57,7 @@ class RepeatedClick(BaseWidget):
     )
 
     # 映射模式固定尺寸
+    MIN_WIDTH = MIN_HEIGHT = 25
     MAPPING_MODE_HEIGHT = 30
 
     @property
@@ -95,11 +99,8 @@ class RepeatedClick(BaseWidget):
             y,
             50,
             50,
-            pgettext("Controller Widgets", "Repeated Click"),
             text,
             default_keys,
-            min_width=25,
-            min_height=25,
             runtime_context=runtime_context,
         )
 
@@ -110,6 +111,34 @@ class RepeatedClick(BaseWidget):
         self._click_task: asyncio.Task[None] | None = None
         self._click_count = 0
         self._is_clicking = False
+
+        self.trigger_repeat = TriggerRepeat(self)
+        self.available_triggers = set()
+
+    def enable_trigger_repeat(self, available):
+        self.available_triggers = available
+        if not self.get_config_manager().get_config("variable_rate"):
+            self.add_config_item(create_switch_config(
+                "variable_rate", _("Vary rate with trigger travel"), False,
+                description=_("A soft pull starts at two taps per second. A full pull uses the configured rate."),
+            ))
+            self.event_bus.subscribe(EventType.GAMEPAD_TRIGGER, self._trigger_axis, subscriber=self)
+        self._update_config_visibility()
+
+    def _variable_trigger(self):
+        if (self.get_config_value("variable_rate")
+                and self.get_config_value("operating_method") == OperatingMethod.LONG_PRESS_COMBO.value):
+            return bound_trigger(self.final_keys)
+        return None
+
+    def _trigger_axis(self, event):
+        sample = event.data
+        if self.mapping_mode and sample.name == self._variable_trigger():
+            try:
+                peak = max(1, min(100, int(self.get_config_value("clicks_per_second"))))
+            except (ValueError, TypeError):
+                return
+            self.trigger_repeat.update(sample.device, sample.travel, peak)
 
     def _count_key(self):
         if self.get_config_value("operating_method") == OperatingMethod.LONG_PRESS_COMBO.value:
@@ -242,6 +271,7 @@ class RepeatedClick(BaseWidget):
             )
 
     def stop_gesture(self):
+        self.trigger_repeat.stop()
         self._is_clicking = False
         if self._click_task:
             self._click_task.cancel()
@@ -264,6 +294,8 @@ class RepeatedClick(BaseWidget):
     ) -> bool:
         """按键触发时的处理逻辑"""
 
+        if self._variable_trigger():
+            return False
         operating_method = self.get_config_value("operating_method")
 
         # 取消之前的任务
@@ -300,6 +332,8 @@ class RepeatedClick(BaseWidget):
     ) -> bool:
         """按键释放时的处理逻辑"""
 
+        if self._variable_trigger():
+            return False
         operating_method = self.get_config_value("operating_method")
 
         # 停止当前点击
@@ -341,16 +375,6 @@ class RepeatedClick(BaseWidget):
                 ),
             }
         ]
-
-    @property
-    def mapping_start_x(self):
-        return self.x + (self.width - self.MAPPING_MODE_WIDTH) / 2
-
-
-    @property
-    def mapping_start_y(self):
-        return self.y + (self.height - self.MAPPING_MODE_HEIGHT) / 2
-
 
     @property
     def center_x(self):
@@ -428,9 +452,11 @@ class RepeatedClick(BaseWidget):
         operating_method = self.get_config_value("operating_method")
         config_manager = self.get_config_manager()
 
-        if not config_manager.ui_widgets:
-            # UI还未创建，无需更新
-            return
+        config_manager.set_visible(
+            "variable_rate",
+            operating_method == OperatingMethod.LONG_PRESS_COMBO.value
+            and bound_trigger(self.final_keys) in self.available_triggers,
+        )
 
         config_manager.set_visible(
             "clicks_per_second",

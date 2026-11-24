@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/jaoushingan/WaydroidHelper">
+    <file>gamepads/NOTICE.txt</file>
+    <file>gamepads/gamecube.svg</file>
+    <file>gamepads/generic.svg</file>
+    <file>gamepads/joycon-left.svg</file>
+    <file>gamepads/joycon-pair.svg</file>
+    <file>gamepads/joycon-right.svg</file>
+    <file>gamepads/ps3.svg</file>
+    <file>gamepads/ps4.svg</file>
+    <file>gamepads/ps5.svg</file>
+    <file>gamepads/steam-manifest.json</file>
+    <file>gamepads/steam.svg</file>
+    <file>gamepads/switch-pro.svg</file>
+    <file>gamepads/xbox-360.svg</file>
+    <file>gamepads/xbox-one.svg</file>
     <file alias="gtk/help-overlay.ui" preprocess="xml-stripblanks">ui/help-overlay.ui</file>
     <file preprocess="xml-stripblanks">ui/GeneralPage.ui</file>
     <file preprocess="xml-stripblanks">ui/PropsPage.ui</file>
@@ -19,8 +33,12 @@
     <file alias="info-symbolic.svg">icons/info-symbolic.svg</file>
   </gresource>
   <gresource prefix="/com/jaoushingan/WaydroidHelper/mapping-icons/scalable/actions">
+    <file alias="mapping-keyboard-symbolic.svg">icons/mapping/keyboard-symbolic.svg</file>
+    <file alias="mapping-gamepad-symbolic.svg">icons/mapping/gamepad-symbolic.svg</file>
     <file alias="mapping-tap-symbolic.svg">icons/mapping/tap-symbolic.svg</file>
     <file alias="mapping-repeat-tap-symbolic.svg">icons/mapping/repeat-tap-symbolic.svg</file>
+    <file alias="mapping-trigger-slider-symbolic.svg">icons/mapping/trigger-slider-symbolic.svg</file>
+    <file alias="mapping-dual-stage-symbolic.svg">icons/mapping/dual-stage-symbolic.svg</file>
     <file alias="mapping-swipe-symbolic.svg">icons/mapping/swipe-symbolic.svg</file>
     <file alias="mapping-d-pad-symbolic.svg">icons/mapping/d-pad-symbolic.svg</file>
     <file alias="mapping-left-stick-symbolic.svg">icons/mapping/left-stick-symbolic.svg</file>

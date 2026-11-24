@@ -1,0 +1,6 @@
+[wrap-file]
+directory = libmanette-0.2.13
+source_url = https://download.gnome.org/sources/libmanette/0.2/libmanette-0.2.13.tar.xz
+source_filename = libmanette-0.2.13.tar.xz
+source_hash = 287cc2fde0de092919366af757d85e7b3a0248eb1b395344726e97955a77d8ae
+diff_files = libmanette-hot-unplug.patch, libmanette-private-install.patch, libmanette-input-indices.patch, libmanette-device-identity.patch

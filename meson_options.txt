@@ -9,3 +9,5 @@ option('dbus-policy-dir', type: 'string', value: '',
       description: 'Where to install the dbus policy files (absolute path)')
 option('bundle_casilda', type: 'boolean', value: false,
        description: 'Build the Casilda Wayland compositor and GTK typelib alongside Waydroid Helper')
+option('bundle_manette', type: 'feature', value: 'auto',
+       description: 'Build the private hotplug-safe gamepad library (automatic for emulator builds)')

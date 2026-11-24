@@ -1,0 +1,67 @@
+--- a/src/manette-evdev-backend.c
++++ b/src/manette-evdev-backend.c
+@@ -21,6 +21,7 @@
+ 
+ #include "manette-evdev-backend-private.h"
+ 
++#include <errno.h>
+ #include <fcntl.h>
+ #include <libevdev/libevdev.h>
+ #include <linux/input.h>
+@@ -203,15 +204,38 @@
+ 
+   g_assert (MANETTE_IS_EVDEV_BACKEND (self));
+ 
+-  while (libevdev_has_event_pending (self->evdev_device)) {
+-    if (libevdev_next_event (self->evdev_device,
+-                             (guint) LIBEVDEV_READ_FLAG_NORMAL,
+-                             &evdev_event) == 0) {
+-      on_evdev_event (self, &evdev_event);
+-    }
+-  }
+-
+-  return TRUE;
++  /* On unplug, poll() keeps reporting the device fd as readable but
++   * libevdev_next_event() returns -ENODEV. Stop the watch before returning
++   * to GLib so the monitor can deliver its queued device removal signal. */
++  if (!(condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL))) {
++    unsigned int flags = LIBEVDEV_READ_FLAG_NORMAL;
++    int status;
++
++    for (;;) {
++      status = libevdev_next_event (self->evdev_device, flags, &evdev_event);
++      if (status == -EINTR)
++        continue;
++      if (status == -EAGAIN) {
++        if (flags == LIBEVDEV_READ_FLAG_NORMAL)
++          return G_SOURCE_CONTINUE;
++        flags = LIBEVDEV_READ_FLAG_NORMAL;
++        continue;
++      }
++      if (status < 0)
++        break;
++
++      flags = status == LIBEVDEV_READ_STATUS_SYNC ? LIBEVDEV_READ_FLAG_SYNC
++                                                  : LIBEVDEV_READ_FLAG_NORMAL;
++      if (evdev_event.type != EV_SYN)
++        on_evdev_event (self, &evdev_event);
++    }
++  }
++
++  /* Finalization can occur after udev notification or dialog teardown. The
++   * source removes itself here, so finalize must not remove its ID again. */
++  self->event_source_id = 0;
++
++  return G_SOURCE_REMOVE;
+ }
+ 
+ static void
+@@ -275,7 +299,7 @@
+ 
+   // Poll the events in the main loop.
+   channel = g_io_channel_unix_new (self->fd);
+-  self->event_source_id = g_io_add_watch (channel, G_IO_IN, (GIOFunc) poll_events, self);
++  self->event_source_id = g_io_add_watch (channel, G_IO_IN | G_IO_HUP | G_IO_ERR | G_IO_NVAL, (GIOFunc) poll_events, self);
+ 
+   buttons_number = 0;
+ 

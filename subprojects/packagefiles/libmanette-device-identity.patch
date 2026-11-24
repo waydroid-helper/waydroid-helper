@@ -1,0 +1,72 @@
+--- a/src/manette-device.h
++++ b/src/manette-device.h
+@@ -36,6 +36,7 @@
+                                    guint          type,
+                                    guint          code);
+ const char *manette_device_get_name (ManetteDevice *self);
++const char *manette_device_get_instance_identifier (ManetteDevice *self);
+ const char *manette_device_get_guid (ManetteDevice *self);
+ ManetteDeviceType manette_device_get_device_type (ManetteDevice *self);
+ gboolean manette_device_supports_mapping (ManetteDevice *self);
+--- a/src/manette-device.c
++++ b/src/manette-device.c
+@@ -28,6 +28,7 @@
+ #include <unistd.h>
+ #include "manette-backend-private.h"
+ #include "manette-device-type-private.h"
++#include "manette-evdev-backend-private.h"
+ #include "manette-event-mapping-private.h"
+ #include "manette-event-private.h"
+ #include "manette-mapping-manager-private.h"
+@@ -332,6 +333,23 @@
+ }
+ 
+ /**
++ * manette_device_get_instance_identifier:
++ * @self: a device
++ *
++ * Returns: (transfer none) (nullable): serial number or physical port, when available
++ */
++const char *
++manette_device_get_instance_identifier (ManetteDevice *self)
++{
++  g_return_val_if_fail (MANETTE_IS_DEVICE (self), NULL);
++
++  if (MANETTE_IS_EVDEV_BACKEND (self->backend))
++    return manette_evdev_backend_get_instance_identifier (MANETTE_EVDEV_BACKEND (self->backend));
++
++  return NULL;
++}
++
++/**
+  * manette_device_get_guid:
+  * @self: a device
+  *
+--- a/src/manette-evdev-backend-private.h
++++ b/src/manette-evdev-backend-private.h
+@@ -34,4 +34,6 @@
+ 
+ ManetteBackend *manette_evdev_backend_new (const char *filename);
+ 
++const char *manette_evdev_backend_get_instance_identifier (ManetteEvdevBackend *self);
++
+ G_END_DECLS
+--- a/src/manette-evdev-backend.c
++++ b/src/manette-evdev-backend.c
+@@ -358,6 +358,16 @@
+   return libevdev_get_name (self->evdev_device);
+ }
+ 
++const char *
++manette_evdev_backend_get_instance_identifier (ManetteEvdevBackend *self)
++{
++  const char *serial = libevdev_get_uniq (self->evdev_device);
++
++  /* The physical port is stable across event-node renumbering for USB pads
++   * without a serial. Both values belong to the already-open input device. */
++  return serial && *serial ? serial : libevdev_get_phys (self->evdev_device);
++}
++
+ static int
+ manette_evdev_backend_get_vendor_id (ManetteBackend *backend)
+ {

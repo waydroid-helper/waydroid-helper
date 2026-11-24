@@ -26,8 +26,7 @@ def keycap(widget, region, *, compact=False):
     keys = region["get_keys"]()
     if widget.capture_region == region["id"] and widget.capture_preview is not None:
         keys = {widget.capture_preview}
-    label = " / ".join(sorted(combo.display_text for combo in keys))
-    label = {"Up": "↑", "Down": "↓", "Left": "←", "Right": "→"}.get(label, label)
+    label = " / ".join(sorted(combo.format_keycap(widget.key_registry.keycap_labels) for combo in keys))
     layout = widget.create_pango_layout(label)
     size = 10 if compact else 13
     font = Pango.FontDescription.from_string("Sans Bold")

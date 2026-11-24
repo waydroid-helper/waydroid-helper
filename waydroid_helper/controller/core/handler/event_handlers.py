@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum, IntFlag
 from typing import Any
 
+from waydroid_helper.controller.core.gamepad_right_stick import GamepadRightStick
 from waydroid_helper.controller.core.key_system import Key
 from waydroid_helper.util.log import logger
 
@@ -104,6 +105,9 @@ class InputEvent:
     zoom: float | None = None
     zoom_status: str | None = None
     zoom_is_touchpad: bool = False
+
+    # Routing capability of the physical controller that produced this button.
+    right_stick: GamepadRightStick | None = None
 
 
 class InputEventHandler(ABC):

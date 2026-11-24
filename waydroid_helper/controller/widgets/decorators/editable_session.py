@@ -116,6 +116,8 @@ class EditableCaptureSession:
         kind = getattr(widget, "profile_kind", None)
         if kind and key.name.startswith("Pad_") != (kind == "gamepad"):
             return
+        if getattr(widget, "REQUIRES_ANALOG_TRIGGER", False) and key.name not in ("Pad_LT", "Pad_RT"):
+            return
         if key in self.held_keys:
             return  # Auto-repeat does not start a new chord.
 
