@@ -9,6 +9,7 @@ from gettext import gettext as _, pgettext
 from gi.repository import Adw, Gdk, Gtk
 
 from waydroid_helper.controller.core.event_bus import Event, EventBus, EventType
+from waydroid_helper.controller.widgets.components.gamepad_skill_casting import GamepadSkillCasting
 
 
 class WidgetSettingsPopoverPresenter:
@@ -128,7 +129,7 @@ class WidgetSettingsPopoverPresenter:
         title_label.set_halign(Gtk.Align.CENTER)
         main_box.append(title_label)
 
-        if hasattr(widget, "set_cast_radius"):
+        if isinstance(widget, GamepadSkillCasting):
             main_box.append(self._gamepad_skill_settings(widget))
 
         config_manager = widget.get_config_manager()
@@ -148,19 +149,11 @@ class WidgetSettingsPopoverPresenter:
         main_box.append(confirm_button)
 
     def _gamepad_skill_settings(self, widget):
-        from waydroid_helper.controller.app.emulator_preferences import add_spin, add_switch_row
+        from waydroid_helper.controller.app.emulator_preferences import add_switch_row
         from waydroid_helper.controller.widgets.components.cancel_casting import GamepadCancelCasting
 
         group = Adw.PreferencesGroup()
-        maximum = max(widget.radius, *widget.screen_geometry.get_host_resolution())
-        spin = add_spin(group, pgettext("Controller Widgets", "Casting Radius"), widget.radius,
-                        widget.MIN_WIDTH / 2, maximum, step=.5, digits=1)
 
-        def resize(adjustment):
-            widget.set_cast_radius(adjustment.get_value())
-            self.window.queue_editor_refresh()
-
-        spin.get_adjustment().connect("value-changed", resize)
         # The cancel button is shared by the skills in this profile. Its
         # presence in the layout is the setting, including after undo/import.
         def target():

@@ -144,8 +144,15 @@ def test_legacy_profile_uses_one_scaled_radius_and_preserves_keycap(mapping):
     assert str(next(iter(cancel.final_keys))) == "Pad_B"
     assert (restored.center, restored.radius) == ((175, 195), 75)
     assert str(next(iter(restored.final_keys))) == "Pad_A"
-    restored.set_cast_radius(82.5)
-    assert restored.center == (175, 195)
+    canvas = Gtk.Fixed()
+    canvas.put(restored, restored.x, restored.y)
+    canvas.allocate(800, 600, -1, None)
+    x, y = restored.width - 2, restored.height / 2
+    gx, gy = canvas.get_child_position(restored)
+    restored.start_resize(x, y, "e")
+    restored.handle_resize_motion(gx + x + 15, gy + y)
+    restored.on_resize_release()
+    assert (restored.center, restored.radius) == ((175, 195), 82.5)
     saved = service.serialize_layout([restored, cancel])
     skill.screen_geometry.set_host_resolution(1600, 1200)
     assert service.restore_layout(saved, factory, lambda: None, place) == 2

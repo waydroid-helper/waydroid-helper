@@ -26,20 +26,8 @@ class GamepadSkillCasting(TouchControl):
 
     @property
     def radius(self):
+        """Maximum touch travel from the center of the placed gamepad control."""
         return self.width / 2
-
-    def set_cast_radius(self, value):
-        # Both the spin row and the resize handles edit the placed diameter.
-        # Persist only that geometry so resolution changes scale the radius once.
-        cx, cy = self.center
-        self.width = self.height = max(self.MIN_WIDTH, round(2 * value))
-        self.x, self.y = cx - self.radius, cy - self.radius
-        self.set_size_request(self.width, self.height)
-        self.set_content_width(self.width)
-        self.set_content_height(self.height)
-        if self.get_parent() is not None:
-            self.get_parent().move(self, self.x, self.y)
-        self.queue_draw()
 
     def get_edit_chrome_radius(self):
         return max(5, min(24, self.radius - 4))
