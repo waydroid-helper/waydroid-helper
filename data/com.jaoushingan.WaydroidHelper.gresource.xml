@@ -33,6 +33,7 @@
     <file alias="info-symbolic.svg">icons/info-symbolic.svg</file>
   </gresource>
   <gresource prefix="/com/jaoushingan/WaydroidHelper/mapping-icons/scalable/actions">
+    <file alias="android-back-symbolic.svg">icons/mapping/android-back-symbolic.svg</file>
     <file alias="mapping-keyboard-symbolic.svg">icons/mapping/keyboard-symbolic.svg</file>
     <file alias="mapping-gamepad-symbolic.svg">icons/mapping/gamepad-symbolic.svg</file>
     <file alias="mapping-tap-symbolic.svg">icons/mapping/tap-symbolic.svg</file>

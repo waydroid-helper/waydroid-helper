@@ -74,7 +74,7 @@ class EmulatorToolbar:
         self.header.pack_end(self.fullscreen_button)
         self.header.pack_end(self.more)
         self.back = icon_button(
-            "go-previous-symbolic",
+            "android-back-symbolic",
             _("Android Back"),
             lambda: window.send_key(AKeyCode.AKEYCODE_BACK),
         )
