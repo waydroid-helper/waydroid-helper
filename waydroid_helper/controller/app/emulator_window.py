@@ -59,6 +59,7 @@ class EmulatorWindow(MappingWindow):
         self.edit_shade = Gtk.Box(can_target=False, visible=False)
         self.edit_shade.add_css_class("mapping-edit-shade")
         overlay.add_overlay(self.edit_shade)
+        self.fixed.set_visible(False)
         overlay.add_overlay(self.fixed)
         overlay.set_focusable(True)
 
@@ -360,6 +361,8 @@ class EmulatorWindow(MappingWindow):
                     _("Could not connect the Android input controls over ADB.")
                 )
             await asyncio.wait_for(self.server.connected_event.wait(), 20)
+            # The socket can close while the handshake waiter is being resumed.
+            self.fixed.set_visible(self.server.connected_event.is_set())
             self.android_tasks = AndroidTasks(
                 service.adb_helper.serial,
                 self._tasks_changed,
@@ -382,6 +385,7 @@ class EmulatorWindow(MappingWindow):
             self.status.set_label(str(error) or _("Timed out waiting for Waydroid."))
             self.status_box.set_visible(True)
         finally:
+            self.fixed.set_visible(False)
             self._release_mapping_input()
             self.key_mapping_handler.forget_presses()
             await self.ime_setup.detach()
