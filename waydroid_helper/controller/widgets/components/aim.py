@@ -59,6 +59,10 @@ class Aim(BaseWidget):
     MAPPING_MODE_WIDTH = 40
     MAPPING_MODE_HEIGHT = 30
     WIDGET_NAME = pgettext("Controller Widgets", "Aim")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place this in the camera area and bind a key to activate mouse aiming",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "FPS staple: drag to game's view area, pair with Fire for mouse-aim shooting. Resize box to match in-game rotation zone.",

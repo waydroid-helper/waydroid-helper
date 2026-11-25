@@ -237,7 +237,7 @@ class ProfileWorkspace:
             deepcopy(data),
             self.window.widget_factory,
             lambda: self.window.on_clear_widgets(None),
-            self.window.create_widget_at_position,
+            self.window.attach_widget_at_position,
         )
 
     def load_initial(self):

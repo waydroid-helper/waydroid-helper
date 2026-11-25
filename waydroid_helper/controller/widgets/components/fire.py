@@ -44,6 +44,10 @@ class Fire(BaseWidget):
     MAPPING_MODE_WIDTH = 30
     MAPPING_MODE_HEIGHT = 30
     WIDGET_NAME = pgettext("Controller Widgets", "Fire")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place this over the fire button, activate Aim, then click to fire",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Commonly used in FPS games, add a button to the attack/fire button position, use the left mouse button to click, and must be used with the aim button. Note: Only supports left mouse button, cannot be modified, and won't work alone.",

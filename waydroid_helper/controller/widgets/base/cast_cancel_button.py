@@ -20,6 +20,10 @@ class CastCancelButton(BaseWidget):
 
     # 组件元数据
     WIDGET_NAME = pgettext("Controller Widgets", "Cancel Casting")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place this over the game's cancel target and bind a key or button to cancel a cast",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Drag the key to the cancel casting position. While casting a spell, hold down the cancel cast button to cancel the cast.",

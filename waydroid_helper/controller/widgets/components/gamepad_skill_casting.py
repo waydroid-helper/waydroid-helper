@@ -17,7 +17,7 @@ class GamepadSkillCasting(TouchControl):
     EMBEDDED_ONLY = True
     MIN_WIDTH = MIN_HEIGHT = 25
     WIDGET_NAME = pgettext("Controller Widgets", "Skill Casting")
-    WIDGET_DESCRIPTION = _("Hold the bound button, aim with the right stick, and release the button to cast.")
+    WIDGET_DESCRIPTION = _("Hold the bound button, aim with the right stick, and release the button to cast")
 
     def __init__(self, x=0, y=0, width=150, height=150, **kwargs):
         diameter = min(width, height)

@@ -1320,3 +1320,92 @@ msgstr "Выход"
 #~ "- Строки, начинающиеся с #, являются комментариями\n"
 #~ "- Используйте \"мышь\" в качестве координаты для использования текущего "
 #~ "положения курсора"
+
+#: waydroid_helper/controller/widgets/components/single_click.py:38
+msgctxt "Controller Widgets"
+msgid "Click the center and press the key or button that should tap here"
+msgstr "Нажмите на центр, затем нажмите клавишу или кнопку для касания в этой точке"
+
+#: waydroid_helper/controller/widgets/components/repeated_click.py:54
+msgctxt "Controller Widgets"
+msgid "Bind a key or button in the center, then use the arrows to adjust the repeat count or rate"
+msgstr "Назначьте клавишу или кнопку в центре и настройте стрелками число или частоту касаний"
+
+#: waydroid_helper/controller/widgets/components/directional_pad.py:64
+msgctxt "Controller Widgets"
+msgid "Place the pad over the movement wheel, then click a direction to change its key"
+msgstr "Совместите крестовину с игровым джойстиком и нажмите на направление, чтобы сменить клавишу"
+
+#: waydroid_helper/controller/widgets/components/fire.py:47
+msgctxt "Controller Widgets"
+msgid "Place this over the fire button, activate Aim, then click to fire"
+msgstr "Совместите с кнопкой огня в игре, включите прицеливание и щёлкните мышью, чтобы выстрелить"
+
+#: waydroid_helper/controller/widgets/components/aim.py:62
+msgctxt "Controller Widgets"
+msgid "Place this in the camera area and bind a key to activate mouse aiming"
+msgstr "Разместите в области поворота камеры и назначьте клавишу для прицеливания мышью"
+
+#: waydroid_helper/controller/widgets/components/right_click_to_walk.py:48
+msgctxt "Controller Widgets"
+msgid "Place this over the movement wheel, then right-click to walk toward the pointer"
+msgstr "Совместите с игровым джойстиком и щёлкните правой кнопкой мыши, чтобы идти к указателю"
+
+#: waydroid_helper/controller/widgets/components/skill_casting.py:86
+msgctxt "Controller Widgets"
+msgid "Place this over the skill button, bind a key and aim with the mouse"
+msgstr "Совместите с кнопкой умения в игре, назначьте клавишу и цельтесь мышью"
+
+#: waydroid_helper/controller/widgets/base/cast_cancel_button.py:23
+msgctxt "Controller Widgets"
+msgid "Place this over the game's cancel target and bind a key or button to cancel a cast"
+msgstr "Совместите с областью отмены умения в игре и назначьте клавишу или кнопку для отмены"
+
+#: waydroid_helper/controller/widgets/components/macro.py:687
+msgctxt "Controller Widgets"
+msgid "Open the control settings to enter macro commands, then bind a key or button to run them"
+msgstr "Введите макрокоманды в настройках элемента и назначьте клавишу или кнопку для их выполнения"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py:36
+msgid "Place the left stick over the game's movement wheel and resize it to fit"
+msgstr "Совместите левый стик с игровым джойстиком и подгоните его размер"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py:190
+msgid "Place the right stick where you swipe to turn the camera"
+msgstr "Разместите правый стик там, где свайп поворачивает камеру"
+
+#: waydroid_helper/controller/widgets/base/placed_path.py:13
+msgid "Press the key or button that should replay this swipe"
+msgstr "Нажмите клавишу или кнопку, которой хотите повторять этот свайп"
+
+#: waydroid_helper/controller/widgets/base/trigger_path.py:16
+msgid "Squeeze the trigger you want to bind to this path"
+msgstr "Нажмите курок, который будет управлять этой траекторией"
+
+#: waydroid_helper/controller/widgets/components/gamepad_skill_casting.py:20
+msgid "Hold the bound button, aim with the right stick, and release the button to cast"
+msgstr "Удерживайте назначенную кнопку, цельтесь правым стиком и отпустите кнопку, чтобы применить умение"
+
+#: waydroid_helper/controller/widgets/components/gestures.py:55
+msgid "Bind a key or wheel notch to scroll within the selected area"
+msgstr "Назначьте клавишу или направление прокрутки колеса для прокрутки в выбранной области"
+
+#: waydroid_helper/controller/widgets/components/gestures.py:86
+msgid "Scroll the wheel in either direction to pinch in or out around this point"
+msgstr "Прокручивайте колесо вперёд или назад, чтобы менять масштаб в этой точке жестом двумя пальцами"
+
+#: waydroid_helper/controller/widgets/components/recorded_action.py:53
+msgid "Bind a recording made or imported from the Input recording menu"
+msgstr "Привяжите запись, созданную или импортированную через меню записи ввода"
+
+#: waydroid_helper/controller/widgets/base/placed_path.py:12
+msgid "Drag on the Android screen to record a swipe"
+msgstr "Проведите по экрану Android с зажатой кнопкой мыши, чтобы записать свайп"
+
+#: waydroid_helper/controller/widgets/components/trigger_gestures.py:17
+msgid "Draw the slider path, then squeeze the trigger to bind it"
+msgstr "Нарисуйте траекторию ползунка, затем нажмите курок для привязки"
+
+#: waydroid_helper/controller/widgets/components/trigger_gestures.py:69
+msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
+msgstr "Проведите от точки слабого нажатия до точки полного нажатия, затем нажмите курок"

@@ -311,6 +311,9 @@ class MappingWindow(Adw.Window):
     def _setup_notification_overlay(self, overlay: Gtk.Overlay) -> None:
         self.notification_label = Gtk.Label.new("")
         self.notification_label.set_name("mode-notification-label")
+        self.notification_label.set_wrap(True)
+        self.notification_label.set_max_width_chars(54)
+        self.notification_label.set_justify(Gtk.Justification.CENTER)
 
         self.notification_box = Gtk.Box()
         self.notification_box.set_name("mode-notification-box")
@@ -382,7 +385,7 @@ class MappingWindow(Adw.Window):
         )
         self.canvas.add_overlay(self.swipe_placement)
         self.swipe_placement.grab_focus()
-        self.show_notification(widget.PLACEMENT_HINT)
+        self.show_notification(widget.PLACEMENT_HINT, duration_ms=4000)
 
     def cancel_swipe_placement(self, completed=False):
         if self.swipe_placement is not None:
@@ -411,6 +414,11 @@ class MappingWindow(Adw.Window):
         return self.widget_transparency_controller.restore_normal()
 
     def create_widget_at_position(self, widget: "BaseWidget", x: float, y: float) -> None:
+        self.attach_widget_at_position(widget, x, y)
+        self.show_notification(widget.PLACED_HINT or widget.WIDGET_DESCRIPTION, duration_ms=4000)
+
+    def attach_widget_at_position(self, widget: "BaseWidget", x: float, y: float) -> None:
+        """Attach and register a control for either manual placement or layout restoration."""
         if widget.text:
             for combo in widget.final_keys:
                 if combo.matches_saved_label(widget.text):
@@ -431,7 +439,7 @@ class MappingWindow(Adw.Window):
     def delete_selected_widgets(self) -> None:
         self.workspace_manager.delete_selected_widgets()
 
-    def show_notification(self, text: str) -> None:
+    def show_notification(self, text: str, *, duration_ms: int = 1500) -> None:
         self.notification_label.set_label(text)
 
         if (
@@ -454,7 +462,7 @@ class MappingWindow(Adw.Window):
         self._notification_animation.set_easing(Adw.Easing.LINEAR)
         self._notification_animation.play()
         self._notification_fade_out_timer = GLib.timeout_add(
-            1500,
+            duration_ms,
             self._fade_out_notification,
         )
 

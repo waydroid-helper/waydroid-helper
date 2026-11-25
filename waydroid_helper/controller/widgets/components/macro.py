@@ -684,6 +684,10 @@ class Macro(BaseWidget):
 
     # 组件元数据
     WIDGET_NAME = pgettext("Controller Widgets", "Macro")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Open the control settings to enter macro commands, then bind a key or button to run them",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Execute macro commands when triggered.",

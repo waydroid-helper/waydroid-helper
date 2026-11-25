@@ -33,6 +33,9 @@ class AnalogStick(TouchControl):
     DEFAULT_STICK = "left"
     DEFAULT_ACTION = "move"
     WIDGET_NAME = _("Left stick")
+    PLACED_HINT = _(
+        "Place the left stick over the game's movement wheel and resize it to fit"
+    )
     WIDGET_DESCRIPTION = _(
         "Place on a movement wheel or camera area and choose the physical stick."
     )
@@ -184,5 +187,8 @@ class AnalogStick(TouchControl):
 
 class RightStick(AnalogStick):
     WIDGET_NAME = _("Right stick")
+    PLACED_HINT = _(
+        "Place the right stick where you swipe to turn the camera"
+    )
     DEFAULT_STICK = "right"
     DEFAULT_ACTION = "look"

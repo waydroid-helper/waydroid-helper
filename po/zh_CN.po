@@ -1766,16 +1766,16 @@ msgid "Scroll gesture"
 msgstr "滚动"
 
 #: waydroid_helper/controller/widgets/components/gestures.py
-msgid "Bind a key or wheel notch to scroll within the selected area."
-msgstr "绑定一个按键或滚轮方向，在指定区域内滑动。"
+msgid "Bind a key or wheel notch to scroll within the selected area"
+msgstr "绑定一个按键或滚轮方向，在指定区域内滑动"
 
 #: waydroid_helper/controller/widgets/components/gestures.py
 msgid "Pinch zoom"
 msgstr "双指缩放"
 
 #: waydroid_helper/controller/widgets/components/gestures.py
-msgid "Move two fingers around this point to zoom. Opposite wheel directions reverse the gesture."
-msgstr "在此处模拟双指缩放，两个滚轮方向分别用于放大和缩小。"
+msgid "Scroll the wheel in either direction to pinch in or out around this point"
+msgstr "在此处模拟双指缩放，两个滚轮方向分别用于放大和缩小"
 
 #: waydroid_helper/controller/widgets/components/gestures.py
 msgid "Up"
@@ -1818,8 +1818,8 @@ msgid "Recorded action"
 msgstr "操作录制键"
 
 #: waydroid_helper/controller/widgets/components/recorded_action.py
-msgid "Bind a recording made or imported from the Input recording menu."
-msgstr "使用“操作录制”菜单录制或导入操作，然后在此绑定。"
+msgid "Bind a recording made or imported from the Input recording menu"
+msgstr "使用“操作录制”菜单录制或导入操作，然后在此绑定"
 
 #: waydroid_helper/controller/widgets/components/recorded_action.py
 #, python-format
@@ -2077,8 +2077,8 @@ msgstr "连点频率随扳机行程变化"
 msgid "A soft pull starts at two taps per second. A full pull uses the configured rate."
 msgstr "浅扣从每秒两次起步，扣到底时达到设定的连点频率。"
 
-msgid "Hold the bound button, aim with the right stick, and release the button to cast."
-msgstr "按住绑定键，用右摇杆瞄准，松键施放。"
+msgid "Hold the bound button, aim with the right stick, and release the button to cast"
+msgstr "按住绑定键，用右摇杆瞄准，松键施放"
 
 msgid "Performance"
 msgstr "性能"
@@ -2091,3 +2091,64 @@ msgstr "自动"
 
 msgid "The window renderer takes effect the next time you open the emulator."
 msgstr "下次打开模拟器窗口时使用所选的渲染器。"
+
+#: waydroid_helper/controller/widgets/components/single_click.py:38
+msgctxt "Controller Widgets"
+msgid "Click the center and press the key or button that should tap here"
+msgstr "点击控件中心，再按下要绑定的按键，就能用它点按这里"
+
+#: waydroid_helper/controller/widgets/components/repeated_click.py:54
+msgctxt "Controller Widgets"
+msgid "Bind a key or button in the center, then use the arrows to adjust the repeat count or rate"
+msgstr "点击中心绑定按键，用旁边的箭头调节连点次数或频率"
+
+#: waydroid_helper/controller/widgets/components/directional_pad.py:64
+msgctxt "Controller Widgets"
+msgid "Place the pad over the movement wheel, then click a direction to change its key"
+msgstr "把方向键对准游戏的移动轮盘，点击任一方向即可改键"
+
+#: waydroid_helper/controller/widgets/components/fire.py:47
+msgctxt "Controller Widgets"
+msgid "Place this over the fire button, activate Aim, then click to fire"
+msgstr "把控件对准游戏的开火按钮，启用准星键后点击鼠标即可开火"
+
+#: waydroid_helper/controller/widgets/components/aim.py:62
+msgctxt "Controller Widgets"
+msgid "Place this in the camera area and bind a key to activate mouse aiming"
+msgstr "放到游戏里滑动转动视角的区域，再绑定启用鼠标瞄准的按键"
+
+#: waydroid_helper/controller/widgets/components/right_click_to_walk.py:48
+msgctxt "Controller Widgets"
+msgid "Place this over the movement wheel, then right-click to walk toward the pointer"
+msgstr "把控件对准游戏的移动轮盘，右键点击即可朝鼠标指针移动"
+
+#: waydroid_helper/controller/widgets/components/skill_casting.py:86
+msgctxt "Controller Widgets"
+msgid "Place this over the skill button, bind a key and aim with the mouse"
+msgstr "把控件对准游戏的技能按钮，绑定按键后用鼠标瞄准"
+
+#: waydroid_helper/controller/widgets/base/cast_cancel_button.py:23
+msgctxt "Controller Widgets"
+msgid "Place this over the game's cancel target and bind a key or button to cancel a cast"
+msgstr "把控件对准游戏里的取消施法位置，再绑定取消键"
+
+#: waydroid_helper/controller/widgets/components/macro.py:687
+msgctxt "Controller Widgets"
+msgid "Open the control settings to enter macro commands, then bind a key or button to run them"
+msgstr "打开控件设置填写宏命令，再绑定执行宏的按键"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py:36
+msgid "Place the left stick over the game's movement wheel and resize it to fit"
+msgstr "把左摇杆对准游戏的移动轮盘，拖动边缘使两者大小一致"
+
+#: waydroid_helper/controller/widgets/components/analog_stick.py:190
+msgid "Place the right stick where you swipe to turn the camera"
+msgstr "把右摇杆放到游戏里滑动转动视角的区域"
+
+#: waydroid_helper/controller/widgets/base/placed_path.py:13
+msgid "Press the key or button that should replay this swipe"
+msgstr "按下要绑定的按键，就能用它重放这条滑动轨迹"
+
+#: waydroid_helper/controller/widgets/base/trigger_path.py:16
+msgid "Squeeze the trigger you want to bind to this path"
+msgstr "扣下要绑定到这条路径的扳机"

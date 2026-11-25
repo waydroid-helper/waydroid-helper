@@ -454,12 +454,12 @@ class EmulatorWindow(MappingWindow):
             )
         self.profile_dialog.present()
 
-    def create_widget_at_position(self, widget, x, y):
+    def attach_widget_at_position(self, widget, x, y):
         widget.profile_kind = self.profiles.kind
         widget.enable_hint_settings()
         if widget.profile_kind == "gamepad" and hasattr(widget, "enable_trigger_repeat"):
             widget.enable_trigger_repeat(self.gamepad.available_triggers)
-        super().create_widget_at_position(widget, x, y)
+        super().attach_widget_at_position(widget, x, y)
         widget.get_config_manager().connect(
             "config-changed", lambda *_: self.queue_editor_refresh()
         )

@@ -83,6 +83,10 @@ class SkillCasting(BaseWidget):
 
     # 组件元数据
     WIDGET_NAME = pgettext("Controller Widgets", "Skill Casting")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place this over the skill button, bind a key and aim with the mouse",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Commonly used when using the characters' skills, click and cooperate with the mouse to release skills.",

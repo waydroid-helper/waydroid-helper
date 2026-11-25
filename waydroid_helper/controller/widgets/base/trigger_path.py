@@ -1,5 +1,7 @@
 """Bindings and contact lifetime for paths driven by physical trigger travel."""
 
+from gettext import gettext as _
+
 from waydroid_helper.controller.core.key_system import KeyCombination, bound_trigger
 from waydroid_helper.controller.core.event_bus import EventType
 from waydroid_helper.controller.widgets.base.placed_path import PlacedPath
@@ -11,6 +13,9 @@ from waydroid_helper.controller.widgets.decorators import Editable
 class TriggerPath(PlacedPath, TouchControl):
     EMBEDDED_ONLY = True
     REQUIRES_ANALOG_TRIGGER = True
+    PLACED_HINT = _(
+        "Squeeze the trigger you want to bind to this path"
+    )
 
     DEFAULT_TRIGGER = "Pad_RT"
 

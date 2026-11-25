@@ -10,6 +10,9 @@ from waydroid_helper.controller.widgets.base.stroke_config import StrokeConfig
 
 class PlacedPath:
     PLACEMENT_HINT = _("Drag on the Android screen to record a swipe")
+    PLACED_HINT = _(
+        "Press the key or button that should replay this swipe"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -53,7 +53,7 @@ class Scroll(PairedGesture):
     ROW_ICONS = ("⌃", "⌄")
     WIDGET_NAME = _("Scroll gesture")
     WIDGET_DESCRIPTION = _(
-        "Bind a key or wheel notch to scroll within the selected area."
+        "Bind a key or wheel notch to scroll within the selected area"
     )
 
     def __init__(self, *args, **kwargs):
@@ -84,7 +84,7 @@ class Scroll(PairedGesture):
 class Pinch(PairedGesture):
     WIDGET_NAME = _("Pinch zoom")
     WIDGET_DESCRIPTION = _(
-        "Move two fingers around this point to zoom. Opposite wheel directions reverse the gesture."
+        "Scroll the wheel in either direction to pinch in or out around this point"
     )
 
     def __init__(self, *args, **kwargs):

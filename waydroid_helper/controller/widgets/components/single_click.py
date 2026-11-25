@@ -35,6 +35,10 @@ class SingleClick(BaseWidget):
 
     # 组件元数据
     WIDGET_NAME = pgettext("Controller Widgets", "Single Click")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Click the center and press the key or button that should tap here",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Simulate a click operation at a specific position.",

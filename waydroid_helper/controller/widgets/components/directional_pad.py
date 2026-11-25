@@ -61,6 +61,10 @@ class DirectionalPad(BaseWidget):
     MAPPING_MODE_WIDTH = 80
     MAPPING_MODE_HEIGHT = 80
     WIDGET_NAME = pgettext("Controller Widgets", "Directional Pad")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place the pad over the movement wheel, then click a direction to change its key",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Drag and place it onto the game's movement wheel to control walking direction. After assigning keys, drag the dotted frame to resize the button; make sure the blue frame of the directional pad matches the size of the game wheel.",

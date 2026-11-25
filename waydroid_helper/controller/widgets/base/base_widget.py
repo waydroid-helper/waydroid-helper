@@ -62,6 +62,8 @@ class BaseWidget(Gtk.DrawingArea):
     # 组件元数据 - 子类可以覆盖这些属性
     WIDGET_NAME = "Base Widget"
     WIDGET_DESCRIPTION = "Base widget, providing basic drag and select functionality"
+    # Use the control description unless the editor has a more specific next step.
+    PLACED_HINT: str | None = None
     WIDGET_VERSION = "1.3"
 
     # 映射模式固定尺寸 - 子类可以覆盖这些值

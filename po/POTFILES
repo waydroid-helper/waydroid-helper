@@ -107,6 +107,7 @@ waydroid_helper/controller/widgets/components/analog_stick.py
 waydroid_helper/controller/widgets/components/gestures.py
 waydroid_helper/controller/widgets/components/trigger_gestures.py
 waydroid_helper/controller/widgets/base/placed_path.py
+waydroid_helper/controller/widgets/base/trigger_path.py
 waydroid_helper/controller/widgets/base/trigger_thresholds.py
 waydroid_helper/controller/widgets/components/recorded_action.py
 waydroid_helper/controller/widgets/base/paired_gesture.py

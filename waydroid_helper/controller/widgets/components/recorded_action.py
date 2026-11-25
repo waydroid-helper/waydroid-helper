@@ -51,7 +51,7 @@ class RecordedAction(TouchControl):
     SETTINGS_SYMBOL = "record"
     WIDGET_NAME = _("Recorded action")
     WIDGET_DESCRIPTION = _(
-        "Bind a recording made or imported from the Input recording menu."
+        "Bind a recording made or imported from the Input recording menu"
     )
 
     def __init__(self, *args, **kwargs):

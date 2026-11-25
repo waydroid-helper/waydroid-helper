@@ -51,6 +51,10 @@ class RepeatedClick(TouchControl):
 
     # 组件元数据
     WIDGET_NAME = pgettext("Controller Widgets", "Repeated Click")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Bind a key or button in the center, then use the arrows to adjust the repeat count or rate",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Simulate repeated click operations at a specific position.",

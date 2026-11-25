@@ -45,6 +45,10 @@ class RightClickToWalk(BaseWidget):
     MAPPING_MODE_WIDTH = 30
     MAPPING_MODE_HEIGHT = 30
     WIDGET_NAME = pgettext("Controller Widgets", "Right Click to Walk")
+    PLACED_HINT = pgettext(
+        "Controller Widgets",
+        "Place this over the movement wheel, then right-click to walk toward the pointer",
+    )
     WIDGET_DESCRIPTION = pgettext(
         "Controller Widgets",
         "Add to the game's movement wheel: hold and drag to steer, single-click to auto-walk to cursor. Ideal for MOBAs.",

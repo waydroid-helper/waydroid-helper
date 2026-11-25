@@ -26,6 +26,8 @@ class ContextMenuHost(Protocol):
 
     def create_widget_at_position(self, widget: Any, x: int, y: int) -> None: ...
 
+    def attach_widget_at_position(self, widget: Any, x: float, y: float) -> None: ...
+
     def on_clear_widgets(self, button: Gtk.Button | None) -> None: ...
 
     def begin_swipe_placement(self, widget: Any) -> None: ...
@@ -334,5 +336,5 @@ class ContextMenuManager:
             path,
             widget_factory,
             lambda: self.parent_window.on_clear_widgets(None),
-            self.parent_window.create_widget_at_position,
+            self.parent_window.attach_widget_at_position,
         )
