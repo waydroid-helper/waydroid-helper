@@ -80,15 +80,20 @@ class EmbeddedSession:
         self.socket = f"wdh-{uuid.uuid4().hex}"
         self.launcher = None
 
-    async def start(self):
+    async def start(self, *, dpi=None):
         # Waydroid's session bus is per user. show-full-ui would silently reuse
         # an existing display, so check again after any launcher confirmation.
         status = await session_status()
         if status.get("Session") == "STOPPED":
+            env = {**os.environ, "WAYLAND_DISPLAY": self.socket}
+            # Waydroid's session launcher can set the boot density in units of
+            # 20 DPI. Custom values are set exactly by Android's window manager.
+            if dpi and dpi % 20 == 0:
+                env["GRID_UNIT_PX"] = str(dpi // 20)
             self.launcher = await asyncio.create_subprocess_exec(
                 "waydroid",
                 "show-full-ui",
-                env={**os.environ, "WAYLAND_DISPLAY": self.socket},
+                env=env,
             )
             logger.info(
                 "Starting embedded Waydroid on %s (pid %s)", self.socket, self.launcher.pid

@@ -8,11 +8,10 @@ from gettext import gettext as _
 import gi
 
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from waydroid_helper.controller.app.embedded_session import waydroid_output
 from waydroid_helper.controller.app.emulator_preferences import add_spin, add_switch
-from waydroid_helper.util.log import logger
 
 
 @dataclass(frozen=True)
@@ -20,6 +19,21 @@ class DisplayMode:
     width: int
     height: int
     dpi: int
+
+    def logical_size(self, scale):
+        return max(1, round(self.width / scale)), max(1, round(self.height / scale))
+
+    def label(self):
+        return f"{self.width} × {self.height}, {self.dpi} DPI"
+
+
+def load_display_mode(settings, key):
+    values = settings.get_value(key).unpack()
+    return DisplayMode(*values) if all(value > 0 for value in values) else None
+
+
+def store_display_mode(settings, key, mode):
+    return settings.set_value(key, GLib.Variant("(iii)", (mode.width, mode.height, mode.dpi)))
 
 
 PRESETS = (
@@ -73,31 +87,38 @@ async def read_mode(serial):
     return DisplayMode(*map(int, sizes[-1]), int(densities[-1]))
 
 
-async def stage_mode(mode, scale, remember):
-    """Stage native dimensions without disturbing running Android apps.
+NATIVE_SIZE_PROPERTIES = ("persist.waydroid.width", "persist.waydroid.height")
 
-    Waydroid reads these properties at HWC initialization. They are logical
-    Wayland dimensions, while the settings dialog and Android use pixels.
-    Commit all three requested values together after both native properties
-    are written. A failed write must leave the previous selection usable.
-    """
-    names = ("persist.waydroid.width", "persist.waydroid.height")
-    previous = await asyncio.gather(
-        *(waydroid_output("prop", "get", name) for name in names)
+
+async def read_native_size():
+    return tuple(
+        await asyncio.gather(
+            *(waydroid_output("prop", "get", name) for name in NATIVE_SIZE_PROPERTIES)
+        )
     )
+
+
+async def clear_conflicting_native_size(previous, desired):
+    """Remove fixed dimensions that prevent HWC from using the Wayland output."""
+    if all(not old or old == str(size) for old, size in zip(previous, desired)):
+        return False
+    # Older emulator settings wrote persistent HWC overrides. Clear both axes
+    # together so future starts can use the compositor size selected on the
+    # host. Restore any cleared property if the second write fails.
     changed = []
     try:
-        for name, pixels, old in zip(names, (mode.width, mode.height), previous):
-            logical = str(max(1, round(pixels / scale)))
-            if logical != old:
-                await waydroid_output("prop", "set", name, logical)
+        for name, old in zip(NATIVE_SIZE_PROPERTIES, previous):
+            if old:
                 changed.append((name, old))
-        if not remember():
-            raise RuntimeError(_("Could not save display settings."))
+                await waydroid_output("prop", "set", name, "")
+        # Waydroid's CLI can log property errors while returning exit status 0.
+        if any(await read_native_size()):
+            raise RuntimeError(_("Could not clear the old Waydroid display size."))
     except BaseException:
         for name, old in reversed(changed):
             await waydroid_output("prop", "set", name, old)
         raise
+    return True
 
 
 async def apply_android_mode(serial, mode):
@@ -129,15 +150,16 @@ async def apply_android_mode(serial, mode):
 
 
 class DisplaySettingsPage(Adw.Bin):
-    def __init__(self, dialog, active_mode, saved_mode):
+    def __init__(self, dialog, saved_mode, default_mode):
         from waydroid_helper.compat_widget import Banner, ToolbarView
 
         super().__init__()
         self.dialog = dialog
-        self.active_mode = active_mode
         self.saved_mode = saved_mode
-        self._save_task = None
         self._save_failed = False
+        self.active_mode = None
+        self.connected = False
+        self.measured_mode = None
 
         self.banner = Banner()
         self.banner.connect("button-clicked", self._banner_clicked)
@@ -151,25 +173,34 @@ class DisplaySettingsPage(Adw.Bin):
         page.add(display)
         self.modes = [DisplayMode(*values) for _, group in PRESETS for values in group]
         labels = [
-            f"{w} × {h}, {dpi} DPI ({name})"
+            f"{DisplayMode(w, h, dpi).label()} ({name})"
             for name, group in PRESETS
             for w, h, dpi in group
         ]
+        self.custom_index = len(labels)
+        self.automatic_index = self.custom_index + 1
+        labels.append(_("Custom"))
+        if saved_mode is None:
+            labels.append(_("Automatic"))
         self.combo = Adw.ComboRow(
             title=_("Resolution"),
             use_subtitle=True,
-            model=Gtk.StringList.new([*labels, _("Custom")]),
+            model=Gtk.StringList.new(labels),
         )
-        self.combo.set_selected(
-            self.modes.index(saved_mode) if saved_mode in self.modes else len(labels)
-        )
+        if saved_mode is None:
+            self.combo.set_selected(self.automatic_index)
+        elif saved_mode not in self.modes:
+            self.combo.set_selected(self.custom_index)
+        else:
+            self.combo.set_selected(self.modes.index(saved_mode))
         display.add(self.combo)
+        initial = saved_mode or default_mode
         self.fields = [
             add_spin(display, title, value, low, high)
             for title, value, low, high in (
-                (_("Width"), saved_mode.width, 200, 8192),
-                (_("Height"), saved_mode.height, 200, 8192),
-                ("DPI", saved_mode.dpi, 72, 1200),
+                (_("Width"), initial.width, 200, 8192),
+                (_("Height"), initial.height, 200, 8192),
+                ("DPI", initial.dpi, 72, 1200),
             )
         ]
         self._sync_fields()
@@ -189,6 +220,12 @@ class DisplaySettingsPage(Adw.Bin):
             preferences,
             "emulator-remember-size",
         )
+
+    def set_runtime_mode(self, mode, connected, last_mode):
+        self.active_mode = mode
+        self.connected = connected
+        self.measured_mode = mode or last_mode
+        self._sync_fields()
         self._update_banner()
 
     def _sync_fields(self):
@@ -199,72 +236,70 @@ class DisplaySettingsPage(Adw.Bin):
                 if isinstance(field, Adw.PreferencesRow)
                 else field.get_ancestor(Adw.PreferencesRow)
             )
-            row.set_visible(index == len(self.modes))
-        if index < len(self.modes):
+            row.set_visible(index == self.custom_index)
+        automatic = index == self.automatic_index
+        self.combo.set_use_subtitle(not automatic)
+        mode = None
+        if automatic:
+            mode = self.measured_mode
+            self.combo.set_subtitle(mode.label() if mode else _("Automatic"))
+        elif index < self.custom_index:
             mode = self.modes[index]
+        if mode:
             for field, value in zip(self.fields, (mode.width, mode.height, mode.dpi)):
                 field.set_value(value)
 
     def _selection_changed(self, *_):
         self._sync_fields()
-        self._queue_save()
+        index = self.combo.get_selected()
+        if index < self.custom_index:
+            self._save()
+        elif index == self.automatic_index:
+            self._save_failed = False
+            self._update_banner()
 
     def _custom_value_changed(self, *_):
-        if self.combo.get_selected() == len(self.modes):
-            self._queue_save()
+        if self.combo.get_selected() == self.custom_index:
+            self._save()
 
     def _chosen_mode(self):
         index = self.combo.get_selected()
-        if index < len(self.modes):
+        if index < self.custom_index:
             return self.modes[index]
         return DisplayMode(*(round(field.get_value()) for field in self.fields))
 
-    def _queue_save(self):
-        if self._save_task is not None:
-            return
-        self._save_failed = False
-        if self._chosen_mode() == self.saved_mode:
-            self._update_banner()
-            return
-        self.banner.set_sensitive(False)
-        self.dialog.set_busy(True)
-        self._save_task = asyncio.create_task(self._save())
+    def _save(self):
+        mode = self._chosen_mode()
+        saved = mode == self.saved_mode or self.dialog.parent_window.save_display_mode(mode)
+        self._save_failed = not saved
+        if saved:
+            self.saved_mode = mode
+            model = self.combo.get_model()
+            # Automatic represents installations that have never chosen a
+            # startup mode. Once one is saved, the available choices are the
+            # presets and their editable custom dimensions.
+            if model.get_n_items() > self.automatic_index:
+                model.remove(self.automatic_index)
+        self._update_banner()
 
-    async def _save(self):
-        try:
-            # Native width and height are written in a single transaction.
-            # Serialize writes and pick up the latest choice after each one,
-            # so a preset change or repeated spin cannot interleave writes.
-            while (mode := self._chosen_mode()) != self.saved_mode:
-                try:
-                    await self.dialog.parent_window.apply_display_mode(mode)
-                except Exception:
-                    logger.exception("Failed to stage Android display mode %s", mode)
-                    if mode == self._chosen_mode():
-                        self._save_failed = True
-                        return
-                else:
-                    self.saved_mode = mode
-        finally:
-            self._save_task = None
-            self.dialog.set_busy(False)
-            self._update_banner()
-            self.banner.set_sensitive(True)
+    def _needs_restart(self):
+        return (
+            self.connected and self.saved_mode is not None and self.saved_mode != self.active_mode
+        )
 
     def _update_banner(self):
+        needs_restart = self._needs_restart()
         if self._save_failed:
             self.banner.set_title(_("Could not save display settings."))
             self.banner.set_button_label(_("Retry"))
-        elif self.saved_mode != self.active_mode:
+        elif needs_restart:
             self.banner.set_title(_("Restart Android to apply the new resolution and DPI."))
             self.banner.set_button_label(_("Restart Now"))
-        self.banner.set_revealed(self._save_failed or self.saved_mode != self.active_mode)
+        self.banner.set_revealed(self._save_failed or needs_restart)
 
     def _banner_clicked(self, *_):
-        if self._save_task is not None:
-            return
         if self._save_failed:
-            self._queue_save()
-        elif self.saved_mode != self.active_mode:
+            self._save()
+        elif self._needs_restart():
             if self.dialog.parent_window.restart_now():
                 self.dialog.close()

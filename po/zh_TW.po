@@ -1416,6 +1416,12 @@ msgstr "重新啟動 Android 後，新的解析度和 DPI 就會生效。"
 msgid "Restart Now"
 msgstr "立即重新啟動"
 
+msgid "Android is stopped."
+msgstr "Android 已關機。"
+
+msgid "Could not clear the old Waydroid display size."
+msgstr "無法清除 Waydroid 原有的固定顯示尺寸。"
+
 msgid "Could not save display settings."
 msgstr "無法儲存顯示設定。"
 

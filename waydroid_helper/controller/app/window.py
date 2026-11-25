@@ -550,7 +550,9 @@ class TransparentWindow(MappingWindow):
 
 
 class KeyMapper(Adw.Application):
-    def __init__(self, display_name: str, embedded: bool = False):
+    def __init__(
+        self, display_name: str, embedded: bool = False, *, configure_before_start=False
+    ):
         sanitized_display = (
             display_name.replace(":", "_").replace("/", "_").replace("-", "_")
         )
@@ -561,6 +563,7 @@ class KeyMapper(Adw.Application):
             )
         )
         self.embedded = embedded
+        self.configure_before_start = configure_before_start
         self.display_name = display_name
         self.window = None
 
@@ -582,9 +585,9 @@ class KeyMapper(Adw.Application):
         return GLib.SOURCE_REMOVE
 
 
-def create_keymapper(display_name: str, embedded: bool = False):
+def create_keymapper(display_name: str, embedded: bool = False, *, configure_before_start=False):
     asyncio.set_event_loop_policy(
         GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
     )
-    app = KeyMapper(display_name, embedded)
+    app = KeyMapper(display_name, embedded, configure_before_start=configure_before_start)
     app.run([])

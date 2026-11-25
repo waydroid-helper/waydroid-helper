@@ -47,3 +47,21 @@ def test_changed_display_after_confirmation_cannot_stop_another_session(monkeypa
     with pytest.raises(RuntimeError):
         asyncio.run(embedded_session.stop_confirmed_session("wayland-0"))
     command.assert_not_awaited()
+
+
+def test_saved_density_is_passed_to_the_cold_boot_launcher(monkeypatch):
+    session = embedded_session.EmbeddedSession()
+    monkeypatch.setattr(
+        embedded_session,
+        "session_status",
+        AsyncMock(side_effect=[
+            {"Session": "STOPPED"},
+            {"Wayland display": session.socket, "IP address": "192.0.2.1"},
+        ]),
+    )
+    spawn = AsyncMock()
+    monkeypatch.setattr(embedded_session.asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(embedded_session, "waydroid_output", AsyncMock(return_value="1"))
+    assert asyncio.run(session.start(dpi=360)) == "192.0.2.1"
+    assert spawn.await_args.args == ("waydroid", "show-full-ui")
+    assert spawn.await_args.kwargs["env"]["GRID_UNIT_PX"] == "18"

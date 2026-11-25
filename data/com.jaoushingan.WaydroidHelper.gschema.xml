@@ -19,6 +19,7 @@
       <description>Used internally to migrate the old JSON-backed key mapping preferences to GSettings only once.</description>
     </key>
     <key name="emulator-display-mode" type="(iii)"><default>(0, 0, 0)</default></key>
+    <key name="emulator-last-display-mode" type="(iii)"><default>(0, 0, 0)</default></key>
     <key name="emulator-window-renderer" type="s">
       <choices>
         <choice value="auto"/>

@@ -18,9 +18,12 @@ from waydroid_helper.controller.app.embedded_session import (
 from waydroid_helper.controller.app.emulator_display import (
     DisplayMode,
     apply_android_mode,
+    clear_conflicting_native_size,
     device_command,
+    load_display_mode,
     read_mode,
-    stage_mode,
+    read_native_size,
+    store_display_mode,
 )
 from waydroid_helper.controller.app.emulator_device_settings import DeviceSettings
 from waydroid_helper.controller.app.emulator_gamepad import GamepadInput
@@ -79,6 +82,11 @@ class EmulatorWindow(MappingWindow):
         self.restart_dialog = None
         self.close_dialog = None
         self.device_settings = None
+        self.active_display_mode = None
+        self._display_connected = False
+        self.last_display_mode = load_display_mode(
+            self.preferences, "emulator-last-display-mode"
+        )
         self.tools = EmulatorTools(self)
         self.recorder = InputRecording(self)
         self.gamepad = GamepadInput(self, self._redraw_gamepad_keycaps)
@@ -214,7 +222,7 @@ class EmulatorWindow(MappingWindow):
         self.resolution_refresh = None
         self.viewport.connect("output-resized", self._queue_resolution_refresh)
         self.startup = None
-        self.connect("map", self._on_map)
+        self.connect("map", self._on_map, self.get_application().configure_before_start)
         self.switch_mode(self.MAPPING_MODE)
 
     def _sync_hint_opacity(self, settings, key):
@@ -222,20 +230,15 @@ class EmulatorWindow(MappingWindow):
         controller.hint_opacity = settings.get_double(key)
         controller.apply_to_all()
 
-    def _on_map(self, *_):
-        if self.startup is None:
-            mode = self._selected_mode()
-            if mode:
-                scale = self.get_surface().get_scale()
-                self.viewport.set_configured_output(
-                    (
-                        max(1, round(mode.width / scale)),
-                        max(1, round(mode.height / scale)),
-                    )
-                )
-                self._sync_mapping_geometry()
-                self._set_width(self.windowed_width)
-            self.get_surface().connect("notify::scale", self._queue_resolution_refresh)
+    def _on_map(self, _window, configure_before_start):
+        self.disconnect_by_func(self._on_map)
+        self.get_surface().connect("notify::scale", self._queue_resolution_refresh)
+        if configure_before_start:
+            self.status.set_label(_("Android is stopped."))
+            self.retry.set_label(_("Start"))
+            self.status_box.set_visible(True)
+            self.open_device_settings("display")
+        else:
             self._start_if_idle()
 
     def _sync_mapping_geometry(self):
@@ -278,16 +281,12 @@ class EmulatorWindow(MappingWindow):
                 if resolution == expected:
                     break
 
-    async def _use_waydroid_geometry(self):
+    def _use_waydroid_geometry(self, native_size):
         # Waydroid opts out of maximized xdg configure events when either
         # persistent dimension is set. Fit that user-sized surface as a unit,
         # with the negotiated startup extent filling any unspecified axis.
-        width, height = await asyncio.gather(
-            waydroid_output("prop", "get", "persist.waydroid.width"),
-            waydroid_output("prop", "get", "persist.waydroid.height"),
-        )
         configured = [
-            int(value) if value.isdecimal() else 0 for value in (width, height)
+            int(value) if value.isdecimal() else 0 for value in native_size
         ]
         guest_w, guest_h = self.viewport.output_size
         size = (
@@ -295,16 +294,62 @@ class EmulatorWindow(MappingWindow):
             if any(configured)
             else None
         )
-        if size != self.viewport.configured_output:
-            self.viewport.set_configured_output(size)
-            self._sync_mapping_geometry()
-            self._set_width(self.windowed_width)
+        self._configure_output(size)
+
+    def _configure_output(self, size):
+        if size == self.viewport.configured_output:
+            return
+        self.viewport.set_configured_output(size)
+        self._sync_mapping_geometry()
+        self._set_width(self.windowed_width)
 
     def _start_if_idle(self):
         if self.startup is None or self.startup.done():
             self.status_box.set_visible(False)
+            self.retry.set_label(_("Retry"))
             self.canvas.grab_focus()
             self.startup = asyncio.create_task(self._start())
+
+    async def _start_with_display_mode(self, mode):
+        # Advertise the configured Wayland output before Android's HWC
+        # connects. The allocation then stays stable during host-window resizes.
+        logical_size = None
+        if mode:
+            logical_size = mode.logical_size(self.get_surface().get_scale())
+            self._configure_output(logical_size)
+        if logical_size is not None and self.viewport.output_size != logical_size:
+            # queue_allocate() only takes effect on the next layout pass. Wait
+            # for Casilda to advertise the new dimensions before spawning HWC.
+            allocated = asyncio.Event()
+
+            def output_resized(viewport):
+                if viewport.output_size == logical_size:
+                    allocated.set()
+
+            handler = self.viewport.connect("output-resized", output_resized)
+            try:
+                await asyncio.wait_for(allocated.wait(), 5)
+            finally:
+                self.viewport.disconnect(handler)
+        address = await self.session.start(dpi=mode.dpi if mode else None)
+        native_size = await read_native_size()
+        if not mode:
+            self._use_waydroid_geometry(native_size)
+        elif await clear_conflicting_native_size(native_size, logical_size):
+            # A previous version persisted fixed HWC dimensions in Android.
+            # They can only be cleared once the guest property service is up.
+            # Relaunch our own session so HWC picks up the now-unpinned output.
+            logger.info("Reopening embedded Waydroid after clearing fixed output %s", native_size)
+            await self.session.close()
+            address = await self.session.start(dpi=mode.dpi)
+            # System-level Waydroid properties may be imported on every boot.
+            # Fit that physical output if it returns. Android still receives
+            # the requested logical resolution through the window manager.
+            native_size = await read_native_size()
+            if any(native_size):
+                logger.warning("Waydroid restored fixed display dimensions %s", native_size)
+                self._use_waydroid_geometry(native_size)
+        return address
 
     async def _confirm_session_switch(self, previous):
         decision = asyncio.get_running_loop().create_future()
@@ -344,11 +389,10 @@ class EmulatorWindow(MappingWindow):
                 if not await self._confirm_session_switch(status):
                     self.request_shutdown()
                     return
-            address = await self.session.start()
-            await self._use_waydroid_geometry()
+            mode = self.selected_display_mode()
+            address = await self._start_with_display_mode(mode)
             service = self.scrcpy_lifecycle
             service.adb_helper.serial = f"{address}:5555"
-            mode = self._selected_mode()
             if mode:
                 if not await service.adb_helper.connect():
                     raise RuntimeError(_("Android display information is unavailable."))
@@ -360,9 +404,11 @@ class EmulatorWindow(MappingWindow):
                 raise RuntimeError(
                     _("Could not connect the Android input controls over ADB.")
                 )
+            active_mode = mode or await self._read_active_display_mode()
             await asyncio.wait_for(self.server.connected_event.wait(), 20)
             # The socket can close while the handshake waiter is being resumed.
             self.fixed.set_visible(self.server.connected_event.is_set())
+            self._set_active_display_mode(active_mode)
             self.android_tasks = AndroidTasks(
                 service.adb_helper.serial,
                 self._tasks_changed,
@@ -386,6 +432,7 @@ class EmulatorWindow(MappingWindow):
             self.status_box.set_visible(True)
         finally:
             self.fixed.set_visible(False)
+            self._set_active_display_mode(None, connected=False)
             self._release_mapping_input()
             self.key_mapping_handler.forget_presses()
             await self.ime_setup.detach()
@@ -746,22 +793,45 @@ class EmulatorWindow(MappingWindow):
                 enabled and not self.is_fullscreen() and not self.is_maximized()
             )
 
-    def open_device_settings(self):
+    def open_device_settings(self, page=None):
         if self.device_settings is None:
             self.device_settings = DeviceSettings(self)
+        if page:
+            self.device_settings.stack.set_visible_child_name(page)
         self.device_settings.present()
 
-    def _selected_mode(self):
-        values = self.preferences.get_value("emulator-display-mode").unpack()
-        return DisplayMode(*values) if all(n > 0 for n in values) else None
+    def selected_display_mode(self):
+        return load_display_mode(self.preferences, "emulator-display-mode")
 
-    async def get_display_modes(self):
-        if self.restarting or not self.server.connected_event.is_set():
-            raise RuntimeError(_("Android input is not connected."))
-        # Read the live Android mode each time the dialog opens. The saved
-        # preference can be ahead of Android when a restart is still pending.
-        active = await read_mode(self.scrcpy_lifecycle.adb_helper.serial)
-        return active, self._selected_mode() or active
+    def default_display_mode(self):
+        width, height = self.viewport.DEFAULT_WINDOW_SIZE
+        scale = self.get_surface().get_scale()
+        return self.last_display_mode or DisplayMode(
+            round(width * scale), round(height * scale), round(180 * scale)
+        )
+
+    def display_state(self):
+        return (
+            self.active_display_mode,
+            self._display_connected and self.server.connected_event.is_set() and not self.restarting,
+            self.last_display_mode,
+        )
+
+    async def _read_active_display_mode(self):
+        try:
+            return await asyncio.wait_for(read_mode(self.scrcpy_lifecycle.adb_helper.serial), 5)
+        except (RuntimeError, OSError, TimeoutError):
+            logger.exception("Could not read the running Android display mode")
+            return None
+
+    def _set_active_display_mode(self, mode, *, connected=True):
+        self.active_display_mode = mode
+        self._display_connected = connected
+        if mode and mode != self.last_display_mode:
+            self.last_display_mode = mode
+            store_display_mode(self.preferences, "emulator-last-display-mode", mode)
+        if self.device_settings:
+            self.device_settings.sync_display_mode()
 
     def run_device_action(self, callback):
         if not self.server.connected_event.is_set() or self.restarting:
@@ -777,14 +847,12 @@ class EmulatorWindow(MappingWindow):
 
         asyncio.create_task(execute())
 
-    async def apply_display_mode(self, mode):
-        value = GLib.Variant("(iii)", (mode.width, mode.height, mode.dpi))
-        await stage_mode(
-            mode,
-            self.get_surface().get_scale(),
-            lambda: self.preferences.set_value("emulator-display-mode", value),
-        )
-        logger.info("Staged embedded Android display mode %s", mode)
+    def save_display_mode(self, mode):
+        if not store_display_mode(self.preferences, "emulator-display-mode", mode):
+            logger.warning("Could not save embedded Android display mode %s", mode)
+            return False
+        logger.info("Saved embedded Android startup display mode %s", mode)
+        return True
 
     def request_restart(self):
         if self.restarting or self._is_closing or self.restart_dialog:

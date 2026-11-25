@@ -1387,6 +1387,12 @@ msgstr "重启 Android 后，新分辨率和 DPI 将生效。"
 msgid "Restart Now"
 msgstr "立即重启"
 
+msgid "Android is stopped."
+msgstr "Android 已关机。"
+
+msgid "Could not clear the old Waydroid display size."
+msgstr "无法清除 Waydroid 原有的固定显示尺寸。"
+
 msgid "Double-click a control and press a gamepad button"
 msgstr "双击要绑定的控件，然后按下手柄按键"
 

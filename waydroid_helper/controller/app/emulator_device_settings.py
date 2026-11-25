@@ -1,13 +1,11 @@
 """Device settings and adaptive navigation for the embedded emulator."""
 
-import asyncio
 from gettext import gettext as _
 
 from gi.repository import Adw, Gtk
 
 from waydroid_helper.compat_widget import Dialog, ToolbarView
 from waydroid_helper.controller.app.emulator_display import DisplaySettingsPage
-from waydroid_helper.util.log import logger
 
 
 def performance_page(settings):
@@ -34,15 +32,15 @@ class DeviceSettings(Dialog):
             title=_("Device settings"), parent=parent, content_width=820, content_height=540
         )
         self.parent_window = parent
-        self.loading = None
-        self.busy = False
-        self.connect("close-request", lambda *_: self.busy)
         # A transient GTK window can unmap before its final reference is
         # released. Clear the owner's reference as soon as it disappears.
         self.connect("unmap" if isinstance(self, Gtk.Window) else "closed", self._closed)
 
         self.stack = Adw.ViewStack()
-        self.display = Adw.Bin()
+        self.display = DisplaySettingsPage(
+            self, parent.selected_display_mode(), parent.default_display_mode()
+        )
+        self.sync_display_mode()
         theme = Gtk.IconTheme.get_for_display(self.get_display())
         for child, name, title, symbolic, fallback in (
             (performance_page(parent.preferences), "performance", _("Performance"),
@@ -63,7 +61,6 @@ class DeviceSettings(Dialog):
             toolbar.add_top_bar(header)
             toolbar.set_content(self.stack)
             self.set_content(toolbar)
-        self.display.connect("map", lambda *_: self._load_display())
 
     def _split_view(self):
         def pane(widget, title):
@@ -92,40 +89,8 @@ class DeviceSettings(Dialog):
         self.add_breakpoint(compact)
         return split
 
-    def _load_display(self):
-        if isinstance(self.display.get_child(), DisplaySettingsPage) or self.loading:
-            return
-        # Host renderer preferences are available while Android is booting.
-        # Only the Display page needs a live device to resolve its mode.
-        spinner = Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
-        self.display.set_child(spinner)
-        self.loading = asyncio.create_task(self._read_display())
-
-    async def _read_display(self):
-        try:
-            active_mode, saved_mode = await self.parent_window.get_display_modes()
-            self.display.set_child(DisplaySettingsPage(self, active_mode, saved_mode))
-        except (RuntimeError, TimeoutError, OSError) as error:
-            logger.warning("Cannot read the Android display mode: %s", error)
-            self._display_error(str(error) or _("Android display information is unavailable."))
-        finally:
-            self.loading = None
-
-    def _display_error(self, message):
-        status = Adw.StatusPage(
-            title=_("Android display information is unavailable."),
-            description=message,
-            icon_name=self.stack.get_page(self.display).get_icon_name(),
-        )
-        retry = Gtk.Button(label=_("Retry"), halign=Gtk.Align.CENTER)
-        retry.connect("clicked", lambda *_: self._load_display())
-        status.set_child(retry)
-        self.display.set_child(status)
+    def sync_display_mode(self):
+        self.display.set_runtime_mode(*self.parent_window.display_state())
 
     def _closed(self, *_):
-        if self.loading:
-            self.loading.cancel()
         self.parent_window.device_settings = None
-
-    def set_busy(self, busy):
-        self.busy = busy
