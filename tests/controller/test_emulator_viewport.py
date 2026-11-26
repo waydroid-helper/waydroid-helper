@@ -22,3 +22,17 @@ def test_all_resize_handles_use_one_scale_for_landscape_and_portrait():
                 dx = -growth if "w" in edge else growth if "e" in edge else 0
                 dy = -growth * ratio if "n" in edge else growth * ratio if "s" in edge else 0
                 assert EmulatorViewport.drag_width(640, ratio, edge, dx, dy) == 640 + growth
+
+
+def test_first_pairing_uses_guest_seat_until_control_handshake():
+    # On Wayland, GraphicsOffload wraps the actual Casilda widget. Both must
+    # be pickable before authorization, then only the mapping canvas gets input.
+    view = SimpleNamespace(canvas=Mock(), compositor=Mock(), guest=Mock(), get_mapped=lambda: True)
+    for connected in (False, True, False):
+        EmulatorViewport.set_mapping_input(view, connected)
+        view.compositor.set_can_target.assert_called_with(not connected)
+        view.guest.set_can_target.assert_called_with(not connected)
+        view.guest.set_focusable.assert_called_with(not connected)
+        view.canvas.set_can_target.assert_called_with(connected)
+        view.canvas.set_focusable.assert_called_with(connected)
+        (view.canvas if connected else view.guest).grab_focus.assert_called_with()

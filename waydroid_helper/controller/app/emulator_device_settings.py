@@ -27,23 +27,22 @@ def performance_page(settings):
 
 
 class DeviceSettings(Dialog):
-    def __init__(self, parent):
+    def __init__(self, parent, preferences, *, restart=None):
         super().__init__(
             title=_("Device settings"), parent=parent, content_width=820, content_height=540
         )
-        self.parent_window = parent
+        self.preferences = preferences
+        self.restart = restart
         # A transient GTK window can unmap before its final reference is
         # released. Clear the owner's reference as soon as it disappears.
         self.connect("unmap" if isinstance(self, Gtk.Window) else "closed", self._closed)
 
         self.stack = Adw.ViewStack()
-        self.display = DisplaySettingsPage(
-            self, parent.selected_display_mode(), parent.default_display_mode()
-        )
-        self.sync_display_mode()
+        self.display = DisplaySettingsPage(preferences, self._restart)
+        self._handler = preferences.connect("changed::emulator-display-mode", self.display.settings_changed)
         theme = Gtk.IconTheme.get_for_display(self.get_display())
         for child, name, title, symbolic, fallback in (
-            (performance_page(parent.preferences), "performance", _("Performance"),
+            (performance_page(preferences), "performance", _("Performance"),
              "power-profile-performance-symbolic", "utilities-system-monitor"),
             (self.display, "display", _("Display"), "video-display-symbolic", "video-display"),
         ):
@@ -89,8 +88,11 @@ class DeviceSettings(Dialog):
         self.add_breakpoint(compact)
         return split
 
-    def sync_display_mode(self):
-        self.display.set_runtime_mode(*self.parent_window.display_state())
+    def _restart(self):
+        if self.restart and self.restart():
+            self.close()
 
-    def _closed(self, *_):
-        self.parent_window.device_settings = None
+    def _closed(self, *_args):
+        if self._handler:
+            self.preferences.disconnect(self._handler)
+            self._handler = None

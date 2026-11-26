@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from gettext import gettext as _
 
-from gi.repository import Gdk, Gio, GLib, Gtk
+from gi.repository import Gdk, GLib, Gtk
 
 from waydroid_helper.controller.android.input import AKeyEventAction
 from waydroid_helper.controller.android.keycodes import AKeyCode
@@ -13,16 +13,13 @@ from waydroid_helper.controller.app.embedded_session import (
     compositor_type,
     session_status,
     stop_confirmed_session,
-    waydroid_output,
 )
 from waydroid_helper.controller.app.emulator_display import (
-    DisplayMode,
     apply_android_mode,
     clear_conflicting_native_size,
-    device_command,
     load_display_mode,
-    read_mode,
     read_native_size,
+    startup_display_mode,
     store_display_mode,
 )
 from waydroid_helper.controller.app.emulator_device_settings import DeviceSettings
@@ -44,6 +41,7 @@ from waydroid_helper.controller.core.handler.mapping.key_mapping_event_handler i
     TextInputMappingHandler,
 )
 from waydroid_helper.util.log import logger
+from waydroid_helper.waydroid_instance import DEFAULT_INSTANCE, device_metadata, emulator_settings
 
 
 class EmulatorWindow(MappingWindow):
@@ -55,10 +53,8 @@ class EmulatorWindow(MappingWindow):
         )
 
     def build_canvas(self, overlay):
-        self.session = EmbeddedSession()
+        self.session = EmbeddedSession(self.get_application().instance)
         self.compositor = compositor_type()(socket=self.session.socket)
-        self.compositor.set_can_target(False)
-        self.compositor.set_focusable(False)
         self.edit_shade = Gtk.Box(can_target=False, visible=False)
         self.edit_shade.add_css_class("mapping-edit-shade")
         overlay.add_overlay(self.edit_shade)
@@ -73,11 +69,14 @@ class EmulatorWindow(MappingWindow):
         icon_path = "/com/jaoushingan/WaydroidHelper/mapping-icons"
         if icon_path not in (theme.get_resource_path() or ()):
             theme.add_resource_path(icon_path)
-        self.set_title(_("Waydroid Emulator"))
+        self.metadata = device_metadata(self.session.instance)
+        self.metadata.connect("changed::name", self._sync_title)
+        self._sync_title()
         self.viewport = EmulatorViewport(self.compositor, self.canvas)
+        self.viewport.set_mapping_input(False)
         self.screen_geometry.set_host_resolution(*self.viewport.mapping_size)
         self.notification_box.set_margin_top(12)
-        self.preferences = Gio.Settings.new("com.jaoushingan.WaydroidHelper")
+        self.preferences = emulator_settings(self.session.instance)
         self.restarting = False
         self.restart_dialog = None
         self.close_dialog = None
@@ -90,9 +89,10 @@ class EmulatorWindow(MappingWindow):
         self.tools = EmulatorTools(self)
         self.recorder = InputRecording(self)
         self.gamepad = GamepadInput(self, self._redraw_gamepad_keycaps)
-        self.profiles = ProfileWorkspace(
-            self, Path(GLib.get_user_config_dir()) / "waydroid-helper" / "profiles"
-        )
+        profiles = Path(GLib.get_user_config_dir()) / "waydroid-helper" / "profiles"
+        if self.session.instance != DEFAULT_INSTANCE:
+            profiles = profiles.parent / "instances" / self.session.instance / "profiles"
+        self.profiles = ProfileWorkspace(self, profiles)
         self.foreground_package = "home"
         self.profile_dialog = None
         self.connect("notify::is-active", self._on_input_focus_changed)
@@ -122,7 +122,7 @@ class EmulatorWindow(MappingWindow):
         )
         self.status_box.append(self.status)
         self.retry = Gtk.Button(label=_("Retry"), halign=Gtk.Align.CENTER)
-        self.retry.connect("clicked", lambda *_: self._start_if_idle())
+        self.retry.connect("clicked", lambda *_: self.start_android())
         self.status_box.append(self.retry)
         frame = Gtk.Overlay()
         frame.set_child(self.viewport)
@@ -230,6 +230,12 @@ class EmulatorWindow(MappingWindow):
         controller.hint_opacity = settings.get_double(key)
         controller.apply_to_all()
 
+    def _sync_title(self, *_args):
+        name = self.metadata.get_string("name")
+        if not name and self.session.instance != DEFAULT_INSTANCE:
+            name = self.session.instance
+        self.set_title(name or _("Waydroid Emulator"))
+
     def _on_map(self, _window, configure_before_start):
         self.disconnect_by_func(self._on_map)
         self.get_surface().connect("notify::scale", self._queue_resolution_refresh)
@@ -239,7 +245,7 @@ class EmulatorWindow(MappingWindow):
             self.status_box.set_visible(True)
             self.open_device_settings("display")
         else:
-            self._start_if_idle()
+            self.start_android()
 
     def _sync_mapping_geometry(self):
         size = self.viewport.mapping_size
@@ -303,21 +309,19 @@ class EmulatorWindow(MappingWindow):
         self._sync_mapping_geometry()
         self._set_width(self.windowed_width)
 
-    def _start_if_idle(self):
+    def start_android(self):
         if self.startup is None or self.startup.done():
             self.status_box.set_visible(False)
             self.retry.set_label(_("Retry"))
-            self.canvas.grab_focus()
+            self.viewport.set_mapping_input(False)
             self.startup = asyncio.create_task(self._start())
 
     async def _start_with_display_mode(self, mode):
         # Advertise the configured Wayland output before Android's HWC
         # connects. The allocation then stays stable during host-window resizes.
-        logical_size = None
-        if mode:
-            logical_size = mode.logical_size(self.get_surface().get_scale())
-            self._configure_output(logical_size)
-        if logical_size is not None and self.viewport.output_size != logical_size:
+        logical_size = mode.logical_size(self.get_surface().get_scale())
+        self._configure_output(logical_size)
+        if self.viewport.output_size != logical_size:
             # queue_allocate() only takes effect on the next layout pass. Wait
             # for Casilda to advertise the new dimensions before spawning HWC.
             allocated = asyncio.Event()
@@ -331,11 +335,9 @@ class EmulatorWindow(MappingWindow):
                 await asyncio.wait_for(allocated.wait(), 5)
             finally:
                 self.viewport.disconnect(handler)
-        address = await self.session.start(dpi=mode.dpi if mode else None)
-        native_size = await read_native_size()
-        if not mode:
-            self._use_waydroid_geometry(native_size)
-        elif await clear_conflicting_native_size(native_size, logical_size):
+        address = await self.session.start(dpi=mode.dpi)
+        native_size = await read_native_size(self.session.instance)
+        if await clear_conflicting_native_size(native_size, logical_size, self.session.instance):
             # A previous version persisted fixed HWC dimensions in Android.
             # They can only be cleared once the guest property service is up.
             # Relaunch our own session so HWC picks up the now-unpinned output.
@@ -345,7 +347,7 @@ class EmulatorWindow(MappingWindow):
             # System-level Waydroid properties may be imported on every boot.
             # Fit that physical output if it returns. Android still receives
             # the requested logical resolution through the window manager.
-            native_size = await read_native_size()
+            native_size = await read_native_size(self.session.instance)
             if any(native_size):
                 logger.warning("Waydroid restored fixed display dimensions %s", native_size)
                 self._use_waydroid_geometry(native_size)
@@ -375,13 +377,22 @@ class EmulatorWindow(MappingWindow):
         dialog.present()
         if not await decision:
             return False
-        await stop_confirmed_session(previous.get("Wayland display"))
+        await stop_confirmed_session(previous.get("Wayland display"), self.session.instance)
         return True
+
+    async def _wait_for_adb_authorization(self, adb):
+        message = _("Tap “Allow” in Android’s USB debugging prompt.")
+        try:
+            await adb.wait_for_authorization(
+                on_unauthorized=lambda: self.show_notification(message, duration_ms=8000)
+            )
+        finally:
+            self.dismiss_notification(message)
 
     async def _start(self):
         observer = None
         try:
-            status = await session_status()
+            status = await session_status(self.session.instance)
             if (
                 status.get("Session") != "STOPPED"
                 and status.get("Wayland display") != self.session.socket
@@ -393,22 +404,17 @@ class EmulatorWindow(MappingWindow):
             address = await self._start_with_display_mode(mode)
             service = self.scrcpy_lifecycle
             service.adb_helper.serial = f"{address}:5555"
-            if mode:
-                if not await service.adb_helper.connect():
-                    raise RuntimeError(_("Android display information is unavailable."))
-                # A TCP transport can be connected while adbd is still
-                # offline immediately after restarting the container.
-                await device_command(service.adb_helper.serial, "wait-for-device")
-                await apply_android_mode(service.adb_helper.serial, mode)
+            await self._wait_for_adb_authorization(service.adb_helper)
+            await apply_android_mode(service.adb_helper.serial, mode)
             if not await service.setup():
                 raise RuntimeError(
                     _("Could not connect the Android input controls over ADB.")
                 )
-            active_mode = mode or await self._read_active_display_mode()
             await asyncio.wait_for(self.server.connected_event.wait(), 20)
             # The socket can close while the handshake waiter is being resumed.
             self.fixed.set_visible(self.server.connected_event.is_set())
-            self._set_active_display_mode(active_mode)
+            self.viewport.set_mapping_input(self.server.connected_event.is_set())
+            self._set_active_display_mode(mode)
             self.android_tasks = AndroidTasks(
                 service.adb_helper.serial,
                 self._tasks_changed,
@@ -432,6 +438,7 @@ class EmulatorWindow(MappingWindow):
             self.status_box.set_visible(True)
         finally:
             self.fixed.set_visible(False)
+            self.viewport.set_mapping_input(False)
             self._set_active_display_mode(None, connected=False)
             self._release_mapping_input()
             self.key_mapping_handler.forget_presses()
@@ -606,7 +613,7 @@ class EmulatorWindow(MappingWindow):
             self.profiles.begin_edit()
         super()._on_mode_changed(widget, pspec)
         self.widget_transparency_controller.apply_to_all()
-        self.set_title(_("Waydroid Emulator"))
+        self._sync_title()
         self.toolbar.sync_mode()
 
     def _on_shortcut(self, controller, keyval, keycode, state):
@@ -795,34 +802,22 @@ class EmulatorWindow(MappingWindow):
 
     def open_device_settings(self, page=None):
         if self.device_settings is None:
-            self.device_settings = DeviceSettings(self)
+            dialog = DeviceSettings(self, self.preferences, restart=self.restart_now)
+            self.device_settings = dialog
+            dialog.connect("unmap" if isinstance(dialog, Gtk.Window) else "closed",
+                           lambda *_args: setattr(self, "device_settings", None))
+            self._sync_display_settings()
         if page:
             self.device_settings.stack.set_visible_child_name(page)
         self.device_settings.present()
 
     def selected_display_mode(self):
-        return load_display_mode(self.preferences, "emulator-display-mode")
+        return startup_display_mode(self.preferences)
 
-    def default_display_mode(self):
-        width, height = self.viewport.DEFAULT_WINDOW_SIZE
-        scale = self.get_surface().get_scale()
-        return self.last_display_mode or DisplayMode(
-            round(width * scale), round(height * scale), round(180 * scale)
-        )
-
-    def display_state(self):
-        return (
-            self.active_display_mode,
-            self._display_connected and self.server.connected_event.is_set() and not self.restarting,
-            self.last_display_mode,
-        )
-
-    async def _read_active_display_mode(self):
-        try:
-            return await asyncio.wait_for(read_mode(self.scrcpy_lifecycle.adb_helper.serial), 5)
-        except (RuntimeError, OSError, TimeoutError):
-            logger.exception("Could not read the running Android display mode")
-            return None
+    def _sync_display_settings(self):
+        if self.device_settings:
+            connected = self._display_connected and self.server.connected_event.is_set() and not self.restarting
+            self.device_settings.display.set_runtime_mode(self.active_display_mode, connected)
 
     def _set_active_display_mode(self, mode, *, connected=True):
         self.active_display_mode = mode
@@ -830,8 +825,7 @@ class EmulatorWindow(MappingWindow):
         if mode and mode != self.last_display_mode:
             self.last_display_mode = mode
             store_display_mode(self.preferences, "emulator-last-display-mode", mode)
-        if self.device_settings:
-            self.device_settings.sync_display_mode()
+        self._sync_display_settings()
 
     def run_device_action(self, callback):
         if not self.server.connected_event.is_set() or self.restarting:
@@ -846,13 +840,6 @@ class EmulatorWindow(MappingWindow):
                 self.show_notification(str(error))
 
         asyncio.create_task(execute())
-
-    def save_display_mode(self, mode):
-        if not store_display_mode(self.preferences, "emulator-display-mode", mode):
-            logger.warning("Could not save embedded Android display mode %s", mode)
-            return False
-        logger.info("Saved embedded Android startup display mode %s", mode)
-        return True
 
     def request_restart(self):
         if self.restarting or self._is_closing or self.restart_dialog:
@@ -893,7 +880,7 @@ class EmulatorWindow(MappingWindow):
             if self.server.connected_event.is_set():
                 await asyncio.wait_for(self.server.disconnected_event.wait(), 10)
             self.startup = None
-            self._start_if_idle()
+            self.start_android()
         except Exception as error:
             logger.exception("Could not restart embedded Waydroid")
             self.status.set_label(str(error))

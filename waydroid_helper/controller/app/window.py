@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 
 from gi.events import GLibEventLoopPolicy
-from gi.repository import Adw, Gdk, GLib, GObject, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from waydroid_helper.compat_widget import PropertyAnimationTarget
 from waydroid_helper.config.models import RootConfig
@@ -66,6 +66,7 @@ from waydroid_helper.controller.ui.menus import ContextMenuManager
 from waydroid_helper.controller.ui.styles import StyleManager
 from waydroid_helper.controller.widgets.factory import WidgetFactory
 from waydroid_helper.util import AdbHelper, logger
+from waydroid_helper.waydroid_instance import DEFAULT_INSTANCE, instance_name
 
 if TYPE_CHECKING:
     from waydroid_helper.controller.widgets.base import BaseWidget
@@ -161,6 +162,16 @@ class MappingWindow(Adw.Window):
 
     def __init__(self, app, display_name: str):
         super().__init__(application=app)
+        try:
+            self._build_workspace(display_name)
+        except Exception:
+            # GTK registers the window with the application in the parent
+            # constructor. A failed Python constructor otherwise leaves an
+            # invisible window holding the primary D-Bus process alive.
+            self.destroy()
+            raise
+
+    def _build_workspace(self, display_name: str):
         self._is_closing = False
 
         if self.get_display().get_name() != display_name:
@@ -309,6 +320,8 @@ class MappingWindow(Adw.Window):
         self.menu_manager.show_widget_creation_menu(x, y, self.widget_factory)
 
     def _setup_notification_overlay(self, overlay: Gtk.Overlay) -> None:
+        self._notification_fade_out_timer = 0
+        self._notification_animation = None
         self.notification_label = Gtk.Label.new("")
         self.notification_label.set_name("mode-notification-label")
         self.notification_label.set_wrap(True)
@@ -442,12 +455,9 @@ class MappingWindow(Adw.Window):
     def show_notification(self, text: str, *, duration_ms: int = 1500) -> None:
         self.notification_label.set_label(text)
 
-        if (
-            hasattr(self, "_notification_fade_out_timer")
-            and self._notification_fade_out_timer > 0
-        ):
+        if self._notification_fade_out_timer:
             GLib.source_remove(self._notification_fade_out_timer)
-        if hasattr(self, "_notification_animation"):
+        if self._notification_animation is not None:
             self._notification_animation.reset()
 
         self.notification_box.set_opacity(0)
@@ -466,11 +476,20 @@ class MappingWindow(Adw.Window):
             self._fade_out_notification,
         )
 
+    def dismiss_notification(self, text: str) -> None:
+        # A different mapping hint may have replaced this prompt while its
+        # caller was waiting for Android. Leave that hint on its own timer.
+        if self._notification_fade_out_timer and self.notification_label.get_text() == text:
+            GLib.source_remove(self._notification_fade_out_timer)
+            self._fade_out_notification()
+
     def _fade_out_notification(self):
+        opacity = self.notification_box.get_opacity()
+        self._notification_animation.reset()
         animation_target = PropertyAnimationTarget(self.notification_box, "opacity")
         self._notification_animation = Adw.TimedAnimation.new(
             self.notification_box,
-            1.0,
+            opacity,
             0.0,
             500,
             animation_target,
@@ -551,23 +570,67 @@ class TransparentWindow(MappingWindow):
 
 class KeyMapper(Adw.Application):
     def __init__(
-        self, display_name: str, embedded: bool = False, *, configure_before_start=False
+        self, display_name: str, embedded: bool = False, *,
+        configure_before_start=False, instance=DEFAULT_INSTANCE,
     ):
         sanitized_display = (
             display_name.replace(":", "_").replace("/", "_").replace("-", "_")
         )
+        self.instance = instance_name(instance)
+        suffix = ".Emulator" if embedded else ""
+        if embedded and instance != DEFAULT_INSTANCE:
+            suffix += ".i" + instance.replace("-", "_")
         super().__init__(
             application_id=(
                 "com.jaoushingan.WaydroidHelper.KeyMapper."
-                f"{sanitized_display}" + (".Emulator" if embedded else "")
-            )
+                f"{sanitized_display}{suffix}"
+            ),
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE if embedded else Gio.ApplicationFlags(0),
         )
         self.embedded = embedded
         self.configure_before_start = configure_before_start
         self.display_name = display_name
         self.window = None
 
+    def do_command_line(self, command_line):
+        # Gio forwards this request to the process that already owns the
+        # instance window. A Settings request must open its dialog even if an
+        # emulator is running. A Start request also resumes a dormant window.
+        settings = command_line.get_arguments()[1:] == ["settings"]
+        try:
+            if self.window is None:
+                self.configure_before_start = settings
+                self._present_window()
+            else:
+                self.window.present()
+                if settings:
+                    self.window.open_device_settings("display")
+                else:
+                    if self.window.device_settings and self.window.startup is None:
+                        self.window.device_settings.close()
+                    self.window.start_android()
+        except Exception as error:
+            # Exceptions escaping a PyGObject signal handler are only printed.
+            # Return a failure to the library instead of retaining an invisible
+            # application that swallows all subsequent launches for this guest.
+            logger.exception("Could not open the emulator for %s", self.instance)
+            command_line.printerr_literal(f"{error}\n")
+            if self.window is None:
+                self.quit()
+            return 1
+        return 0
+
     def do_activate(self):
+        # Direct D-Bus activation has no command-line caller to receive an
+        # error. Report it here and release the name if startup failed.
+        try:
+            self._present_window()
+        except Exception:
+            logger.exception("Could not activate the window for %s", self.instance)
+            if self.window is None:
+                self.quit()
+
+    def _present_window(self):
         if self.window:
             self.window.present()
             return
@@ -585,9 +648,13 @@ class KeyMapper(Adw.Application):
         return GLib.SOURCE_REMOVE
 
 
-def create_keymapper(display_name: str, embedded: bool = False, *, configure_before_start=False):
+def create_keymapper(
+    display_name: str, embedded: bool = False, *,
+    configure_before_start=False, instance=DEFAULT_INSTANCE,
+):
     asyncio.set_event_loop_policy(
         GLibEventLoopPolicy()  # pyright:ignore[reportUnknownArgumentType]
     )
-    app = KeyMapper(display_name, embedded, configure_before_start=configure_before_start)
-    app.run([])
+    app = KeyMapper(display_name, embedded, instance=instance)
+    args = ["waydroid-helper", "settings"] if configure_before_start else []
+    return app.run(args)

@@ -17,6 +17,15 @@ desktop_file = i18n.merge_file(
     install_dir: get_option('datadir') / 'applications',
 )
 
+devices_desktop_file = i18n.merge_file(
+    input: 'com.jaoushingan.WaydroidHelper.Devices.desktop.in',
+    output: 'com.jaoushingan.WaydroidHelper.Devices.desktop',
+    type: 'desktop',
+    po_dir: '../po',
+    install: true,
+    install_dir: get_option('datadir') / 'applications',
+)
+
 conf = configuration_data()
 conf.set('package_bindir', get_option('prefix') / get_option('bindir'))
 
@@ -31,6 +40,7 @@ configure_file(
 desktop_utils = find_program('desktop-file-validate', required: false)
 if desktop_utils.found()
     test('Validate desktop file', desktop_utils, args: [desktop_file])
+    test('Validate devices desktop file', desktop_utils, args: [devices_desktop_file])
 endif
 
 appstream_file = i18n.merge_file(

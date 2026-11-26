@@ -1,9 +1,11 @@
+import asyncio
 import os
 import re
 import secrets
+from collections.abc import Callable
 
 from waydroid_helper.util.log import logger
-from waydroid_helper.util.subprocess_manager import SubprocessManager
+from waydroid_helper.util.subprocess_manager import SubprocessError, SubprocessManager
 
 SCRCPY_SERVER_PATH_ON_DEVICE = "/data/local/tmp/scrcpy-server.jar"
 SCRCPY_VERSION = "3.3.1"
@@ -60,6 +62,46 @@ class AdbHelper:
         except Exception as e:
             logger.error(f"Failed to connect to ADB device {self.serial}: {e}")
             return False
+
+    async def wait_for_authorization(self, *, on_unauthorized: Callable[[], None] | None = None):
+        """Wait for this guest's adbd and notify once if Android requests approval."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 30
+        previous = None
+        while True:
+            try:
+                result = await self.sm.submit("adb devices", shell=False).get()
+            except SubprocessError as error:
+                # Waydroid may be starting the same host adb server. One client
+                # can lose the bind race even though the winner will be ready
+                # shortly. Keep the original error if the server never appears.
+                if loop.time() >= deadline:
+                    raise
+                if previous != "server-unavailable":
+                    logger.warning("Waiting for ADB server for %s: %s", self.serial, error)
+                    previous = "server-unavailable"
+                await asyncio.sleep(1)
+                continue
+            state = next((fields[1] for line in result["stdout"].splitlines()
+                          if len(fields := line.split()) >= 2 and fields[0] == self.serial), "missing")
+            if state != previous:
+                logger.info("ADB transport %s: %s", self.serial, state)
+                previous = state
+            if state == "device":
+                return
+            if state == "unauthorized":
+                # Android owns the RSA decision. Leave the connection intact
+                # while the user interacts with SystemUI over the Wayland seat.
+                # A human response must not consume the transport retry budget.
+                if on_unauthorized is not None:
+                    on_unauthorized()
+                    on_unauthorized = None
+                deadline = loop.time() + 30
+            elif loop.time() >= deadline:
+                raise TimeoutError(f"ADB {self.serial}: {state}")
+            else:
+                await self.connect()
+            await asyncio.sleep(1)
 
     async def get_screen_resolution(self) -> tuple[int, int] | None:
         logger.info("Getting device screen resolution...")

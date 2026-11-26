@@ -9,6 +9,7 @@ from gettext import gettext as _
 import gi
 
 from waydroid_helper.util.log import logger
+from waydroid_helper.waydroid_instance import DEFAULT_INSTANCE, waydroid_command, waydroid_output
 
 
 def compositor_type():
@@ -23,30 +24,8 @@ def compositor_type():
         ) from error
 
 
-async def waydroid_output(*arguments):
-    process = await asyncio.create_subprocess_exec(
-        "waydroid",
-        *arguments,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env={**os.environ, "LC_ALL": "C"},
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), 15)
-    finally:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
-    if process.returncode:
-        raise RuntimeError(
-            stderr.decode(errors="replace").strip()
-            or f"waydroid {arguments[0]} ({process.returncode})"
-        )
-    return stdout.decode(errors="replace").strip()
-
-
-async def session_status():
-    output = await waydroid_output("status")
+async def session_status(instance=DEFAULT_INSTANCE):
+    output = await waydroid_output("status", instance=instance)
     fields = {}
     for line in output.splitlines():
         name, separator, value = line.partition(":")
@@ -55,19 +34,19 @@ async def session_status():
     return fields
 
 
-async def stop_confirmed_session(previous_display):
+async def stop_confirmed_session(previous_display, instance=DEFAULT_INSTANCE):
     # The GTK confirmation may have been open while another launcher acted.
     # Check the display again before stopping, and wait for D-Bus ownership
     # to disappear before allowing show-full-ui to create the replacement.
-    status = await session_status()
+    status = await session_status(instance)
     if status.get("Session") == "STOPPED":
         return
     if not previous_display or status.get("Wayland display") != previous_display:
         raise RuntimeError(_("The active Waydroid session changed. Please try again."))
-    await waydroid_output("session", "stop")
+    await waydroid_output("session", "stop", instance=instance)
     async with asyncio.timeout(20):
         while True:
-            status = await session_status()
+            status = await session_status(instance)
             if status.get("Session") == "STOPPED":
                 return
             if status.get("Wayland display") not in (None, previous_display):
@@ -76,14 +55,16 @@ async def stop_confirmed_session(previous_display):
 
 
 class EmbeddedSession:
-    def __init__(self):
+    def __init__(self, instance=DEFAULT_INSTANCE):
+        self.instance = instance
         self.socket = f"wdh-{uuid.uuid4().hex}"
         self.launcher = None
 
     async def start(self, *, dpi=None):
-        # Waydroid's session bus is per user. show-full-ui would silently reuse
-        # an existing display, so check again after any launcher confirmation.
-        status = await session_status()
+        # Each instance owns a separate session and socket. show-full-ui can
+        # silently reuse that instance's active display, so check ownership
+        # again after any launcher confirmation.
+        status = await session_status(self.instance)
         if status.get("Session") == "STOPPED":
             env = {**os.environ, "WAYLAND_DISPLAY": self.socket}
             # Waydroid's session launcher can set the boot density in units of
@@ -91,8 +72,7 @@ class EmbeddedSession:
             if dpi and dpi % 20 == 0:
                 env["GRID_UNIT_PX"] = str(dpi // 20)
             self.launcher = await asyncio.create_subprocess_exec(
-                "waydroid",
-                "show-full-ui",
+                *waydroid_command("show-full-ui", instance=self.instance),
                 env=env,
             )
             logger.info(
@@ -102,7 +82,7 @@ class EmbeddedSession:
             raise RuntimeError(_("Another Waydroid session is running."))
         async with asyncio.timeout(100):
             while True:
-                status = await session_status()
+                status = await session_status(self.instance)
                 display = status.get("Wayland display")
                 if display and display != self.socket:
                     raise RuntimeError(_("Another Waydroid session is running."))
@@ -110,7 +90,9 @@ class EmbeddedSession:
                     # The IP lease can predate Android's platform binder service.
                     # Its first property read may time out while Android boots.
                     try:
-                        booted = await waydroid_output("prop", "get", "sys.boot_completed")
+                        booted = await waydroid_output(
+                            "prop", "get", "sys.boot_completed", instance=self.instance
+                        )
                     except TimeoutError:
                         logger.info("Waiting for Android platform service on %s", display)
                         continue
@@ -129,8 +111,8 @@ class EmbeddedSession:
         # The launcher also holds the Waydroid user's session service during
         # startup. Terminate it if closed before it has advertised our socket.
         try:
-            if (await session_status()).get("Wayland display") == self.socket:
-                await waydroid_output("session", "stop")
+            if (await session_status(self.instance)).get("Wayland display") == self.socket:
+                await waydroid_output("session", "stop", instance=self.instance)
         finally:
             if self.launcher.returncode is None:
                 self.launcher.terminate()

@@ -1241,3 +1241,7 @@ msgstr "Den Pfad für den Regler zeichnen, dann den gewünschten Trigger betäti
 #: waydroid_helper/controller/widgets/components/trigger_gestures.py:69
 msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
 msgstr "Vom Ziel für leichtes Drücken zum Ziel für vollständiges Drücken ziehen, dann den Trigger betätigen"
+
+#: waydroid_helper/controller/app/emulator_window.py
+msgid "Tap “Allow” in Android’s USB debugging prompt."
+msgstr "Tippe in der Android-Abfrage zum USB-Debugging auf „Zulassen“."

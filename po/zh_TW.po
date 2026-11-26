@@ -1507,3 +1507,121 @@ msgstr "使用「操作錄製」選單錄製或匯入操作，然後在此綁定
 #: waydroid_helper/controller/widgets/base/placed_path.py:12
 msgid "Drag on the Android screen to record a swipe"
 msgstr "在 Android 畫面上按住滑鼠左鍵並拖曳，放開即可結束錄製"
+
+msgid "Android Devices"
+msgstr "Android 裝置"
+
+msgid "Waydroid Devices"
+msgstr "Waydroid 裝置"
+
+msgid "Manage Android devices"
+msgstr "管理 Android 裝置"
+
+msgid "Default device"
+msgstr "預設裝置"
+
+msgid "Device actions"
+msgstr "裝置操作"
+
+msgid "Clear app caches"
+msgstr "清除應用程式快取"
+
+msgid "Rename"
+msgstr "重新命名"
+
+msgid "Duplicate"
+msgstr "複製"
+
+msgid "Back Up and Restore"
+msgstr "備份與還原"
+
+msgid "Create Desktop Shortcut"
+msgstr "建立桌面捷徑"
+
+msgid "Shut Down"
+msgstr "關機"
+
+msgid "Delete"
+msgstr "刪除"
+
+msgid "Android %s"
+msgstr "Android %s"
+
+msgid "Running"
+msgstr "執行中"
+
+msgid "Powered Off"
+msgstr "已關機"
+
+msgid "New Device"
+msgstr "新增裝置"
+
+msgid "Refresh"
+msgstr "重新整理"
+
+msgid "Search Devices"
+msgstr "搜尋裝置"
+
+msgid "Loading Devices"
+msgstr "正在載入裝置"
+
+msgid "Could Not Load Devices"
+msgstr "無法載入裝置"
+
+msgid "No Matching Devices"
+msgstr "沒有符合的裝置"
+
+msgid "No Devices"
+msgstr "沒有裝置"
+
+msgid "Could not open the emulator."
+msgstr "無法開啟模擬器。"
+
+msgid "Enter a unique ID using lowercase letters, digits or hyphens."
+msgstr "請輸入唯一的執行個體 ID，可使用小寫字母、數字和連字號。"
+
+msgid "Enter a device name."
+msgstr "請輸入裝置名稱。"
+
+msgid "Could not save the device name."
+msgstr "無法儲存裝置名稱。"
+
+msgid "Rename Device"
+msgstr "重新命名裝置"
+
+msgid "Choose a display name."
+msgstr "請輸入要顯示的名稱。"
+
+msgid "Shut Down Device?"
+msgstr "關閉裝置？"
+
+msgid "Clear App Caches?"
+msgstr "清除應用程式快取？"
+
+msgid "Android will remove cached files for installed apps."
+msgstr "Android 將清除已安裝應用程式的快取檔案。"
+
+msgid "Clear"
+msgstr "清除"
+
+msgid "App caches cleared."
+msgstr "已清除應用程式快取。"
+
+msgid "Delete Device?"
+msgstr "刪除裝置？"
+
+msgid "“%s” and its Android apps and data will be permanently deleted."
+msgstr "「%s」及其 Android 應用程式和資料將永久刪除。"
+
+msgid "Desktop shortcut created."
+msgstr "已建立桌面捷徑。"
+
+msgid "Waydroid reserves the default device."
+msgstr "預設裝置由 Waydroid 保留。"
+
+msgid "Use 1–32 lowercase letters, digits or hyphens, starting with a letter."
+msgstr "請輸入 1–32 個小寫字母、數字或連字號，並以字母開頭。"
+
+#: waydroid_helper/controller/app/emulator_window.py
+msgid "Tap “Allow” in Android’s USB debugging prompt."
+msgstr "請在 Android 的 USB 偵錯提示中點選「允許」。"

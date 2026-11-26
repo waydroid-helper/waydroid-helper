@@ -21,13 +21,26 @@ class EmulatorViewport(Gtk.Widget):
             if self.can_offload
             else compositor
         )
-        self.compositor.set_can_target(False)
+        self.guest = compositor
         self.canvas = canvas
         self.mapping_size = self.DEFAULT_WINDOW_SIZE
         self.configured_output = None
         self.output_size = None
         self.compositor.set_parent(self)
         canvas.set_parent(self)
+
+    def set_mapping_input(self, connected):
+        # Before scrcpy is authorized the guest must receive ordinary seat
+        # events (notably clicks on Android's RSA confirmation). GraphicsOffload
+        # and its child must both be pickable. As soon as the control handshake
+        # succeeds, the mapping canvas takes exclusive ownership of input.
+        self.canvas.set_can_target(connected)
+        self.canvas.set_focusable(connected)
+        self.compositor.set_can_target(not connected)
+        self.guest.set_can_target(not connected)
+        self.guest.set_focusable(not connected)
+        if self.get_mapped():
+            (self.canvas if connected else self.guest).grab_focus()
 
     def set_configured_output(self, size: tuple[int, int] | None):
         """Adopt the logical extent negotiated with the Waydroid HWC."""

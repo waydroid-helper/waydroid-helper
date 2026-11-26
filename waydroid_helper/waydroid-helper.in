@@ -56,7 +56,12 @@ locale.textdomain('waydroid-helper')
 
 gettext.bindtextdomain('waydroid-helper', localedir)
 gettext.textdomain('waydroid-helper')
-def start_gui(emulator=False, *, configure_before_start=False):
+
+from waydroid_helper.waydroid_instance import DEFAULT_INSTANCE, instance_name
+
+
+def start_gui(emulator=False, *, configure_before_start=False, instances=False,
+              instance=DEFAULT_INSTANCE):
     # Gio resolves schemas when the first Settings object is constructed.
     # Prefer this installation's compiled schemas in a relocatable prefix.
     datadir = os.path.dirname(pkgdatadir)
@@ -80,8 +85,8 @@ def start_gui(emulator=False, *, configure_before_start=False):
         # GTK selects its renderer when the native window is realized. Read
         # the emulator-only preference before importing GTK, leaving an
         # explicit command-line environment override available for debugging.
-        from gi.repository import Gio
-        renderer = Gio.Settings.new('com.jaoushingan.WaydroidHelper').get_string('emulator-window-renderer')
+        from waydroid_helper.waydroid_instance import emulator_settings
+        renderer = emulator_settings(instance).get_string('emulator-window-renderer')
         if renderer != 'auto':
             os.environ.setdefault('GSK_RENDERER', renderer)
         gamepad_libdir = os.path.join(libdir, 'waydroid-helper', 'gamepad')
@@ -96,20 +101,23 @@ def start_gui(emulator=False, *, configure_before_start=False):
     from gi.repository import Gio, Adw, Gtk, GLib
     resource = Gio.Resource.load(os.path.join(pkgdatadir, 'waydroid-helper.gresource'))
     resource._register()
-    if emulator:
+    if emulator or instances:
         # The management application can remain open. Use an ordinary append
         # logger for this independent GUI process so opening/raising it does
         # not truncate the shared helper log or create another log listener.
         os.environ["WAYDROID_HELPER_EMULATOR"] = "1"
+    if instances:
+        from waydroid_helper.instance_manager import run
+        sys.exit(run(os.environ.get("APPIMAGE") or os.path.abspath(sys.argv[0])))
+    if emulator:
         from gi.repository import Gdk
         from waydroid_helper.controller.app.window import create_keymapper
         from waydroid_helper.controller.app.embedded_session import compositor_type
         compositor_type()
-        create_keymapper(
+        sys.exit(create_keymapper(
             Gdk.Display.get_default().get_name(), embedded=True,
-            configure_before_start=configure_before_start,
-        )
-        return
+            configure_before_start=configure_before_start, instance=instance,
+        ))
     from waydroid_helper import main
     sys.exit(main.main(VERSION))
 
@@ -126,6 +134,9 @@ if __name__ == '__main__':
         "--emulator-settings", action="store_true",
         help="Open device settings before starting Android",
     )
+    emulator_args.add_argument("--instances", action="store_true", help="Manage Android devices")
+    parser.add_argument("--instance", type=instance_name, default=DEFAULT_INSTANCE, metavar="NAME",
+                        help="Android instance to open with --emulator or --emulator-settings")
     parser.add_argument("--start-mount", action="store_true", help="Start the mounting service")
     parser.add_argument("--start-monitor", action="store_true", help="Start the monitoring service")
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -136,6 +147,8 @@ if __name__ == '__main__':
         help="Set the logging level (default: INFO)"
     )
     args = parser.parse_args()
+    if args.instance != DEFAULT_INSTANCE and not (args.emulator or args.emulator_settings):
+        parser.error("--instance requires --emulator or --emulator-settings")
 
     os.environ['LOG_LEVEL'] = args.log_level.upper()
 
@@ -149,5 +162,7 @@ if __name__ == '__main__':
         start_gui(
             emulator=args.emulator or args.emulator_settings,
             configure_before_start=args.emulator_settings,
+            instances=args.instances,
+            instance=args.instance,
         )
 

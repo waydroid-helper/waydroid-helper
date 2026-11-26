@@ -23,7 +23,7 @@ def test_running_foreign_session_is_never_started_or_stopped(monkeypatch):
 
 
 def test_close_stops_the_session_on_its_own_socket(monkeypatch):
-    session = embedded_session.EmbeddedSession()
+    session = embedded_session.EmbeddedSession("blue")
     session.launcher = Mock(returncode=0, wait=AsyncMock())
     monkeypatch.setattr(
         embedded_session,
@@ -33,7 +33,7 @@ def test_close_stops_the_session_on_its_own_socket(monkeypatch):
     command = AsyncMock()
     monkeypatch.setattr(embedded_session, "waydroid_output", command)
     asyncio.run(session.close())
-    command.assert_awaited_once_with("session", "stop")
+    command.assert_awaited_once_with("session", "stop", instance="blue")
 
 
 def test_changed_display_after_confirmation_cannot_stop_another_session(monkeypatch):
@@ -50,7 +50,7 @@ def test_changed_display_after_confirmation_cannot_stop_another_session(monkeypa
 
 
 def test_saved_density_is_passed_to_the_cold_boot_launcher(monkeypatch):
-    session = embedded_session.EmbeddedSession()
+    session = embedded_session.EmbeddedSession("blue")
     monkeypatch.setattr(
         embedded_session,
         "session_status",
@@ -63,5 +63,5 @@ def test_saved_density_is_passed_to_the_cold_boot_launcher(monkeypatch):
     monkeypatch.setattr(embedded_session.asyncio, "create_subprocess_exec", spawn)
     monkeypatch.setattr(embedded_session, "waydroid_output", AsyncMock(return_value="1"))
     assert asyncio.run(session.start(dpi=360)) == "192.0.2.1"
-    assert spawn.await_args.args == ("waydroid", "show-full-ui")
+    assert spawn.await_args.args == ("waydroid", "--instance", "blue", "show-full-ui")
     assert spawn.await_args.kwargs["env"]["GRID_UNIT_PX"] == "18"

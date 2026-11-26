@@ -4,6 +4,9 @@ waydroid_helper/main.py
 waydroid_helper/window.py
 waydroid_helper/general_page.py
 waydroid_helper/instance_detail_page.py
+waydroid_helper/instance_manager.py
+waydroid_helper/instance_manager_backend.py
+waydroid_helper/waydroid_instance.py
 waydroid_helper/props_page.py
 waydroid_helper/extensions_page.py
 waydroid_helper/extension_row.py

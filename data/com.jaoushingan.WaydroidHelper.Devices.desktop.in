@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Waydroid Devices
+Comment=Manage Android devices
+Exec=waydroid-helper --instances
+Icon=com.jaoushingan.WaydroidHelper
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupNotify=true

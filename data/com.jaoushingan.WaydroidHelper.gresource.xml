@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/jaoushingan/WaydroidHelper">
+    <file>instance-manager.css</file>
     <file>gamepads/NOTICE.txt</file>
     <file>gamepads/gamecube.svg</file>
     <file>gamepads/generic.svg</file>

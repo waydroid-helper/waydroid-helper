@@ -2158,3 +2158,106 @@ msgstr "按下要绑定的按键，就能用它重放这条滑动轨迹"
 #: waydroid_helper/controller/widgets/base/trigger_path.py:16
 msgid "Squeeze the trigger you want to bind to this path"
 msgstr "扣下要绑定到这条路径的扳机"
+
+msgid "Android Devices"
+msgstr "安卓设备"
+
+msgid "Waydroid Devices"
+msgstr "Waydroid 设备"
+
+msgid "Manage Android devices"
+msgstr "管理安卓设备"
+
+msgid "Default device"
+msgstr "默认设备"
+
+msgid "Device actions"
+msgstr "设备操作"
+
+msgid "Clear app caches"
+msgstr "清理应用缓存"
+
+msgid "Back Up and Restore"
+msgstr "备份与恢复"
+
+msgid "Create Desktop Shortcut"
+msgstr "创建桌面快捷方式"
+
+msgid "Shut Down"
+msgstr "关机"
+
+msgid "Android %s"
+msgstr "Android %s"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Powered Off"
+msgstr "已关机"
+
+msgid "New Device"
+msgstr "新建设备"
+
+msgid "Search Devices"
+msgstr "搜索设备"
+
+msgid "Loading Devices"
+msgstr "正在加载设备"
+
+msgid "Could Not Load Devices"
+msgstr "无法加载设备"
+
+msgid "No Matching Devices"
+msgstr "没有匹配的设备"
+
+msgid "No Devices"
+msgstr "没有设备"
+
+msgid "Could not open the emulator."
+msgstr "无法打开模拟器。"
+
+msgid "Enter a unique ID using lowercase letters, digits or hyphens."
+msgstr "请输入唯一的实例 ID，可使用小写字母、数字和连字符。"
+
+msgid "Enter a device name."
+msgstr "请输入设备名称。"
+
+msgid "Could not save the device name."
+msgstr "无法保存设备名称。"
+
+msgid "Rename Device"
+msgstr "重命名设备"
+
+msgid "Choose a display name."
+msgstr "请输入要显示的名称。"
+
+msgid "Shut Down Device?"
+msgstr "关闭设备？"
+
+msgid "Clear App Caches?"
+msgstr "清理应用缓存？"
+
+msgid "Android will remove cached files for installed apps."
+msgstr "Android 将清理已安装应用的缓存文件。"
+
+msgid "App caches cleared."
+msgstr "已清理应用缓存。"
+
+msgid "Delete Device?"
+msgstr "删除设备？"
+
+msgid "“%s” and its Android apps and data will be permanently deleted."
+msgstr "“%s”及其中的 Android 应用和数据将被永久删除。"
+
+msgid "Desktop shortcut created."
+msgstr "已创建桌面快捷方式。"
+
+msgid "Waydroid reserves the default device."
+msgstr "默认设备由 Waydroid 保留。"
+
+msgid "Use 1–32 lowercase letters, digits or hyphens, starting with a letter."
+msgstr "请输入 1–32 个小写字母、数字或连字符，并以字母开头。"
+
+#: waydroid_helper/controller/app/emulator_window.py
+msgid "Tap “Allow” in Android’s USB debugging prompt."
+msgstr "请在 Android 的 USB 调试弹窗中点击「允许」。"

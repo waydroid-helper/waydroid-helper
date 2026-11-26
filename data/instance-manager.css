@@ -1,0 +1,21 @@
+.device-library { background: transparent; }
+.device-library > row { padding: 0; margin: 0 2px 12px; }
+.device-card { padding: 14px; }
+.device-tag { padding: 2px 8px; border-radius: 6px; background: alpha(currentColor, .07); }
+.device-preview {
+  border-radius: 9px;
+  background-color: #14465c;
+  background-image:
+    radial-gradient(ellipse at 100% -25%, rgba(153, 237, 212, .84), transparent 68%),
+    radial-gradient(ellipse at 10% 124%, #162e49 37%, #355b77 38%, transparent 61%),
+    linear-gradient(133deg, #367573 0%, #55a897 51%, #25526b 100%);
+}
+.device-preview.violet {
+  background-image:
+    radial-gradient(ellipse at 100% -25%, rgba(227, 199, 248, .78), transparent 68%),
+    radial-gradient(ellipse at 10% 124%, #393655 37%, #625885 38%, transparent 61%),
+    linear-gradient(133deg, #645885 0%, #9684b1 51%, #494d78 100%);
+}
+.device-preview .device-status { padding: 3px 8px; border-radius: 20px; background: rgba(12, 20, 30, .78); color: white; }
+.device-status-dot { border-radius: 4px; background-color: #c5cbd1; }
+.device-status-dot.online { background-color: #79e4a1; }

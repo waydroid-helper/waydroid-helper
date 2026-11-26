@@ -1409,3 +1409,7 @@ msgstr "Нарисуйте траекторию ползунка, затем н�
 #: waydroid_helper/controller/widgets/components/trigger_gestures.py:69
 msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
 msgstr "Проведите от точки слабого нажатия до точки полного нажатия, затем нажмите курок"
+
+#: waydroid_helper/controller/app/emulator_window.py
+msgid "Tap “Allow” in Android’s USB debugging prompt."
+msgstr "Нажмите «Разрешить» в запросе Android на отладку по USB."

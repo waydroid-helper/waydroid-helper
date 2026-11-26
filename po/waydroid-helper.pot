@@ -1267,3 +1267,7 @@ msgstr ""
 #: waydroid_helper/controller/widgets/components/trigger_gestures.py:69
 msgid "Drag from the soft-pull target to the full-pull target, then squeeze the trigger"
 msgstr ""
+
+#: waydroid_helper/controller/app/emulator_window.py
+msgid "Tap “Allow” in Android’s USB debugging prompt."
+msgstr ""
