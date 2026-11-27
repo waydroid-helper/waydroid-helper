@@ -10,14 +10,14 @@ from gettext import gettext as _
 from gi.repository import Gio
 
 from waydroid_helper.controller.core.control_msg import (
+    PointerId,
     InjectKeycodeMsg,
     InjectScrollEventMsg,
     InjectTextMsg,
     InjectTouchEventMsg,
 )
-from waydroid_helper.controller.core.handler.default.default_mouse_handler import (
-    PointerId,
-)
+from waydroid_helper.controller.core.pinch import PinchContacts, RecordedPinch
+from waydroid_helper.util.log import logger
 from waydroid_helper.controller.core.event_bus import Event, EventType
 
 
@@ -26,6 +26,7 @@ class InputRecording:
         "key": InjectKeycodeMsg,
         "touch": InjectTouchEventMsg,
         "scroll": InjectScrollEventMsg,
+        "pinch": RecordedPinch,
         "text": InjectTextMsg,
     }
 
@@ -120,7 +121,8 @@ class InputRecording:
             ):
                 raise ValueError(_("Invalid recording timestamp"))
             message = cls.TYPES[name](**fields)
-            message.pack()
+            if not isinstance(message, RecordedPinch):
+                message.pack()
             events.append((timestamp, message))
         return events
 
@@ -147,18 +149,8 @@ class InputRecording:
         self.player = asyncio.current_task()
         held = {}
         owners = set()
-        started = time.monotonic()
         try:
-            for timestamp, original in events:
-                await asyncio.sleep(max(0, started + timestamp - time.monotonic()))
-                if not self.window.server.connected_event.is_set():
-                    break
-                msg = original
-                if isinstance(msg, (InjectScrollEventMsg, InjectTouchEventMsg)):
-                    msg = replace(
-                        msg,
-                        device_resolution=self.window.screen_geometry.get_resolution(),
-                    )
+            async for msg in self._playback_messages(events):
                 # Recorded IDs belong to the source workspace. Reserve fresh
                 # IDs so replay can overlap a live stick or a two-finger zoom.
                 if (
@@ -166,7 +158,7 @@ class InputRecording:
                     and msg.pointer_id != PointerId.MOUSE
                     and msg.action in (0, 1, 2, 3)
                 ):
-                    owner = (self, original.pointer_id)
+                    owner = (self, msg.pointer_id)
                     pool = self.window.pointer_id_manager
                     pointer = (
                         pool.allocate(owner)
@@ -197,11 +189,52 @@ class InputRecording:
                         held.pop(key, None)
                 self._send(msg)
         finally:
-            for release in held.values():
+            for release in reversed(held.values()):
                 self._send(release)
             for owner in owners:
                 self.window.pointer_id_manager.release(owner)
             self.player = None
+
+    async def _playback_messages(self, events):
+        # Older recording files stored the cursor and relative scale together.
+        # Expand that format at playback so it uses the current window bounds
+        # and the same stock touch messages as a live gesture.
+        contacts = None
+        started = time.monotonic()
+        for timestamp, msg in events:
+            await asyncio.sleep(max(0, started + timestamp - time.monotonic()))
+            if not self.window.server.connected_event.is_set():
+                break
+            if isinstance(msg, RecordedPinch):
+                if msg.action == 0:
+                    if contacts is not None:
+                        for release in contacts.up():
+                            yield release
+                    try:
+                        contacts = await PinchContacts.at(
+                            msg.position, self.window.screen_geometry.get_resolution(),
+                            self.window.scrcpy_lifecycle.adb_helper.read_input_windows,
+                        )
+                    except (OSError, RuntimeError, TimeoutError) as error:
+                        logger.warning("Cannot locate recorded pinch target: %s", error)
+                        contacts = None
+                    if not self.window.server.connected_event.is_set():
+                        break
+                    if contacts is not None:
+                        for touch in contacts.down():
+                            yield touch
+                elif contacts is not None:
+                    if msg.action == 2:
+                        for touch in contacts.move(msg.scale):
+                            yield touch
+                    else:
+                        for touch in contacts.up():
+                            yield touch
+                        contacts = None
+            elif isinstance(msg, (InjectScrollEventMsg, InjectTouchEventMsg)):
+                yield replace(msg, device_resolution=self.window.screen_geometry.get_resolution())
+            else:
+                yield msg
 
     def _send(self, msg):
         self.window.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg))

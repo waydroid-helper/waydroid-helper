@@ -465,6 +465,7 @@ class EmulatorWindow(MappingWindow):
             self._release_mapping_input()
 
     def _release_mapping_input(self):
+        self.default_handler.mouse_handler.finish_zoom(cancel=True)
         self.gamepad.reset()
         self.key_mapping_manager.release_pressed()
         if self.recorder.player:

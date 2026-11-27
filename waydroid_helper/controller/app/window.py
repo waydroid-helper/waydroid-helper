@@ -265,14 +265,17 @@ class MappingWindow(Adw.Window):
         )
         self.event_handler_chain = InputEventHandlerChain()
         self.key_mapping_handler = self.create_key_mapping_handler()
-        self.default_handler = DefaultEventHandler(self.runtime_context)
+        adb = AdbHelper()
+        self.default_handler = DefaultEventHandler(
+            self.runtime_context, read_input_windows=adb.read_input_windows
+        )
         self.event_handler_chain.add_handler(self.key_mapping_handler)
         self.event_handler_chain.add_handler(self.default_handler)
 
         self.server = Server("127.0.0.1", 0, self.event_bus)
         self.scrcpy_lifecycle = ScrcpyLifecycleService(
             self.server,
-            AdbHelper(),
+            adb,
             self.screen_geometry,
             autostart=not self.embedded,
         )
@@ -301,6 +304,8 @@ class MappingWindow(Adw.Window):
                 event_handler_chain=self.event_handler_chain,
                 event_bus=self.event_bus,
                 workspace_manager=self.workspace_manager,
+                finish_wheel_zoom=self.default_handler.mouse_handler.finish_wheel_zoom,
+                cancel_zoom=lambda: self.default_handler.mouse_handler.finish_zoom(cancel=True),
             )
         )
         self.input_router.install()
@@ -500,6 +505,8 @@ class MappingWindow(Adw.Window):
         return GLib.SOURCE_REMOVE
 
     def _on_mode_changed(self, widget, pspec) -> None:
+        if self.current_mode != self.MAPPING_MODE:
+            self.default_handler.mouse_handler.finish_zoom(cancel=True)
         self.mode_controller.apply_mode(self.current_mode)
 
     def switch_mode(self, new_mode: str) -> bool:

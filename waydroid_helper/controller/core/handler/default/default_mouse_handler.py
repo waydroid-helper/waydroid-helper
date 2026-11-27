@@ -1,19 +1,6 @@
-from dataclasses import replace
-
-import gi
-
-from waydroid_helper.controller.core.handler.event_handlers import (
-    InputEvent,
-    InputEventType,
-    InputModifierState,
-)
-
-gi.require_version("GLib", "2.0")
+import asyncio
+import math
 from abc import ABC, abstractmethod
-from enum import IntEnum
-from typing import TYPE_CHECKING
-
-from gi.repository import GLib
 
 from waydroid_helper.controller.android.input import (
     AMotionEventAction,
@@ -22,18 +9,17 @@ from waydroid_helper.controller.android.input import (
 from waydroid_helper.controller.core.control_msg import (
     InjectScrollEventMsg,
     InjectTouchEventMsg,
+    PointerId,
 )
 from waydroid_helper.controller.core.event_bus import Event, EventType, EventBus
+from waydroid_helper.controller.core.handler.event_handlers import (
+    InputEvent,
+    InputEventType,
+    InputModifierState,
+)
 from waydroid_helper.controller.core.runtime import ScreenGeometry
-
-if TYPE_CHECKING:
-    from gi.repository import Gtk
-
-
-class PointerId(IntEnum):
-    MOUSE = 2**64 - 1
-    GENERIC_FINGER = 2**64 - 2
-    VIRTUAL_FINGER = 2**64 - 3
+from waydroid_helper.controller.core.pinch import PinchContacts
+from waydroid_helper.util.log import logger
 
 
 class MouseBase(ABC):
@@ -65,45 +51,22 @@ class MouseDefault(MouseBase):
         screen_geometry: ScreenGeometry,
         natural_scroll: bool = True,
         mouse_hover: bool = False,
+        *, read_input_windows=None,
     ) -> None:
         self.event_bus = event_bus
         self.natural_scroll = natural_scroll
         self.mouse_hover = mouse_hover
         self._current_x: float = 0
         self._current_y: float = 0
+        self._have_pointer_position = False
+        self._pinch_begin_position: tuple[int, int] | None = None
         self.screen_geometry = screen_geometry
-        self.zoom_in_init_length = 20
-        self.zoom_out_init_length = 100
-        self._is_zooming = False
-        self._current_zoom_length = -1
-        self._last_range = 1.0
-        self._zoom_timer_id: int | None = None
-        self._zoom_timeout_seconds = 0.25
-
-    def _start_zoom_timer(self) -> None:
-        self._stop_zoom_timer()
-        self._zoom_timer_id = GLib.timeout_add(
-            int(self._zoom_timeout_seconds * 1000),
-            self._on_zoom_timeout
-        )
-
-    def _stop_zoom_timer(self) -> None:
-        if self._zoom_timer_id is not None:
-            GLib.source_remove(self._zoom_timer_id)
-            self._zoom_timer_id = None
-
-    def _on_zoom_timeout(self) -> bool:
-        
-        current_zoom_length = self._current_zoom_length
-        
-        self._is_zooming = False
-        self._current_zoom_length = -1
-        self._last_range = 1.0
-        self._zoom_timer_id = None
-        
-        self._send_dual_finger_events(AMotionEventAction.UP, int(current_zoom_length), 0.0, 0, 0)
-        
-        return False
+        self._zoom_source: str | None = None
+        self._read_windows = read_input_windows
+        self._contacts: PinchContacts | None = None
+        self._lookup: asyncio.Task | None = None
+        self._pending_scales: list[float] = []
+        self._zoom_scale = 1.0
 
     def convert_click_action(self, event: InputEvent) -> AMotionEventAction:
         if event.event_type == InputEventType.MOUSE_PRESS:
@@ -125,6 +88,9 @@ class MouseDefault(MouseBase):
         y = max(0, y)
         self._current_x = x
         self._current_y = y
+        self._have_pointer_position = True
+        if self._zoom_source is not None and buttons_state == 0:
+            return True
 
         if not self.mouse_hover and buttons_state == 0:
             return False
@@ -152,7 +118,8 @@ class MouseDefault(MouseBase):
             return False
 
         x, y = event.position
-        
+        self.finish_zoom(cancel=True)
+
         w, h = self.screen_geometry.get_host_resolution()
         device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
 
@@ -185,19 +152,15 @@ class MouseDefault(MouseBase):
 
         scroll_begin_x = round(self._current_x)
         scroll_begin_y = round(self._current_y)
-        # ctrl+scroll begin
-
-        # ctrl+scroll
-        if (event.modifier_state & InputModifierState.CTRL) and dy is not None:
-            ctrl_zoom_range = -dy
-            zoom_event = replace(
-                event,
-                event_type=InputEventType.MOUSE_ZOOM,
-                zoom=ctrl_zoom_range,
-                zoom_status=None,
-                zoom_is_touchpad=False,
-            )
-            return self.zoom_processor(zoom_event)
+        if event.modifier_state & InputModifierState.CTRL:
+            if dy:
+                # Wheel notches and surface scroll pixels use different units.
+                # Compose in log space so equal opposite deltas undo each other.
+                sensitivity = 0.01 if event.scroll_is_surface else 0.1
+                previous = self._zoom_scale if self._zoom_source == "wheel" else 1.0
+                log_scale = math.log(previous) - dy * sensitivity
+                self._update_zoom("wheel", math.exp(max(-8, min(8, log_scale))), event.position)
+            return True
         else:
 
             position = (scroll_begin_x, scroll_begin_y, w, h)
@@ -232,116 +195,83 @@ class MouseDefault(MouseBase):
     def touch_processor(self):
         return True
 
-    def _create_touch_event(
-        self, 
-        action: AMotionEventAction, 
-        pointer_id: PointerId, 
-        x_offset: int, 
-        y_offset: int, 
-        pressure: float = 1.0,
-        action_button: int = 0,
-        buttons: int = 0
-    ) -> InjectTouchEventMsg:
-        w, h = self.screen_geometry.get_host_resolution()
-        device_resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
-        return InjectTouchEventMsg(
-            action=action,
-            pointer_id=pointer_id,
-            position=(int(self._current_x + x_offset), int(self._current_y + y_offset), w, h),
-            device_resolution=device_resolution,
-            pressure=pressure,
-            action_button=action_button,
-            buttons=buttons,
-        )
+    def _send_contacts(self, messages):
+        for message in messages:
+            self.event_bus.emit(Event(EventType.CONTROL_MSG, self, message))
 
-    def _send_dual_finger_events(
-        self, 
-        action: AMotionEventAction, 
-        zoom_length: int, 
-        pressure: float = 1.0,
-        action_button: int = 0,
-        buttons: int = 0
-    ) -> None:
-        msg1 = self._create_touch_event(
-            action, PointerId.GENERIC_FINGER, -zoom_length, zoom_length, pressure, action_button, buttons
-        )
-        msg2 = self._create_touch_event(
-            action, PointerId.VIRTUAL_FINGER, zoom_length, -zoom_length, pressure, action_button, buttons
-        )
-        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg1))
-        self.event_bus.emit(Event(EventType.CONTROL_MSG, self, msg2))
+    async def _start_zoom(self, position, resolution):
+        try:
+            contacts = await PinchContacts.at(position, resolution, self._read_windows)
+        except (OSError, RuntimeError, TimeoutError) as error:
+            logger.warning("Cannot locate pinch target: %s", error)
+            contacts = None
+        if self._lookup is not asyncio.current_task():
+            return
+        self._lookup = None
+        if contacts is None:
+            logger.debug("No touchable pinch interval at %s", position)
+            self._pending_scales.clear()
+            return
+        self._contacts = contacts
+        self._send_contacts(contacts.down())
+        for scale in self._pending_scales:
+            self._send_contacts(contacts.move(scale))
+        self._pending_scales.clear()
+        if self._zoom_source is None:
+            self.finish_zoom()
 
-    def _handle_zoom_length_reset(self, new_zoom_length: float) -> float:
-        if new_zoom_length > self.zoom_out_init_length:
-            return self.zoom_in_init_length
-        elif new_zoom_length < self.zoom_in_init_length:
-            return self.zoom_out_init_length
-        return new_zoom_length
+    def _update_zoom(self, source: str, scale: float, position: tuple[int, int] | None) -> None:
+        if not math.isfinite(scale) or scale <= 0:
+            return
+        if self._zoom_source != source:
+            self.finish_zoom(cancel=True)
+            if scale == 1.0 or self._read_windows is None:
+                return
+            w, h = self.screen_geometry.get_host_resolution()
+            if position is None and not self._have_pointer_position:
+                return
+            x, y = position if position is not None else (self._current_x, self._current_y)
+            if not (0 <= x < w and 0 <= y < h):
+                return
+            self._zoom_source = source
+            resolution = self.screen_geometry.get_device_resolution_for_client(w, h)
+            self._lookup = asyncio.create_task(self._start_zoom((int(x), int(y), w, h), resolution))
+        if scale != self._zoom_scale:
+            self._zoom_scale = scale
+            if self._contacts is not None:
+                self._send_contacts(self._contacts.move(scale))
+            elif self._lookup is not None:
+                self._pending_scales.append(scale)
 
-    def _reset_zoom_fingers(self, old_length: float, new_length: float, action_button: int = 0, buttons: int = 0) -> None:
-        self._send_dual_finger_events(AMotionEventAction.UP, int(old_length), 0.0, action_button, buttons)
-        self._send_dual_finger_events(AMotionEventAction.DOWN, int(new_length), 1.0, action_button, buttons)
+    def finish_zoom(self, *, cancel: bool = False) -> None:
+        self._pinch_begin_position = None
+        self._zoom_source = None
+        self._zoom_scale = 1.0
+        # A quick Ctrl release can precede the ADB reply. Honor the completed
+        # gesture once its target is known. On focus loss, click, or a new
+        # gesture, discard pending input so it cannot land on a different UI.
+        if cancel and self._lookup is not None:
+            self._lookup.cancel()
+            self._lookup = None
+            self._pending_scales.clear()
+        if self._contacts is not None:
+            self._send_contacts(self._contacts.up())
+            self._contacts = None
+
+    def finish_wheel_zoom(self) -> None:
+        if self._zoom_source == "wheel":
+            self.finish_zoom()
 
     def zoom_processor(self, event: InputEvent) -> bool:
-        if event.zoom is None:
-            return False
-        
-        range = event.zoom
-        status = event.zoom_status
-        action_button = 0
-        buttons = event.buttons
-        
-        if event.zoom_is_touchpad:
-            if status == "begin":
-                self._is_zooming = True
-            elif status == "scale-changed":
-                if self._current_zoom_length == -1:
-                    self._current_zoom_length = self.zoom_in_init_length if range > 1 else self.zoom_out_init_length
-                    self._send_dual_finger_events(AMotionEventAction.DOWN, int(self._current_zoom_length), 1.0, action_button, buttons)
-                
-                old_zoom_length = self._current_zoom_length
-                new_zoom_length = self._current_zoom_length + (self.zoom_in_init_length + self.zoom_out_init_length) * (range - self._last_range)
-                final_zoom_length = self._handle_zoom_length_reset(new_zoom_length)
-                
-                if final_zoom_length != new_zoom_length:
-                    self._reset_zoom_fingers(old_zoom_length, final_zoom_length, action_button, buttons)
-                
-                self._current_zoom_length = final_zoom_length
-                self._send_dual_finger_events(AMotionEventAction.MOVE, int(self._current_zoom_length), 1.0, action_button, buttons)
-                self._last_range = range
-            elif status == "end":
-                current_zoom_length = self._current_zoom_length
-                self._is_zooming = False
-                self._current_zoom_length = -1
-                self._last_range = 1.0 
-                self._send_dual_finger_events(AMotionEventAction.UP, int(current_zoom_length), 0.0, action_button, buttons)
-        else:
-            # ctrl+scroll 
-            if not self._is_zooming:
-                # 开始新的缩放，启动计时器
-                self._is_zooming = True
-                self._current_zoom_length = self.zoom_in_init_length if range > 0 else self.zoom_out_init_length
-                self._start_zoom_timer()
-                self._send_dual_finger_events(AMotionEventAction.DOWN, int(self._current_zoom_length), 1.0, action_button, buttons)
-            else:
-                # 正在缩放中，刷新计时器
-                self._start_zoom_timer()
-
-
-            if abs(range) == 1:
-                range *= 0.1
-            else:
-                range *= 0.01
-
-            old_zoom_length = self._current_zoom_length
-            new_zoom_length = self._current_zoom_length + (self.zoom_in_init_length + self.zoom_out_init_length) * range
-            
-            final_zoom_length = self._handle_zoom_length_reset(new_zoom_length)
-            
-            if final_zoom_length != new_zoom_length:
-                self._reset_zoom_fingers(old_zoom_length, final_zoom_length, action_button, buttons)
-
-            self._current_zoom_length = final_zoom_length
-            self._send_dual_finger_events(AMotionEventAction.MOVE, int(self._current_zoom_length), 1.0, action_button, buttons)
-
+        # GtkGestureZoom reports scale relative to the gesture start. Preserve
+        # it as an absolute value, including reversals, instead of integrating
+        # rounded pointer distances or restarting contacts at a window edge.
+        if event.zoom_status == "begin":
+            self._pinch_begin_position = event.position
+        elif event.zoom_status == "scale-changed" and event.zoom is not None:
+            self._update_zoom("pinch", event.zoom, self._pinch_begin_position or event.position)
+        elif event.zoom_status in ("end", "cancel"):
+            self._pinch_begin_position = None
+            if self._zoom_source == "pinch":
+                self.finish_zoom(cancel=event.zoom_status == "cancel")
         return True

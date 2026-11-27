@@ -103,6 +103,22 @@ class AdbHelper:
                 await self.connect()
             await asyncio.sleep(1)
 
+    async def read_input_windows(self) -> str:
+        """Read one hit-test snapshot from this instance, only at pinch start."""
+        proc = await asyncio.create_subprocess_exec(
+            "adb", "-s", self.serial, "shell", "dumpsys", "-t", "1", "input",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            out, err = await asyncio.wait_for(proc.communicate(), timeout=2)
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+                await proc.wait()
+        if proc.returncode:
+            raise RuntimeError(err.decode(errors="replace").strip() or "Android input dump failed")
+        return out.decode(errors="replace")
+
     async def get_screen_resolution(self) -> tuple[int, int] | None:
         logger.info("Getting device screen resolution...")
         try:

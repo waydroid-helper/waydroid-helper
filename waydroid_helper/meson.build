@@ -166,6 +166,7 @@ controller_scrcpy_sources = [
 controller_core_sources = [
     'controller/core/constants.py',
     'controller/core/control_msg.py',
+    'controller/core/pinch.py',
     'controller/core/event_bus.py',
     'controller/core/__init__.py',
     'controller/core/key_system.py',

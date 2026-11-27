@@ -49,6 +49,8 @@ class WindowInputRouterDependencies:
     event_handler_chain: "InputEventHandlerChain"
     event_bus: "EventBus"
     workspace_manager: "WorkspaceManager"
+    finish_wheel_zoom: Callable[[], None]
+    cancel_zoom: Callable[[], None]
 
 
 class WindowInputRouter:
@@ -59,6 +61,7 @@ class WindowInputRouter:
 
     def install(self) -> None:
         key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("modifiers", self._on_modifiers_changed)
         key_controller.connect("key-pressed", self.on_global_key_press)
         key_controller.connect("key-released", self.on_global_key_release)
         self._dependencies.host.add_controller(key_controller)
@@ -94,7 +97,19 @@ class WindowInputRouter:
             partial(self.on_window_mouse_zoom, status="scale-changed"),
         )
         zoom_controller.connect("end", partial(self.on_window_mouse_zoom, status="end"))
+        zoom_controller.connect("cancel", partial(self.on_window_mouse_zoom, status="cancel"))
         self._dependencies.host.add_controller(zoom_controller)
+
+        focus = Gtk.EventControllerFocus()
+        focus.connect("leave", lambda *_: self._dependencies.cancel_zoom())
+        self._dependencies.host.add_controller(focus)
+
+    def _on_modifiers_changed(self, controller, state):
+        # A mouse wheel has no physical gesture-end event. Keep its contacts
+        # alive across slow detents and direction changes until Ctrl is released.
+        if not state & Gdk.ModifierType.CONTROL_MASK:
+            self._dependencies.finish_wheel_zoom()
+        return False
 
     def on_window_mouse_event(self, controller, event):
         if self._dependencies.get_current_mode() != ModeController.MAPPING_MODE:
@@ -220,6 +235,8 @@ class WindowInputRouter:
         return False
 
     def on_global_key_release(self, controller, keyval, keycode, state):
+        if keyval in (Gdk.KEY_Control_L, Gdk.KEY_Control_R):
+            self._dependencies.finish_wheel_zoom()
         if self._dependencies.get_current_mode() != ModeController.MAPPING_MODE:
             return False
 

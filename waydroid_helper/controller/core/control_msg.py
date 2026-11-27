@@ -31,6 +31,14 @@ def scale_coordinates(
     return scaled_x, scaled_y, device_w, device_h
 
 
+class PointerId(IntEnum):
+    """Reserved pointer identifiers from the upstream scrcpy control protocol."""
+
+    MOUSE = 2**64 - 1
+    GENERIC_FINGER = 2**64 - 2
+    VIRTUAL_FINGER = 2**64 - 3
+
+
 class ControlMsgType(IntEnum):
     INJECT_KEYCODE = 0
     INJECT_TEXT = 1
@@ -143,7 +151,7 @@ class InjectTouchEventMsg(ControlMsg):
         pressure_fixed = to_fixed_point_u16(self.pressure)
 
         return struct.pack(
-            ">BBQIIHHHII",
+            ">BBQiiHHHII",
             self.msg_type,
             self.action,
             self.pointer_id,

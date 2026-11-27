@@ -51,6 +51,8 @@ def make_router(window: FakeWindow) -> WindowInputRouter:
             event_handler_chain=object(),
             event_bus=object(),
             workspace_manager=object(),
+            finish_wheel_zoom=lambda: None,
+            cancel_zoom=lambda: None,
         )
     )
 

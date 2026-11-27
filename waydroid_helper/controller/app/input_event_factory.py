@@ -125,21 +125,9 @@ class GtkInputEventFactory:
             return None
 
         button = event.get_button()
-        ok, x, y = event.get_position()
-        if not ok:
+        position = self._event_position(event)
+        if position is None:
             return None
-
-        if self._surface_to_widget:
-            # Legacy events expose surface coordinates, unlike GTK gestures.
-            # Convert through the native widget so CSD shadows, the header and
-            # the viewport transform are all accounted for by GTK itself.
-            from gi.repository import Graphene
-            native = self._widget.get_native()
-            dx, dy = native.get_surface_transform()
-            ok, point = native.compute_point(self._widget, Graphene.Point().init(x - dx, y - dy))
-            if not ok:
-                return None
-            x, y = point.x, point.y
 
         action_button = self._android_button_from_source_button(button)
         buttons = self._android_buttons_from_gdk_state(event.get_modifier_state())
@@ -154,13 +142,34 @@ class GtkInputEventFactory:
             ),
             key=self._key_registry.create_mouse_key(button),
             button=button,
-            position=(int(x), int(y)),
+            position=position,
             source=InputEventSource.GTK,
             modifier_state=self._modifier_state_from_gdk(event.get_modifier_state()),
             n_press=1,
             action_button=action_button,
             buttons=buttons,
         )
+
+    def _event_position(self, event: Gdk.Event | None) -> tuple[int, int] | None:
+        if event is None:
+            return None
+        ok, x, y = event.get_position()
+        if not ok:
+            return None
+
+        if self._surface_to_widget:
+            # GDK events expose surface coordinates, unlike GTK controller signals.
+            # Convert through the native widget so CSD shadows, the header and
+            # the viewport transform are all accounted for by GTK itself.
+            from gi.repository import Graphene
+            native = self._widget.get_native()
+            dx, dy = native.get_surface_transform()
+            ok, point = native.compute_point(self._widget, Graphene.Point().init(x - dx, y - dy))
+            if not ok:
+                return None
+            x, y = point.x, point.y
+
+        return int(x), int(y)
 
     def create_mouse_motion_event(
         self,
@@ -209,6 +218,7 @@ class GtkInputEventFactory:
             source=InputEventSource.GTK,
             modifier_state=self._modifier_state_from_gdk(state),
             buttons=self._android_buttons_from_gdk_state(state),
+            position=self._event_position(event),
             scroll_delta=(float(dx or 0), float(dy or 0)),
             scroll_is_surface=surface,
         )
@@ -231,7 +241,8 @@ class GtkInputEventFactory:
             source=InputEventSource.GTK,
             modifier_state=self._modifier_state_from_gdk(state),
             buttons=0 if is_touchpad else self._android_buttons_from_gdk_state(state),
-            zoom=zoom,
+            position=self._event_position(event),
+            zoom=zoom if status == "scale-changed" else 1.0,
             zoom_status=status,
             zoom_is_touchpad=is_touchpad,
         )

@@ -30,7 +30,7 @@ class DefaultEventHandler(InputEventHandler):
         InputEventType.MOUSE_ZOOM,
     }
 
-    def __init__(self, runtime_context: ControllerRuntimeContext):
+    def __init__(self, runtime_context: ControllerRuntimeContext, *, read_input_windows=None):
         super().__init__(EventHandlerPriority.LOWEST)
         self.name = "DefaultEventHandler"
         self.pointer_input_ownership = runtime_context.pointer_input_ownership
@@ -48,6 +48,7 @@ class DefaultEventHandler(InputEventHandler):
             runtime_context.screen_geometry,
             natural_scroll=default_config.mouse_natural_scroll,
             mouse_hover=default_config.mouse_hover,
+            read_input_windows=read_input_windows,
         )
         self.handler_map: dict[InputEventType | str, Callable[[InputEvent], bool]] = {
             InputEventType.KEY_PRESS: self._handle_default_key_press,
