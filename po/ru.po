@@ -1413,3 +1413,109 @@ msgstr "Проведите от точки слабого нажатия до т
 #: waydroid_helper/controller/app/emulator_window.py
 msgid "Tap “Allow” in Android’s USB debugging prompt."
 msgstr "Нажмите «Разрешить» в запросе Android на отладку по USB."
+
+msgid "Altitude (m)"
+msgstr "Высота (м)"
+
+msgid "Android did not save the virtual location."
+msgstr "Android не сохранил виртуальное местоположение."
+
+msgid "Bearing (°)"
+msgstr "Азимут (°)"
+
+#, python-format
+msgid "Current location · %s"
+msgstr "Текущее положение · %s"
+
+msgid "GPS details"
+msgstr "Параметры GPS"
+
+msgid "Invalid GPS coordinates."
+msgstr "Недопустимые координаты GPS."
+
+msgid "Location history"
+msgstr "История местоположений"
+
+msgid "No places found"
+msgstr "Места не найдены"
+
+msgid "No recent locations"
+msgstr "История пуста"
+
+msgid "Place search is unavailable. You can still enter coordinates."
+msgstr "Поиск мест недоступен. Можно ввести координаты вручную."
+
+msgid "Search places or enter latitude, longitude"
+msgstr "Поиск места или ввод широты и долготы"
+
+msgid "Select a point on the map"
+msgstr "Выберите точку на карте"
+
+msgid "Speed (m/s)"
+msgstr "Скорость (м/с)"
+
+msgid "Start Android to set a virtual location."
+msgstr "Сначала запустите Android."
+
+msgid "Turn on Location in Android settings first."
+msgstr "Включите геолокацию в настройках Android."
+
+msgid "Virtual location cleared"
+msgstr "Виртуальное местоположение сброшено"
+
+msgid "Virtual location set"
+msgstr "Виртуальное местоположение задано"
+
+msgid "Some map tiles could not be loaded."
+msgstr "Не удалось загрузить часть карты."
+
+msgid "This device already uses a different GNSS driver."
+msgstr "Устройство уже использует другой драйвер GNSS."
+
+msgid "Open Virtual location to install the GNSS driver for this device."
+msgstr "Откройте «Виртуальное местоположение», чтобы установить драйвер GNSS для этого устройства."
+
+msgid "The GNSS driver did not start on this device."
+msgstr "Не удалось запустить драйвер GNSS на этом устройстве."
+
+msgid "Could not check the GNSS driver."
+msgstr "Не удалось проверить драйвер GNSS."
+
+msgid "The GNSS driver is available for Android 13 on x86_64 and ARM64."
+msgstr "Драйвер GNSS доступен для Android 13 на x86_64 и ARM64."
+
+msgid "Could not download the GNSS driver. Check your connection and try again."
+msgstr "Не удалось скачать драйвер GNSS. Проверьте соединение и повторите попытку."
+
+msgid "The GNSS driver download failed its integrity check."
+msgstr "Скачанный драйвер GNSS не прошёл проверку целостности."
+
+msgid "Administrator authorization was not granted."
+msgstr "Разрешение администратора не получено."
+
+msgid "Could not install the GNSS driver."
+msgstr "Не удалось установить драйвер GNSS."
+
+msgid "Update the GNSS driver?"
+msgstr "Обновить драйвер GNSS?"
+
+msgid "The installed GNSS driver reports incorrect dates. Updating it will restart this Android device and close open Android apps."
+msgstr "Установленный драйвер GNSS сообщает неверную дату. При обновлении это устройство Android перезапустится, а открытые приложения закроются."
+
+msgid "Update and restart"
+msgstr "Обновить и перезапустить"
+
+msgid "Install the GNSS driver?"
+msgstr "Установить драйвер GNSS?"
+
+msgid "Virtual location needs a GNSS driver. Waydroid Helper will download it, ask for administrator authorization, and restart this Android device to install it. Open Android apps will close."
+msgstr "Для виртуального местоположения нужен драйвер GNSS. Waydroid Helper скачает его, запросит права администратора и перезапустит это устройство Android для установки. Открытые приложения Android будут закрыты."
+
+msgid "Install and restart"
+msgstr "Установить и перезапустить"
+
+msgid "Downloading the GNSS driver…"
+msgstr "Загрузка драйвера GNSS…"
+
+msgid "The device session changed. Please try again."
+msgstr "Сеанс устройства изменился. Повторите попытку."

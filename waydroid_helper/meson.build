@@ -139,6 +139,9 @@ controller_app_sources = [
     'controller/app/host_ime.py',
     'controller/app/desktop_ime_setup.py',
     'controller/app/emulator_tools.py',
+    'controller/app/emulator_location.py',
+    'controller/app/emulator_location_dialog.py',
+    'controller/app/emulator_location_setup.py',
     'controller/app/emulator_gamepad.py',
     'controller/app/gamepad_preview.py',
     'controller/app/gamepad_settings.py',
@@ -278,6 +281,7 @@ install_data(config_sources, install_dir: moduledir / 'config')
 install_data(util_sources, install_dir: utildir)
 install_data(compat_widget_sources, install_dir: compatwidgetdir)
 install_data(tools_sources, install_dir: toolsdir)
+install_data('gnss_install.py', install_dir: moduledir, install_mode: 'rwxr-xr-x')
 
 # 按子目录结构安装 controller 文件
 install_data(controller_root_sources, install_dir: controllerdir)

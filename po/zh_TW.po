@@ -1625,3 +1625,109 @@ msgstr "請輸入 1–32 個小寫字母、數字或連字號，並以字母開�
 #: waydroid_helper/controller/app/emulator_window.py
 msgid "Tap “Allow” in Android’s USB debugging prompt."
 msgstr "請在 Android 的 USB 偵錯提示中點選「允許」。"
+
+msgid "Altitude (m)"
+msgstr "海拔（公尺）"
+
+msgid "Android did not save the virtual location."
+msgstr "Android 未能儲存虛擬位置。"
+
+msgid "Bearing (°)"
+msgstr "方位角（°）"
+
+#, python-format
+msgid "Current location · %s"
+msgstr "目前位置 · %s"
+
+msgid "GPS details"
+msgstr "GPS 參數"
+
+msgid "Invalid GPS coordinates."
+msgstr "GPS 座標無效。"
+
+msgid "Location history"
+msgstr "定位記錄"
+
+msgid "No places found"
+msgstr "找不到地點"
+
+msgid "No recent locations"
+msgstr "尚無定位記錄"
+
+msgid "Place search is unavailable. You can still enter coordinates."
+msgstr "暫時無法搜尋地點，仍可手動輸入座標。"
+
+msgid "Search places or enter latitude, longitude"
+msgstr "搜尋地點或輸入緯度, 經度"
+
+msgid "Select a point on the map"
+msgstr "在地圖上選擇位置"
+
+msgid "Speed (m/s)"
+msgstr "速度（公尺/秒）"
+
+msgid "Start Android to set a virtual location."
+msgstr "請先啟動 Android，再設定虛擬定位。"
+
+msgid "Turn on Location in Android settings first."
+msgstr "請先在 Android 設定中開啟定位服務。"
+
+msgid "Virtual location cleared"
+msgstr "已清除虛擬定位"
+
+msgid "Virtual location set"
+msgstr "已設定虛擬定位"
+
+msgid "Some map tiles could not be loaded."
+msgstr "部分地圖無法載入。"
+
+msgid "This device already uses a different GNSS driver."
+msgstr "此裝置已使用其他 GNSS 驅動程式。"
+
+msgid "Open Virtual location to install the GNSS driver for this device."
+msgstr "開啟「虛擬定位」即可為此裝置安裝 GNSS 驅動程式。"
+
+msgid "The GNSS driver did not start on this device."
+msgstr "此裝置的 GNSS 驅動程式未能啟動。"
+
+msgid "Could not check the GNSS driver."
+msgstr "無法檢查 GNSS 驅動程式狀態。"
+
+msgid "The GNSS driver is available for Android 13 on x86_64 and ARM64."
+msgstr "GNSS 驅動程式支援 x86_64 和 ARM64 架構的 Android 13。"
+
+msgid "Could not download the GNSS driver. Check your connection and try again."
+msgstr "無法下載 GNSS 驅動程式。請檢查網路連線後再試一次。"
+
+msgid "The GNSS driver download failed its integrity check."
+msgstr "下載的 GNSS 驅動程式未通過完整性檢查。"
+
+msgid "Administrator authorization was not granted."
+msgstr "未取得管理員授權。"
+
+msgid "Could not install the GNSS driver."
+msgstr "無法安裝 GNSS 驅動程式。"
+
+msgid "Update the GNSS driver?"
+msgstr "更新 GNSS 定位驅動程式？"
+
+msgid "The installed GNSS driver reports incorrect dates. Updating it will restart this Android device and close open Android apps."
+msgstr "已安裝的 GNSS 驅動程式回報的日期有誤。更新將重新啟動此 Android 裝置，並關閉已開啟的 Android 應用程式。"
+
+msgid "Update and restart"
+msgstr "更新並重新啟動"
+
+msgid "Install the GNSS driver?"
+msgstr "安裝 GNSS 定位驅動程式？"
+
+msgid "Virtual location needs a GNSS driver. Waydroid Helper will download it, ask for administrator authorization, and restart this Android device to install it. Open Android apps will close."
+msgstr "虛擬定位需要 GNSS 驅動程式。Waydroid Helper 會下載驅動程式、請求管理員授權，然後重新啟動此 Android 裝置以完成安裝。此裝置上開啟的應用程式將會關閉。"
+
+msgid "Install and restart"
+msgstr "安裝並重新啟動"
+
+msgid "Downloading the GNSS driver…"
+msgstr "正在下載 GNSS 驅動程式…"
+
+msgid "The device session changed. Please try again."
+msgstr "裝置工作階段已變更，請再試一次。"

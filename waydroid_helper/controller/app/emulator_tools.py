@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-import re
 import secrets
 import tempfile
 from gettext import gettext as _
@@ -12,18 +11,18 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 from waydroid_helper.compat_widget.file_dialog import FileDialog
 from waydroid_helper.controller.app.emulator_display import device_command
-from waydroid_helper.controller.app.emulator_preferences import (
-    EmulatorPreferences,
-    add_spin,
-)
+from waydroid_helper.controller.app.emulator_preferences import EmulatorPreferences
+from waydroid_helper.controller.app.emulator_location import VirtualLocation
+from waydroid_helper.controller.app.emulator_location_setup import LocationSetup
 from waydroid_helper.util.log import logger
 
 
 class EmulatorTools:
     def __init__(self, window):
         self.window = window
-        self.mock_location = False
-        self.previous_mock_permission = None
+        self.location = VirtualLocation(window.session.instance, window.preferences)
+        self.location_window = None
+        self.location_setup = LocationSetup(window, self.location, self._show_location_map)
         self.record_task = None
         self.record_pid = None
         self.record_ready = asyncio.Event()
@@ -147,7 +146,7 @@ class EmulatorTools:
         await asyncio.shield(task)
 
     async def finish(self):
-        for cleanup in (self.stop_recording, self.clear_location):
+        for cleanup in (self.stop_recording, self.location.detach):
             try:
                 await cleanup()
             except Exception:
@@ -242,147 +241,18 @@ class EmulatorTools:
         dialog.present()
 
     def virtual_location(self):
-        dialog = EmulatorPreferences(self.window, _("Virtual location"), height=370)
-        location = Adw.PreferencesGroup(
-            description=_(
-                "Setting a location uses Android’s mock-location permission for this session."
-            )
-        )
-        dialog.page.add(location)
-        fields = [
-            add_spin(location, label, 0, -limit, limit, 0.00001, 5)
-            for label, limit in ((_("Latitude"), 90), (_("Longitude"), 180))
-        ]
-        actions = Adw.PreferencesGroup()
-        dialog.page.add(actions)
-        error = Gtk.Label(wrap=True, visible=False)
-        actions.add(error)
-        buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
-        apply = Gtk.Button(label=_("Set location"))
-        apply.add_css_class("suggested-action")
-        clear = Gtk.Button(label=_("Clear virtual location"))
-        clear.set_sensitive(self.mock_location)
-        buttons.append(clear)
-        buttons.append(apply)
-        actions.add(buttons)
+        self.location_setup.open()
 
-        async def change(enable):
-            dialog.set_busy(True)
-            try:
-                if enable:
-                    if not self.mock_location:
-                        await self._create_location_provider()
-                    await device_command(
-                        self.serial,
-                        "shell",
-                        "cmd",
-                        "location",
-                        "providers",
-                        "set-test-provider-enabled",
-                        "gps",
-                        "true",
-                    )
-                    coords = ",".join(
-                        format(spin.get_value(), ".5f") for spin in fields
-                    )
-                    await device_command(
-                        self.serial,
-                        "shell",
-                        "cmd",
-                        "location",
-                        "providers",
-                        "set-test-provider-location",
-                        "gps",
-                        "--location",
-                        coords,
-                    )
-                else:
-                    await self.clear_location()
-            except Exception as exc:
-                error.set_label(str(exc))
-                error.set_visible(True)
-                return
-            finally:
-                clear.set_sensitive(self.mock_location)
-                dialog.set_busy(False)
-            dialog.close()
+    def _show_location_map(self):
+        from waydroid_helper.controller.app.emulator_location_dialog import VirtualLocationWindow
 
-        apply.connect(
-            "clicked", lambda *_: self.window.run_device_action(lambda: change(True))
-        )
-        clear.connect(
-            "clicked", lambda *_: self.window.run_device_action(lambda: change(False))
-        )
-        dialog.present()
+        if self.location_window is None:
+            self.location_window = VirtualLocationWindow(self.window, self.location)
+            self.location_window.connect("unrealize", self._location_window_closed)
+        self.location_window.present()
 
-    async def _create_location_provider(self):
-        # Scope the shell app-op to an explicitly requested virtual location.
-        # Clear restores the user's previous mode, including the implicit
-        # Android default when this app-op had never been set.
-        query = (
-            await device_command(
-                self.serial,
-                "shell",
-                "appops",
-                "get",
-                "com.android.shell",
-                "android:mock_location",
-            )
-        ).decode()
-        previous = re.search(
-            r"(?im)^MOCK_LOCATION:\s*(allow|deny|ignore|foreground|default|errored)",
-            query,
-        )
-        mode = previous[1].lower() if previous else "default"
-        if mode != "allow":
-            await device_command(
-                self.serial,
-                "shell",
-                "appops",
-                "set",
-                "com.android.shell",
-                "android:mock_location",
-                "allow",
-            )
-            self.previous_mock_permission = mode
-        try:
-            await device_command(
-                self.serial,
-                "shell",
-                "cmd",
-                "location",
-                "providers",
-                "add-test-provider",
-                "gps",
-            )
-            self.mock_location = True
-        except BaseException:
-            await self.clear_location()
-            raise
-
-    async def clear_location(self):
-        if self.mock_location:
-            await device_command(
-                self.serial,
-                "shell",
-                "cmd",
-                "location",
-                "providers",
-                "remove-test-provider",
-                "gps",
-            )
-            self.mock_location = False
-        if self.previous_mock_permission is not None:
-            await device_command(
-                self.serial,
-                "shell",
-                "appops",
-                "set",
-                "com.android.shell",
-                "android:mock_location",
-                self.previous_mock_permission,
-            )
-            self.previous_mock_permission = None
+    def _location_window_closed(self, *_):
+        self.location_window = None
 
     async def diagnostics(self):
         from waydroid_helper.controller.app.emulator_display import read_mode
