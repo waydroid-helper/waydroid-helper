@@ -2,6 +2,8 @@
 <schemalist gettext-domain="waydroid-helper">
   <schema id="com.jaoushingan.WaydroidHelper.Emulator">
     <key name="emulator-display-mode" type="(iii)"><default>(1920, 1080, 280)</default></key>
+    <key name="emulator-location-enabled" type="b"><default>false</default></key>
+    <key name="emulator-location-history" type="a(sddddd)"><default>[]</default></key>
     <key name="emulator-last-display-mode" type="(iii)"><default>(0, 0, 0)</default></key>
     <key name="emulator-window-renderer" type="s">
       <choices>

@@ -65,6 +65,9 @@ waydroid_helper/controller/app/emulator_viewport.py
 waydroid_helper/controller/app/emulator_display.py
 waydroid_helper/controller/app/emulator_device_settings.py
 waydroid_helper/controller/app/emulator_tools.py
+waydroid_helper/controller/app/emulator_location.py
+waydroid_helper/controller/app/emulator_location_dialog.py
+waydroid_helper/controller/app/emulator_location_setup.py
 waydroid_helper/controller/app/emulator_gamepad.py
 waydroid_helper/controller/app/mapping_profiles.py
 waydroid_helper/controller/app/mapping_panel.py

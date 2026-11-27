@@ -20,6 +20,7 @@ a = Analysis(
     pathex=["usr/share/waydroid-helper"],
     datas=[
         ("LICENSE", "."),
+        ("usr/share/waydroid-helper/waydroid_helper/gnss_install.py", "waydroid_helper"),
         ("usr/share/glib-2.0", "share/glib-2.0"),
         ("usr/share/icons", "share/icons"),
         ("usr/share/locale", "share/locale"),

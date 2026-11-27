@@ -422,6 +422,11 @@ class EmulatorWindow(MappingWindow):
                 unavailable=lambda: self.toolbar.tabs.update_tasks([], 0),
             )
             observer = asyncio.create_task(self.android_tasks.observe())
+            try:
+                await self.tools.location.attach(service.adb_helper.serial)
+            except Exception as error:
+                logger.exception("Restoring virtual GPS for %s", self.session.instance)
+                self.show_notification(str(error))
             self.ime_setup.attach(service.adb_helper.serial)
             self._queue_resolution_refresh()
             self.canvas.grab_focus()
@@ -442,6 +447,7 @@ class EmulatorWindow(MappingWindow):
             self._set_active_display_mode(None, connected=False)
             self._release_mapping_input()
             self.key_mapping_handler.forget_presses()
+            await self.tools.location.detach()
             await self.ime_setup.detach()
             if observer:
                 observer.cancel()
@@ -862,14 +868,14 @@ class EmulatorWindow(MappingWindow):
         dialog.connect("response", respond)
         dialog.present()
 
-    def restart_now(self):
+    def restart_now(self, *, while_stopped=None):
         if self.restarting or self._is_closing or self.restart_dialog:
             return False
         self.restarting = True
-        self.start_restart = asyncio.create_task(self._restart())
+        self.start_restart = asyncio.create_task(self._restart(while_stopped))
         return True
 
-    async def _restart(self):
+    async def _restart(self, while_stopped=None):
         try:
             if self.startup:
                 self.startup.cancel()
@@ -880,9 +886,18 @@ class EmulatorWindow(MappingWindow):
             await self.session.close()
             if self.server.connected_event.is_set():
                 await asyncio.wait_for(self.server.disconnected_event.wait(), 10)
-            self.startup = None
-            self.start_android()
+            try:
+                if while_stopped:
+                    await while_stopped()
+            finally:
+                # Resume the user's device even if provisioning failed. Report
+                # the install error to its caller independently of the new boot.
+                if not self._is_closing:
+                    self.startup = None
+                    self.start_android()
         except Exception as error:
+            if while_stopped:
+                raise
             logger.exception("Could not restart embedded Waydroid")
             self.status.set_label(str(error))
             self.status_box.set_visible(True)
@@ -960,6 +975,7 @@ class EmulatorWindow(MappingWindow):
         return True
 
     async def _shutdown(self):
+        await self.tools.location_setup.close()
         self._cancel_pending_resize()
         self.gamepad.close()
         if self.preferences.get_boolean("emulator-remember-size"):

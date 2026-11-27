@@ -34,6 +34,7 @@ Requires:       python3
 Requires:       typelib(Rsvg) = 2.0
 Requires:       gtk4
 Requires:       libadwaita
+Requires:       libshumate
 Requires:       waydroid
 Requires:       fakeroot
 Requires:       python3-aiofiles

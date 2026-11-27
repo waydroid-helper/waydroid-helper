@@ -104,7 +104,7 @@ sudo apt install waydroid-helper
 1. Установите зависимости:
 
    ```bash
-   sudo pacman -S gtk4 libadwaita meson ninja
+   sudo pacman -S gtk4 libadwaita libshumate meson ninja
    ```
 2. Клонируйте репозиторий:
 
@@ -130,7 +130,7 @@ sudo apt install waydroid-helper
 1. Установите зависимости:
 
    ```bash
-   sudo apt install libgtk-4-1 libgtk-4-dev libadwaita-1-dev libadwaita-1-0 libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-4.0 gir1.2-adw-1 gettext ninja-build fakeroot libdbus-1-dev desktop-file-utils software-properties-common -y
+   sudo apt install libgtk-4-1 libgtk-4-dev libadwaita-1-dev libadwaita-1-0 libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-shumate-1.0 gettext ninja-build fakeroot libdbus-1-dev desktop-file-utils software-properties-common -y
    ```
 2. Клонируйте репозиторий:
 
@@ -157,7 +157,7 @@ sudo apt install waydroid-helper
 1. Установите зависимости:
 
    ```bash
-   sudo dnf install gtk4 gtk4-devel libadwaita libadwaita-devel gobject-introspection-devel gcc cairo-devel pkgconf-pkg-config python3-devel gobject-introspection gtk4-devel libadwaita-devel gettext ninja-build fakeroot dbus-devel desktop-file-utils -y
+   sudo dnf install gtk4 gtk4-devel libadwaita libshumate libadwaita-devel gobject-introspection-devel gcc cairo-devel pkgconf-pkg-config python3-devel gobject-introspection gtk4-devel libadwaita-devel gettext ninja-build fakeroot dbus-devel desktop-file-utils -y
    ```
 2. Клонируйте репозиторий:
 

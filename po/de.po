@@ -1245,3 +1245,109 @@ msgstr "Vom Ziel für leichtes Drücken zum Ziel für vollständiges Drücken zi
 #: waydroid_helper/controller/app/emulator_window.py
 msgid "Tap “Allow” in Android’s USB debugging prompt."
 msgstr "Tippe in der Android-Abfrage zum USB-Debugging auf „Zulassen“."
+
+msgid "Altitude (m)"
+msgstr "Höhe (m)"
+
+msgid "Android did not save the virtual location."
+msgstr "Android konnte den virtuellen Standort nicht speichern."
+
+msgid "Bearing (°)"
+msgstr "Peilung (°)"
+
+#, python-format
+msgid "Current location · %s"
+msgstr "Aktueller Standort · %s"
+
+msgid "GPS details"
+msgstr "GPS-Details"
+
+msgid "Invalid GPS coordinates."
+msgstr "Ungültige GPS-Koordinaten."
+
+msgid "Location history"
+msgstr "Standortverlauf"
+
+msgid "No places found"
+msgstr "Keine Orte gefunden"
+
+msgid "No recent locations"
+msgstr "Keine letzten Standorte"
+
+msgid "Place search is unavailable. You can still enter coordinates."
+msgstr "Ortssuche nicht verfügbar. Koordinaten können weiterhin eingegeben werden."
+
+msgid "Search places or enter latitude, longitude"
+msgstr "Ort suchen oder Breitengrad, Längengrad eingeben"
+
+msgid "Select a point on the map"
+msgstr "Einen Punkt auf der Karte wählen"
+
+msgid "Speed (m/s)"
+msgstr "Geschwindigkeit (m/s)"
+
+msgid "Start Android to set a virtual location."
+msgstr "Zum Setzen eines Standorts zuerst Android starten."
+
+msgid "Turn on Location in Android settings first."
+msgstr "Zuerst den Standort in den Android-Einstellungen aktivieren."
+
+msgid "Virtual location cleared"
+msgstr "Virtueller Standort gelöscht"
+
+msgid "Virtual location set"
+msgstr "Virtueller Standort gesetzt"
+
+msgid "Some map tiles could not be loaded."
+msgstr "Einige Kartenkacheln konnten nicht geladen werden."
+
+msgid "This device already uses a different GNSS driver."
+msgstr "Dieses Gerät verwendet bereits einen anderen GNSS-Treiber."
+
+msgid "Open Virtual location to install the GNSS driver for this device."
+msgstr "Öffnen Sie „Virtueller Standort“, um den GNSS-Treiber für dieses Gerät zu installieren."
+
+msgid "The GNSS driver did not start on this device."
+msgstr "Der GNSS-Treiber konnte auf diesem Gerät nicht gestartet werden."
+
+msgid "Could not check the GNSS driver."
+msgstr "Der GNSS-Treiber konnte nicht geprüft werden."
+
+msgid "The GNSS driver is available for Android 13 on x86_64 and ARM64."
+msgstr "Der GNSS-Treiber ist für Android 13 auf x86_64 und ARM64 verfügbar."
+
+msgid "Could not download the GNSS driver. Check your connection and try again."
+msgstr "Der GNSS-Treiber konnte nicht heruntergeladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+
+msgid "The GNSS driver download failed its integrity check."
+msgstr "Die Integritätsprüfung des heruntergeladenen GNSS-Treibers ist fehlgeschlagen."
+
+msgid "Administrator authorization was not granted."
+msgstr "Die Administratorberechtigung wurde nicht erteilt."
+
+msgid "Could not install the GNSS driver."
+msgstr "Der GNSS-Treiber konnte nicht installiert werden."
+
+msgid "Update the GNSS driver?"
+msgstr "GNSS-Treiber aktualisieren?"
+
+msgid "The installed GNSS driver reports incorrect dates. Updating it will restart this Android device and close open Android apps."
+msgstr "Der installierte GNSS-Treiber meldet ein falsches Datum. Beim Aktualisieren wird dieses Android-Gerät neu gestartet und geöffnete Android-Apps werden geschlossen."
+
+msgid "Update and restart"
+msgstr "Aktualisieren und neu starten"
+
+msgid "Install the GNSS driver?"
+msgstr "GNSS-Treiber installieren?"
+
+msgid "Virtual location needs a GNSS driver. Waydroid Helper will download it, ask for administrator authorization, and restart this Android device to install it. Open Android apps will close."
+msgstr "Der virtuelle Standort benötigt einen GNSS-Treiber. Waydroid Helper lädt ihn herunter, fordert Administratorrechte an und startet dieses Android-Gerät zur Installation neu. Geöffnete Android-Apps werden geschlossen."
+
+msgid "Install and restart"
+msgstr "Installieren und neu starten"
+
+msgid "Downloading the GNSS driver…"
+msgstr "GNSS-Treiber wird heruntergeladen…"
+
+msgid "The device session changed. Please try again."
+msgstr "Die Gerätesitzung hat sich geändert. Bitte versuchen Sie es erneut."
